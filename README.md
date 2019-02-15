@@ -16,6 +16,9 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 
 **[Further development](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial#further-development)**
 
+
+***
+
  
 ## [How to use this blog](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial#how-to-use-this-blog)
 
@@ -26,6 +29,8 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 5. for user's convenience, I prepare some sripts for example, **BuildAllFiles.sh**, which will build all the projects, **CleanBuiltFiles.sh**, which will clean all the built files to shrink the size of the directories, and **Build.sh** in test directory, which will just build one test project. All these scripts can be run directly.
 6. looking into the source code with detailed comments, reader can trace the headers and functions to understand how the experiment work.
 
+
+***
 
 ## [List of Experiments I conducted](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial#list-of-experiments-i-conducted):
 
@@ -60,6 +65,9 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
       (1) ./LLVM\_expXXXXX  <C/C++ FILE> <top\_function\_name>   
       or
       (2) ./LLVM\_expXXXXX  <IR FILE>
+
+
+***
 
 ## [Further development](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial#further-development)
 
