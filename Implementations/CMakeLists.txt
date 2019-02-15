@@ -1,0 +1,24 @@
+
+cmake_minimum_required(VERSION 3.10) 
+
+
+find_package(LLVM REQUIRED CONFIG) 
+# Needed to use support library 
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -std=c++14") 
+
+include_directories(${LLVM_INCLUDE_DIRS}) 
+add_definitions(${LLVM_DEFINITIONS}) 
+
+# aux_source_directory(. DIR_IMPL_SRCS)
+# add_library(hi_findfunctions ${DIR_IMPL_SRCS})
+
+# include_directories(./ ./HI_FindFunctions ./HI_print)
+add_subdirectory(HI_FindFunctions)
+add_subdirectory(HI_print)
+add_subdirectory(HI_DependenceList)
+add_subdirectory(HI_SysExec)
+add_subdirectory(HI_LoopInFormationCollect)
+add_subdirectory(HI_Polly_Info)
+add_subdirectory(HI_LoopDependenceAnalysis)
+add_subdirectory(HI_SimpleTimingEvaluation)
