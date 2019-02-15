@@ -1,4 +1,4 @@
-# LLVM-Learner-Note
+# LLVM-9.0-Learner-Tutorial
 
 A blog for LLVM(v9.0.0) beginner, step by step, with detailed documents and comments. This blog records the way I learn LLVM and finnaly accomplish a complete project with it. Therefore, I will keep updating this blog according to the progress of my project. I am happy to discuss and any suggestion will be welcome ^_^ (tliang@ust.hk). 
 
@@ -10,24 +10,24 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 ## Category:
 
 
-**[How to use this blog](https://github.com/zslwyuan/LLVM-Learner-Note#how-to-use-this-blog)**
+**[How to use this blog](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial#how-to-use-this-blog)**
 
-**[List of Experiments I conducted](https://github.com/zslwyuan/LLVM-Learner-Note#list-of-experiments-i-conducted)**
+**[List of Experiments I conducted](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial#list-of-experiments-i-conducted)**
 
-**[Further development](https://github.com/zslwyuan/LLVM-Learner-Note#further-development)**
+**[Further development](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial#further-development)**
 
  
-## [How to use this blog](https://github.com/zslwyuan/LLVM-Learner-Note#how-to-use-this-blog)
+## [How to use this blog](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial#how-to-use-this-blog)
 
 1. download the blog (entire project)
-2. basic functiones and passes are implemented in the directory **["Implementations"](https://github.com/zslwyuan/LLVM-Learner-Note/tree/master/Implementations)**. Nearly all the directories have their own README file to explain the directory.
-3. experiments are tested in the directory **["Test"](https://github.com/zslwyuan/LLVM-Learner-Note/tree/master/Tests)**.
-4. by making a "build" directory and using CMake in each experiment directory (e.g. **[this one](https://github.com/zslwyuan/LLVM-Learner-Note/tree/master/Tests/LLVM_exp5_LoopSimpleAnalysis/)**), executable can be generated and tried. (hint: cmake .. & make) 
+2. basic functiones and passes are implemented in the directory **["Implementations"](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations)**. Nearly all the directories have their own README file to explain the directory.
+3. experiments are tested in the directory **["Test"](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Tests)**.
+4. by making a "build" directory and using CMake in each experiment directory (e.g. **[this one](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Tests/LLVM_exp5_LoopSimpleAnalysis/)**), executable can be generated and tried. (hint: cmake .. & make) 
 5. for user's convenience, I prepare some sripts for example, **BuildAllFiles.sh**, which will build all the projects, **CleanBuiltFiles.sh**, which will clean all the built files to shrink the size of the directories, and **Build.sh** in test directory, which will just build one test project. All these scripts can be run directly.
 6. looking into the source code with detailed comments, reader can trace the headers and functions to understand how the experiment work.
 
 
-## [List of Experiments I conducted](https://github.com/zslwyuan/LLVM-Learner-Note#list-of-experiments-i-conducted):
+## [List of Experiments I conducted](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial#list-of-experiments-i-conducted):
 
 **Experiment 0**: Find all the functions' names in the program.
 
@@ -61,11 +61,11 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
       or
       (2) ./LLVM\_expXXXXX  <IR FILE>
 
-## [Further development](https://github.com/zslwyuan/LLVM-Learner-Note#further-development)
+## [Further development](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial#further-development)
 
 If you want to do your own works based on this project, following hints might be useful.
 
-1. user can add their passes according to the examples in the directory  **["Implementations"](https://github.com/zslwyuan/LLVM-Learner-Note/tree/master/Implementations)**. 
-2. Note for development: (a) remember to define unique marco for header files (like #ifndef _HI_HI_POLLY_INFO);  (b) Modify the CMakelists.txt file in the 4 directories: **the pass directory([example](https://github.com/zslwyuan/LLVM-Learner-Note/tree/master/Implementations/HI_SimpleTimingEvaluation/CMakeLists.txt)), Implementation directory([example](https://github.com/zslwyuan/LLVM-Learner-Note/tree/master/Implementations/CMakeLists.txt)), LLVM_Learner_Libs directory([example](https://github.com/zslwyuan/LLVM-Learner-Note/tree/master/Tests/LLVM_Learner_Libs/CMakeLists.txt)) and the test directory([example](https://github.com/zslwyuan/LLVM-Learner-Note/tree/master/Tests/LLVM_exp5_LoopSimpleAnalysis/CMakeLists.txt))**. The modification should add subdirectory and consider the including path/library name.
+1. user can add their passes according to the examples in the directory  **["Implementations"](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations)**. 
+2. Note for development: (a) remember to define unique marco for header files (like #ifndef _HI_HI_POLLY_INFO);  (b) Modify the CMakelists.txt file in the 4 directories: **the pass directory([example](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations/HI_SimpleTimingEvaluation/CMakeLists.txt)), Implementation directory([example](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations/CMakeLists.txt)), LLVM_Learner_Libs directory([example](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Tests/LLVM_Learner_Libs/CMakeLists.txt)) and the test directory([example](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Tests/LLVM_exp5_LoopSimpleAnalysis/CMakeLists.txt))**. The modification should add subdirectory and consider the including path/library name.
 
 ## Good Good Study Day Day Up \(^o^)/~
