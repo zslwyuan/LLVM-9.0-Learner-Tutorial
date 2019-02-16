@@ -59,6 +59,11 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
       -- keywords: information processing, DFS traverse, comprehensively used the Function/Loop/Block information, basic scheduler implementation
       -- PS: Experiment 5a is just used to collect involved instructions in a IR file.
 
+
+**Experiment 6**: IN-PROGRESS: Build a GEP operation transformation pass for HLS (Passed implemented in previous experimented are analysis passes.)
+      -- Will be done before Frb 19th
+
+
 **usage example**
 
       When built, most test executables can be used like below but please check the source code for confirmation.
