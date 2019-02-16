@@ -86,3 +86,4 @@
 #include "HI_Polly_Info.h"
 #include "HI_LoopDependenceAnalysis.h"
 #include "HI_SimpleTimingEvaluation.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"

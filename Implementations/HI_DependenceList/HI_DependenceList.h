@@ -18,6 +18,7 @@
 #include <map>
 #include <set>
 #include <vector>
+#include <sstream>
 
 using namespace llvm;
 
@@ -32,6 +33,7 @@ public:
         callCounter = 0;
         Instruction_out = new raw_fd_ostream(Instruction_out_file, ErrInfo, sys::fs::F_None);
         Dependence_out = new raw_fd_ostream(dependence_out_file, ErrInfo, sys::fs::F_None);
+        tmp_stream = new raw_string_ostream(tmp_stream_str);
     } // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
 
     ~HI_DependenceList()
@@ -54,6 +56,7 @@ public:
         }
         Instruction_out->flush(); delete Instruction_out;
         Dependence_out->flush(); delete Dependence_out;
+        tmp_stream->flush(); delete tmp_stream;
     }
 
     virtual bool doInitialization(Module &M)
@@ -103,10 +106,28 @@ public:
         for (auto &B : F)
         for (auto &I : B)
         {
-            if (InstructionsNameSet.find(std::string(I.getOpcodeName())) == InstructionsNameSet.end())
+            tmp_stream_str.clear();
+            tmp_stream->flush();
+            *tmp_stream << I.getOpcodeName() <<" ";
+            for (int i = 0; i < I.getNumOperands(); i++)
+            {                   
+                Value *tmp_op = I.getOperand(i);
+                if (isa<Constant>(tmp_op))
+                {
+                    *tmp_stream << "op"<<i<<"_const:";
+                }
+                else
+                {
+                    *tmp_stream << "op"<<i<<"_type:";
+                }
+                tmp_op->getType()->print(*tmp_stream); 
+                *tmp_stream << " ";
+            }
+            std::string checker = tmp_stream->str();
+            if (InstructionsNameSet.find(checker) == InstructionsNameSet.end())
             {
-                *Instruction_out<<"I-ID:"<< Instruction_id[&I] << "-->" << I.getOpcodeName()  << "\n";
-                InstructionsNameSet.insert(std::string(I.getOpcodeName()));
+                *Instruction_out<<"I-ID:"<< Instruction_id[&I] << "-->" << checker <<"\n";
+                InstructionsNameSet.insert(checker);
             }            
         }
         return false;
@@ -149,6 +170,9 @@ public:
     std::error_code ErrInfo;
     raw_ostream *Instruction_out;
     raw_ostream *Dependence_out;
+
+    raw_string_ostream *tmp_stream;
+    std::string tmp_stream_str;
 
 };
 
