@@ -4,6 +4,8 @@ HI_DependenceList pass extracts the dependence between Instructions. Detailed ex
 
 To implement this pass, different iterators are used in to iterate functions, blocks and instrucions (and their successors(users))
 
+Please note that the pass is implemented with doInitialization() and doFinalization() functions, since sometimes somehow, a pass could be called more than one times, which makes doInitialization and finalization important.
+
 e.g.
 
 

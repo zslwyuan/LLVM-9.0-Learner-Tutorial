@@ -1,0 +1,15 @@
+HI_GEP_OffsetCombine pass is tested by LLVM_expXXXX
+
+The pass will transform those GEP operation with multiple offset operand into the one with single offset
+
+This transformation pass include the following step:
+
+1. find GEP operation
+2. extract GEP offset operands
+3. do some multiplications and additions to obtain the exact offset, by generating some related instruction
+4. generate the GEP with single offset
+
+for example:
+
+int A[50][100]   ->  int A[5000]
+A[i][j]    ->   A+i*100+j

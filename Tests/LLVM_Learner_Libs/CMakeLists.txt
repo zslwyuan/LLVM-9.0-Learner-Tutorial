@@ -28,6 +28,7 @@ include_directories(./ ../../Implementations/
 ../../Implementations/HI_Polly_Info 
 ../../Implementations/HI_LoopDependenceAnalysis
 ../../Implementations/HI_SimpleTimingEvaluation
+../../Implementations/HI_GEP_OffsetCombine
 )
 
 add_subdirectory(../../Implementations ./building)
