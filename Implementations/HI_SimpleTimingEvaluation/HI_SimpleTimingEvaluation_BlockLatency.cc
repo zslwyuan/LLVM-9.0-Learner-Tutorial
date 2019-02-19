@@ -89,16 +89,29 @@ double HI_SimpleTimingEvaluation::getInstructionLatency(Instruction *I)
     {   
         return 0.0;
     }
+
     if (IntToPtrInst *tmpI = dyn_cast<IntToPtrInst>(I))
     {   
         return 0.0;
     }
+
     if (ShlOperator *tmpI = dyn_cast<ShlOperator>(I))
     {   
         Value *op1 = tmpI->getOperand(1);
          
         if (Constant *tmpop = dyn_cast<Constant>(op1))
             return 0.0;
+    }
+
+    if (PHINode *tmpI = dyn_cast<PHINode>(I))
+    {   
+        int num_Block = tmpI->getNumOperands();
+        for (int i=0;i<num_Block;i++)
+        {
+            BasicBlock *tmpB = tmpI->getIncomingBlock(i);
+            if (tmpB == tmpI->getParent())
+                return 0.0;
+        }        
     }
     // if (CallInst *tmpI = dyn_cast<CallInst>(I))
     // {

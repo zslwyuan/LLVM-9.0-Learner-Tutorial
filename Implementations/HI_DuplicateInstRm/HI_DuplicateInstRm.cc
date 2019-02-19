@@ -40,7 +40,7 @@ bool HI_DuplicateInstRm::runOnFunction(Function &F) // The runOnModule declarati
                     dupI->eraseFromParent();
                     duplicationInBlock = 1;
                     removed = 1;
-                  //  break; // remove the instruction and start the search again, until no duplication
+                    break; // remove the instruction and start the search again, until no duplication
                 }
             }
         }
