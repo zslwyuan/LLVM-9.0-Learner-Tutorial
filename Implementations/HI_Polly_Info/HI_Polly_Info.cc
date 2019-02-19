@@ -38,7 +38,7 @@ void HI_Polly_Info::getAnalysisUsage(AnalysisUsage &AU) const {
     // AU.addPreserved<LoopInfoWrapperPass>();
     AU.addRequired<LoopAccessLegacyAnalysis>();
     AU.addRequired<DominatorTreeWrapperPass>();
-    // AU.addPreserved<DominatorTreeWrapperPass>();
+    //  AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
     AU.addRequiredTransitive<polly::DependenceInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();

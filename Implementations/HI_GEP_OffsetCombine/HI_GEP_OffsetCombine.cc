@@ -16,42 +16,41 @@
 using namespace llvm;
 
 
-bool HI_GEP_OffsetCombine::runOnFunction(Function &F) // The runOnFunction declaration will overide the virtual one in ModulePass, which will be executed for each Function.
-{
+bool HI_GEP_OffsetCombine::runOnFunction(Function &F) {
+    const DataLayout &DL = F.getParent()->getDataLayout();
+  //  if (skipFunction(F))
+   //     return false;
 
+    if (DisableSeparateConstOffsetFromGEP)
+        return false;
+
+    DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
     LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-    LAA = &getAnalysis<LoopAccessLegacyAnalysis>();
-    if (F.getName() == top_function_name)
-    {
-        *Evaluating_log << "Top Function: "<< F.getName() <<" is found and start to evaluate its latency.\n\n\n";
-        topFunctionFound = 1;
-       // top_function_latency = getFunctionLatency(&F);
-        *Evaluating_log << "Done latency evaluation of top function: "<< F.getName() <<" and its latency is "<< top_function_latency << "\n\n\n";
+    // TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
+    bool Changed = false;
+    for (BasicBlock &B : F) 
+    {        
+        for (Instruction &I : B) 
+        if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(&I))
+        {
+          Changed |= 1;//splitGEP(GEP);
+        }
+    // No need to split GEP ConstantExprs because all its indices are constant
+    // already.
     }
-    return false;
+  return Changed;
 }
 
 char HI_GEP_OffsetCombine::ID = 0;  // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
 
 // introduce the dependence of Pass
 void HI_GEP_OffsetCombine::getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.setPreservesAll();
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<ScalarEvolutionWrapperPass>();
-    
-    // AU.addRequired<ScalarEvolutionWrapperPass>();
-    // AU.addRequired<LoopInfoWrapperPass>();
-    // AU.addPreserved<LoopInfoWrapperPass>();
-    AU.addRequired<LoopAccessLegacyAnalysis>();
     AU.addRequired<DominatorTreeWrapperPass>();
-    // AU.addPreserved<DominatorTreeWrapperPass>();
-    AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
-    AU.addRequiredTransitive<polly::DependenceInfoWrapperPass>();
+    AU.addRequired<ScalarEvolutionWrapperPass>();
+    AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequiredTransitive<polly::ScopInfoWrapperPass>();
-    AU.addRequired<polly::PolyhedralInfo>();
-    // AU.addPreserved<GlobalsAAWrapperPass>();
+    AU.setPreservesCFG();
     
 }
 

@@ -53,7 +53,7 @@ class HI_GEP_OffsetCombine : public FunctionPass {
 public:
 
     // Pass for simple evluation of the latency of the top function, without considering HLS directives
-    HI_GEP_OffsetCombine(const char* evaluating_log_name, const char* top_function,
+    HI_GEP_OffsetCombine(const char* transformationlog_name, const char* top_function,
             std::map<Loop*, std::vector<BasicBlock*>*> *L2Bs,
             std::map<BasicBlock*, std::vector<Loop*>*> *B2Ls) : FunctionPass(ID) 
     {
@@ -62,19 +62,18 @@ public:
         FunctionEvaluated.clear();
         Loop_id.clear();
         Loop_Counter = 0;
-        Evaluating_log = new raw_fd_ostream(evaluating_log_name, ErrInfo, sys::fs::F_None);
+        Transformationlog = new raw_fd_ostream(transformationlog_name, ErrInfo, sys::fs::F_None);
         top_function_name = std::string(top_function);
         Loop2Blocks = L2Bs;
         Block2Loops = B2Ls;
     } // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
     ~HI_GEP_OffsetCombine()
     {
-        Evaluating_log->flush(); delete Evaluating_log;
+        Transformationlog->flush(); delete Transformationlog;
     }
 
     virtual bool doInitialization(Module &M)
-    {
-        
+    {       
         print_status("Initilizing HI_GEP_OffsetCombine pass.");
         Loop_id.clear();
         LoopLatency.clear();
@@ -104,6 +103,7 @@ public:
     void getAnalysisUsage(AnalysisUsage &AU) const;
     virtual bool runOnFunction(Function &F); 
 
+
    
     static char ID;
 
@@ -132,7 +132,7 @@ public:
     std::set<BasicBlock*> Func_BlockVisited;
 
     // record the information of the processing
-    raw_ostream *Evaluating_log;
+    raw_ostream *Transformationlog;
     std::error_code ErrInfo;
 
     // the pass requires a specified top_function name
@@ -170,9 +170,13 @@ public:
     ScalarEvolution *SE;
     LoopInfo *LI;
     LoopAccessLegacyAnalysis *LAA;
+    DominatorTree *DT;
 
     bool topFunctionFound = 0;
+    bool DisableSeparateConstOffsetFromGEP = 0;
   //  std::map<>
+
+    
 
 
 

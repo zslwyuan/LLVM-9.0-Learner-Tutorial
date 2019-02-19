@@ -47,10 +47,10 @@ void HI_SimpleTimingEvaluation::getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<DominatorTreeWrapperPass>();
     // AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
-    AU.addRequiredTransitive<polly::DependenceInfoWrapperPass>();
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequiredTransitive<polly::ScopInfoWrapperPass>();
-    AU.addRequired<polly::PolyhedralInfo>();
+    // AU.addRequiredTransitive<polly::DependenceInfoWrapperPass>();
+    // AU.addRequired<LoopInfoWrapperPass>();
+    // AU.addRequiredTransitive<polly::ScopInfoWrapperPass>();
+    // AU.addRequired<polly::PolyhedralInfo>();
     // AU.addPreserved<GlobalsAAWrapperPass>();
     
 }

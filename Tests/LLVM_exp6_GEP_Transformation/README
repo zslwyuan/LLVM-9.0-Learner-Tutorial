@@ -1,0 +1,10 @@
+LLVM_exp6_GEP_Transformation
+
+
+Since in HLS, the GEP instruction is actually done by multiplication and additions, which are used to get the 1-D offset of an element in a multiple-dimensional array.
+As I found, the SeparateConstOffsetFromGEP pass, with the LowerGEP flag set true, can actually achieve such function. However, the major problem is that the pass handle the memeory space by byte but in FPGA the memory space is much more flexible.
+Therefore, we need to improve the pass to adpapt to the HLS design.
+
+Note that:
+
+addRequiredTranstive means that one pass relies on the other one in its lifetime. It is a very strict constraint and we should use it carefully.

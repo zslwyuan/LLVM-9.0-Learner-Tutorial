@@ -1,0 +1,1 @@
+The HI_DuplicateInstRm pass is used to remove the duplicated instruction after the SeparateConstOffsetFromGEP pass.

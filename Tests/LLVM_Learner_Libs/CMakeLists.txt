@@ -29,6 +29,7 @@ include_directories(./ ../../Implementations/
 ../../Implementations/HI_LoopDependenceAnalysis
 ../../Implementations/HI_SimpleTimingEvaluation
 ../../Implementations/HI_GEP_OffsetCombine
+../../Implementations/HI_DuplicateInstRm
 )
 
 add_subdirectory(../../Implementations ./building)

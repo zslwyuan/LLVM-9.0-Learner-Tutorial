@@ -1,4 +1,4 @@
-#include "LLVM_exp5_SimpleTimingAnalysis.h"
+#include "LLVM_exp7_DuplicateInstRemove.h"
 
 using namespace llvm;
 using namespace polly;
@@ -10,6 +10,9 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  LLVMInitializeX86TargetInfo();
+  LLVMInitializeX86Target();
+  LLVMInitializeX86TargetMC();
   // Compile the source code into IR and Parse the input LLVM IR file into a module
   SMDiagnostic Err;
   LLVMContext Context;
@@ -29,12 +32,24 @@ int main(int argc, char **argv) {
 
   // Create a pass manager and fill it with the passes we want to run.
   legacy::PassManager PM;
+  LLVMTargetRef T;
 
-  // LPPassManager *LPPM = new LPPassManager();
-  // LPPM->add(new IndVarSimplifyPass());
-  // PM.add(LPPM);
+  char *Error;
 
+  if(LLVMGetTargetFromTriple((Mod->getTargetTriple()).c_str(), &T, &Error))
+  {
+    print_error(Error);
+  }
+  else
+  {
+    std::string targetname = LLVMGetTargetName(T);
+    targetname = "The target machine is: " + targetname;
+    print_info(targetname.c_str());
+  }
 
+  Triple ModuleTriple(Mod->getTargetTriple());
+  TargetLibraryInfoImpl TLII(ModuleTriple);
+  PM.add(new TargetLibraryInfoWrapperPass(TLII));
 
   print_info("Enable LoopSimplify Pass");
   auto loopsimplifypass = createLoopSimplifyPass();
@@ -44,7 +59,28 @@ int main(int argc, char **argv) {
   PM.add(indvarsimplifypass);
   print_info("Enable IndVarSimplifyPass Pass");
 
-  
+  PM.add(createTargetTransformInfoWrapperPass(TargetIRAnalysis()));
+  print_info("Enable TargetIRAnalysis Pass");
+
+
+
+
+  auto separateconstoffsetfromgep = createSeparateConstOffsetFromGEPPass(true);
+  PM.add(separateconstoffsetfromgep);
+  print_info("Enable SeparateConstOffsetFromGEP Pass");
+
+  auto hi_duplicateinstrm = new HI_DuplicateInstRm("rmInsts");
+  PM.add(hi_duplicateinstrm);
+  print_info("Enable HI_DuplicateInstRm Pass");
+
+  PM.add(createStraightLineStrengthReducePass());
+  print_info("Enable StraightLineStrengthReduce Pass");
+
+
+  auto instructioncombiningpass = createInstructionCombiningPass(true);
+  PM.add(instructioncombiningpass);
+  print_info("Enable InstructionCombiningPass Pass");
+
   // auto loopstrengthreducepass = createLoopStrengthReducePass();
   // PM.add(loopstrengthreducepass);
   // print_info("Enable LoopStrengthReducePass Pass");
@@ -72,10 +108,6 @@ int main(int argc, char **argv) {
   auto optimizationremarkemitterwrapperpass = new OptimizationRemarkEmitterWrapperPass();
   PM.add(optimizationremarkemitterwrapperpass);
   print_info("Enable OptimizationRemarkEmitterWrapperPass Pass");
-
-  auto hi_loopinformationcollect = new HI_LoopInFormationCollect("Loops");
-  PM.add(hi_loopinformationcollect); 
-  print_info("Enable HI_LoopInFormationCollect Pass");
 
   auto aaresultswrapperpass = new AAResultsWrapperPass();
   print_info("Enable AAResultsWrapperPass Pass");
@@ -105,13 +137,18 @@ int main(int argc, char **argv) {
   print_info("Enable PolyhedralInfo Pass");
   PM.add(polyhedralinfo);  
 
+
   auto hi_polly_info = new HI_Polly_Info("PollyInformation");
   print_info("Enable PollyInformation Pass");
   PM.add(hi_polly_info);   
 
-  // auto hi_loopdependenceanalysis = new HI_LoopDependenceAnalysis("HI_LoopDependenceAnalysis");
-  // print_info("Enable HI_LoopDependenceAnalysis Pass");
-  // PM.add(hi_loopdependenceanalysis); 
+  auto hi_loopinformationcollect = new HI_LoopInFormationCollect("Loops");
+  PM.add(hi_loopinformationcollect); 
+  print_info("Enable HI_LoopInFormationCollect Pass");
+
+  auto hi_loopdependenceanalysis = new HI_LoopDependenceAnalysis("HI_LoopDependenceAnalysis");
+  print_info("Enable HI_LoopDependenceAnalysis Pass");
+  PM.add(hi_loopdependenceanalysis); 
   
   auto hi_simpletimingevaluation = new HI_SimpleTimingEvaluation("HI_SimpleTimingEvaluation",top_str.c_str(),&hi_loopinformationcollect->Loop2Blocks,&hi_loopinformationcollect->Block2Loops);
   print_info("Enable HI_SimpleTimingEvaluation Pass");
@@ -123,6 +160,10 @@ int main(int argc, char **argv) {
   PM.add(hi_findfunction);
   auto hi_dependencelist = new HI_DependenceList("Instructions","Instruction_Dep");
   PM.add(hi_dependencelist);
+
+
+
+
     // AU.addRequiredTransitive<polly::DependenceInfoWrapperPass>();
     // AU.addRequiredTransitive<polly::ScopInfoWrapperPass>();
 

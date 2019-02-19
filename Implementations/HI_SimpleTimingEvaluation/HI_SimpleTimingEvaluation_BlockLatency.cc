@@ -85,7 +85,22 @@ bool HI_SimpleTimingEvaluation::BlockContain(BasicBlock *B, Instruction *I)
 */
 double HI_SimpleTimingEvaluation::getInstructionLatency(Instruction *I)
 {
-    // if (CallInst tmpI = dyn_cast<CallInst>(I))
+    if (PtrToIntInst *tmpI = dyn_cast<PtrToIntInst>(I))
+    {   
+        return 0.0;
+    }
+    if (IntToPtrInst *tmpI = dyn_cast<IntToPtrInst>(I))
+    {   
+        return 0.0;
+    }
+    if (ShlOperator *tmpI = dyn_cast<ShlOperator>(I))
+    {   
+        Value *op1 = tmpI->getOperand(1);
+         
+        if (Constant *tmpop = dyn_cast<Constant>(op1))
+            return 0.0;
+    }
+    // if (CallInst *tmpI = dyn_cast<CallInst>(I))
     // {
     //TODO: get the sub-Function latency...
     // }
