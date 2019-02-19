@@ -62,7 +62,13 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 
 **Experiment 6**: IN-PROGRESS: Build a GEP operation transformation pass for HLS (Passed implemented in previous experimented are analysis passes.)
 
-      -- Will be done before Frb 19th
+      -- Will be done before Feb 19th
+
+
+**Experiment 7**: Implementation a transformation pass to safely remove duplicated instrcutions (Passed implemented in previous experimented are analysis passes.)
+
+      -- keywords: erase an instruction, remove duplicatied instruction, eraseFromParent, replaceAllUsesWith
+
 
 
 **usage example**
