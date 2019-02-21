@@ -69,6 +69,10 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 
       -- keywords: erase an instruction, remove duplicatied instruction, eraseFromParent, replaceAllUsesWith
 
+**Experiment 8**: By using SCEV, Successfully obtain the range of the targe value for latter bitwidth optimization
+
+      -- keywords: SCEV, value range, bitwidth optimization
+
 
 
 **usage example**

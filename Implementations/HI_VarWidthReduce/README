@@ -1,0 +1,1 @@
+The HI_VarWidthReduce pass is used to shrink the bitwidth of the varaibles which have predictale range.

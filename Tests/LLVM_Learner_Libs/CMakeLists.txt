@@ -30,6 +30,7 @@ include_directories(./ ../../Implementations/
 ../../Implementations/HI_SimpleTimingEvaluation
 ../../Implementations/HI_GEP_OffsetCombine
 ../../Implementations/HI_DuplicateInstRm
+../../Implementations/HI_VarWidthReduce
 )
 
 add_subdirectory(../../Implementations ./building)
