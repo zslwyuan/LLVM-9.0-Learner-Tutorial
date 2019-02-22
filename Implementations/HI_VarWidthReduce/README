@@ -1,1 +1,3 @@
-The HI_VarWidthReduce pass is used to shrink the bitwidth of the varaibles which have predictale range.
+LLVM_exp8_VarWidthReduce is used to test the pass HI_VarWidthReduce
+
+The HI_VarWidthReduce pass is used to shrink the bitwidth of the varaibles which have predictale range. This can reduce the hardware cost in HLS.

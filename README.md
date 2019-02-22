@@ -60,12 +60,12 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
       -- PS: Experiment 5a is just used to collect involved instructions in a IR file.
 
 
-**Experiment 6**: IN-PROGRESS: Build a GEP operation transformation pass for HLS (Passed implemented in previous experimented are analysis passes.)
+**Experiment 6**: Analyze the GEP lowering transformation pass (Passed implemented in previous experimented are analysis passes.)
 
-      -- Will be done before Feb 19th
+      -- SeparateConstOffsetFromGEP, GEP Lowering, Transformation Pass, DataLayout
 
 
-**Experiment 7**: Implementation a transformation pass to safely remove duplicated instrcutions (Passed implemented in previous experimented are analysis passes.)
+**Experiment 7**: Implementation a transformation pass to safely remove duplicated instrcutions  (Passed implemented in previous experimented are analysis passes.)
 
       -- keywords: erase an instruction, remove duplicatied instruction, eraseFromParent, replaceAllUsesWith
 
@@ -73,6 +73,10 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 
       -- keywords: SCEV, value range, bitwidth optimization
 
+
+**Experiment 9**: Build a GEP operation transformation pass for HLS  (Passed implemented in previous experimented are analysis passes.)
+
+      --- HLS, ByteAlignment->ElementAlignment, SeparateConstOffsetFromGEP, GEP Lowering, Transformation Pass, DataLayout
 
 
 **usage example**

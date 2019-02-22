@@ -1,3 +1,3 @@
-LLVM_exp7_DuplicateInstRemove is used to test the pass HI_DuplicateInstRm
+LLVM_exp8_VarWidthReduce is used to test the pass HI_VarWidthReduce
 
-The pass is a transformation pass and remove the duplicated instructions in a block.
+The HI_VarWidthReduce pass is used to shrink the bitwidth of the varaibles which have predictale range. This can reduce the hardware cost in HLS.
