@@ -85,8 +85,8 @@ void HI_SimpleTimingEvaluation::getFunctionLatency_traverseFromEntryToExiting(do
     if (isInLoop(curBlock)) 
     {
         // (3a) -- If it is a block in loops, regard the loop as intergration and update the critical path if necessary (max(ori_CP, lastStateCP + LoopLatency)).
-        
         Loop* tmp_OuterLoop = getOuterLoopOfBlock(curBlock);
+        *Evaluating_log << "---- Block: " << curBlock->getName() <<" is in Outer Loop : "<< tmp_OuterLoop->getName() <<" ";        
 
         if (Function2OuterLoops.find(F) == Function2OuterLoops.end())
         {
@@ -96,7 +96,7 @@ void HI_SimpleTimingEvaluation::getFunctionLatency_traverseFromEntryToExiting(do
 
         double latency_Loop = getOuterLoopLatency(tmp_OuterLoop); // treat the entire loop as a block node and get the latency
         double try_critical_path = tmp_critical_path + latency_Loop;  // first, get the critical path to the end of loop
-        *Evaluating_log << "---- Block: " << curBlock->getName() <<" is in Outer Loop : "<< tmp_OuterLoop->getName() <<" ";
+        
         *Evaluating_log << " LoopLatency =  " << latency_Loop <<" ";        
         *Evaluating_log << " NewCP =  " << try_critical_path <<" ";
         bool checkFlag = false;     
@@ -138,7 +138,7 @@ void HI_SimpleTimingEvaluation::getFunctionLatency_traverseFromEntryToExiting(do
     else
     {
         //     (3b) -- If it is a block out of loops, evaluate the block latency and update the critical path if necessary (max(ori_CP, lastStateCP + BlockLatency)).         
-        *Evaluating_log << "---- Block: " << curBlock->getName() <<" is NOT in Outer Loop ";
+        *Evaluating_log << "---- Block: " << curBlock->getName() <<" is NOT in any Outer Loop ";
         double latency_CurBlock = BlockLatencyEvaluation(curBlock); // first, get the latency of the current block
         double try_critical_path = tmp_critical_path + latency_CurBlock;
         *Evaluating_log << "---- latencyBlock =  " << latency_CurBlock <<" ";

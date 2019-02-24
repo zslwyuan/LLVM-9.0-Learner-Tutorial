@@ -54,12 +54,27 @@ Loop* HI_SimpleTimingEvaluation::getInnerUnevaluatedLoop(Loop* outerL)
             *Evaluating_log << " which is NOT evaluated.\n";
         
         // larger depth means more inner
-        if (tmp_Loop->getLoopDepth() > dep && LoopEvaluated.find(tmp_Loop) == LoopEvaluated.end())
+
+        // go to the sub-sub-...-Loop to have a check
+        Loop* tmp_inner_Sub_Loop = getInnerUnevaluatedLoop(tmp_Loop);
+        if (tmp_inner_Sub_Loop)
         {
-            dep = tmp_Loop->getLoopDepth();
-            tmp_inner_Loop = tmp_Loop;
-            *Evaluating_log << "--------- update target sub-loop to Loop: " << tmp_inner_Loop->getName() <<"\n";
+            if (tmp_inner_Sub_Loop->getLoopDepth() > dep && LoopEvaluated.find(tmp_inner_Sub_Loop) == LoopEvaluated.end())
+            {
+                dep = tmp_inner_Sub_Loop->getLoopDepth();
+                tmp_inner_Loop = tmp_inner_Sub_Loop; //  the sub-sub-...-loop could be the most inner loop
+                *Evaluating_log << "--------- update target sub-loop to Loop: " << tmp_inner_Loop->getName() <<"\n";
+            }
         }
+        else
+        {
+            if (tmp_Loop->getLoopDepth() > dep && LoopEvaluated.find(tmp_Loop) == LoopEvaluated.end())
+            {
+                dep = tmp_Loop->getLoopDepth();
+                tmp_inner_Loop = tmp_Loop; //  no the sub-sub-...-loop could be the most inner loop but current sub-loop could be
+                *Evaluating_log << "--------- update target sub-loop to Loop: " << tmp_inner_Loop->getName() <<"\n";
+            }            
+        }               
     }
     auto tmp_Loop =  outerL;
     if (tmp_inner_Loop == NULL) // all sub-loops are evaluated, check the loop itself.
@@ -91,7 +106,7 @@ Loop* HI_SimpleTimingEvaluation::getInnerUnevaluatedLoop(Loop* outerL)
 */
 double HI_SimpleTimingEvaluation::getOuterLoopLatency(Loop* outerL)
 {
-    *Evaluating_log << "Evaluating Outer Loop Latency for Loop " << outerL->getName() <<":\n";
+    *Evaluating_log << "\n Evaluating Outer Loop Latency for Loop " << outerL->getName() <<":\n";
     if (LoopLatency.find(outerL) != LoopLatency.end())
     {
         *Evaluating_log << "Done evaluation outer Loop Latency for Loop " << outerL->getName() << " and its latency is " << LoopLatency[outerL] <<" cycles.\n\n\n";
@@ -185,7 +200,7 @@ void HI_SimpleTimingEvaluation::LoopLatencyEvaluation_traversFromHeaderToExiting
     {        
         // (3a) -- If it is a block in sub-loops, regard the loop as intergration and update the critical path if necessary (max(ori_CP, lastStateCP + LoopLatency)).
         Loop* tmp_SubLoop = Block2EvaluatedLoop[curBlock];
-        *Evaluating_log << " which is in Loop " << tmp_SubLoop->getName() <<" ";
+        *Evaluating_log << " which is evluated in Loop " << tmp_SubLoop->getName() <<" ";
         *Evaluating_log << " LoopLatency =  " << LoopLatency[tmp_SubLoop] <<" ";
         double try_critical_path = tmp_critical_path + LoopLatency[tmp_SubLoop];  // first, get the critical path to the end of sub-loop
         *Evaluating_log << " NewCP =  " << try_critical_path <<" ";
@@ -227,7 +242,7 @@ void HI_SimpleTimingEvaluation::LoopLatencyEvaluation_traversFromHeaderToExiting
     else
     {
         //     (3b) -- If it is a block out of sub-loops, evaluate the block latency and update the critical path if necessary (max(ori_CP, lastStateCP + BlockLatency)).         
-        *Evaluating_log << " which is NOT in Loop " << " ";
+        *Evaluating_log << " which is  not evaluated in Loop " << " ";
         double latency_CurBlock = BlockLatencyEvaluation(curBlock); // first, get the latency of the current block
         double try_critical_path = tmp_critical_path + latency_CurBlock;
         *Evaluating_log << "---- latencyBlock =  " << latency_CurBlock <<" ";

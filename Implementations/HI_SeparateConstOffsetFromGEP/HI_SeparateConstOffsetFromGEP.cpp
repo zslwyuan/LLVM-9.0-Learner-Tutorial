@@ -5,6 +5,13 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
+
+// Modification is to change the alignment of arrayType address space form byte to element.
+// Reader can track the modification by the flag : HI-MODIFICATION
+
+
+
 //
 // Loop unrolling may create many similar GEPs for array accesses.
 // e.g., a 2-level loop
@@ -537,6 +544,7 @@ HI_SeparateConstOffsetFromGEP::accumulateByteOffset(GetElementPtrInst *GEP,
 
 void HI_SeparateConstOffsetFromGEP::lowerToSingleIndexGEPs(
     GetElementPtrInst *Variadic, int64_t AccumulativeByteOffset) {
+  *Sep_Log << "\nlowering GEP (lowerToSingleIndexGEPs): " << *Variadic << "\n";
   IRBuilder<> Builder(Variadic);
   Type *IntPtrTy = DL->getIntPtrType(Variadic->getType());
 
@@ -614,12 +622,13 @@ HI_SeparateConstOffsetFromGEP::lowerToArithmetics(GetElementPtrInst *Variadic,
   Type *IntPtrTy = DL->getIntPtrType(Variadic->getType());
 
   Value *ResultPtr = Builder.CreatePtrToInt(Variadic->getOperand(0), IntPtrTy);
+  Value *tmp_ResultPtr = nullptr;
   gep_type_iterator GTI = gep_type_begin(*Variadic);
   // Create ADD/SHL/MUL arithmetic operations for each sequential indices. We
   // don't create arithmetics for structure indices, as they are accumulated
   // in the constant offset index.
 
-  *Sep_Log << "\nlowing GEP: " << *Variadic << "\n";
+  *Sep_Log << "\nlowering GEP (lowerToArithmetics): " << *Variadic << "\n";
   for (unsigned I = 1, E = Variadic->getNumOperands(); I != E; ++I, ++GTI) {
     if (GTI.isSequential()) {
 
@@ -647,15 +656,26 @@ HI_SeparateConstOffsetFromGEP::lowerToArithmetics(GetElementPtrInst *Variadic,
         }
       }
       // Create an ADD for each index.
-      ResultPtr = Builder.CreateAdd(ResultPtr, Idx);
+      if (tmp_ResultPtr)
+      {
+        tmp_ResultPtr = Builder.CreateAdd(tmp_ResultPtr, Idx);
+      }
+      else
+      {
+        tmp_ResultPtr = Idx;
+      }
+      
     }
   }
 
-  // Create an ADD for the constant offset index.
   if (AccumulativeByteOffset != 0) {
-    ResultPtr = Builder.CreateAdd(
-        ResultPtr, ConstantInt::get(IntPtrTy, AccumulativeByteOffset));
+    tmp_ResultPtr = Builder.CreateAdd(
+        tmp_ResultPtr, ConstantInt::get(IntPtrTy, AccumulativeByteOffset));
   }
+
+  ResultPtr = Builder.CreateAdd(ResultPtr, tmp_ResultPtr);
+  // Create an ADD for the constant offset index.
+
 
   ResultPtr = Builder.CreateIntToPtr(ResultPtr, Variadic->getType());
   Variadic->replaceAllUsesWith(ResultPtr);
@@ -663,14 +683,21 @@ HI_SeparateConstOffsetFromGEP::lowerToArithmetics(GetElementPtrInst *Variadic,
 }
 
 bool HI_SeparateConstOffsetFromGEP::splitGEP(GetElementPtrInst *GEP) {
+  *Sep_Log << "\n================================================\nSplitting GEP : " << *GEP << "\n";
   // Skip vector GEPs.
   if (GEP->getType()->isVectorTy())
+  {
+    *Sep_Log << *GEP << " isVectorTy\n";
     return false;
+  }
 
   // The backend can already nicely handle the case where all indices are
   // constant.
   if (GEP->hasAllConstantIndices())
+  {
+    *Sep_Log << *GEP << " hasAllConstantIndices\n";
     return false;
+  }
 
   bool Changed = canonicalizeArrayIndicesToPointerSize(GEP);
 
@@ -678,7 +705,12 @@ bool HI_SeparateConstOffsetFromGEP::splitGEP(GetElementPtrInst *GEP) {
   int64_t AccumulativeByteOffset = accumulateByteOffset(GEP, NeedsExtraction);
 
   if (!NeedsExtraction)
-    return Changed;
+  {
+    *Sep_Log << *GEP << " does not Need Extraction\n";
+    *Sep_Log << " AccumulativeByteOffset = "<< AccumulativeByteOffset<< "\n";
+    *Sep_Log << " Enforce it to lowering GEP for test \n";    //HI-MODIFICATION: we don't need to calculate by byte in HLS
+ //   return Changed;   
+  }
 
   TargetTransformInfo &TTI =
       getAnalysis<TargetTransformInfoWrapperPass>().getTTI(*GEP->getFunction());
@@ -696,6 +728,7 @@ bool HI_SeparateConstOffsetFromGEP::splitGEP(GetElementPtrInst *GEP) {
                                    /*BaseGV=*/nullptr, AccumulativeByteOffset,
                                    /*HasBaseReg=*/true, /*Scale=*/0,
                                    AddrSpace)) {
+      *Sep_Log << *GEP << " is not LegalAddressingMode\n";
       return Changed;
     }
   }
@@ -759,6 +792,8 @@ bool HI_SeparateConstOffsetFromGEP::splitGEP(GetElementPtrInst *GEP) {
       lowerToArithmetics(GEP, AccumulativeByteOffset);
     return true;
   }
+
+  *Sep_Log << *GEP << " is not beging LowerGEP\n";
 
   // No need to create another GEP if the accumulative byte offset is 0.
   if (AccumulativeByteOffset == 0)
@@ -1045,7 +1080,7 @@ unsigned int HI_SeparateConstOffsetFromGEP::getLength(Type *TY)
 {
     if (ArrayType *VTy = dyn_cast<ArrayType>(TY))
     {
-      int numElements = VTy->getNumElements();
+      int numElements = VTy->getNumElements() * getLength(VTy->getElementType());
       return numElements;
     }
     else

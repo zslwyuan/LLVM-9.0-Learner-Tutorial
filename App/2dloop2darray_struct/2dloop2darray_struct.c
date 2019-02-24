@@ -13,6 +13,6 @@ void f ( Simple2 A[50][100]) {
       A[i][j].a = A[i-1][j-1].b + A[i][j-1].b + A[i-1][j].b + 1;
   for ( int j = 1; j < N; j++ )
     for ( int i = 0; i < M; i++ )
-      A[i][j].c = A[i-1][j-1].a + A[i][j-1].a + A[i-1][j].a + 1;
+      A[i][j].c = A[i-1][j-1].a + A[i][j-1].a + A[i-1][j].a + 1.0/3.0;
   return;
 }

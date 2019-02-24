@@ -6,6 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+// Modification is to change the alignment of arrayType address space form byte to element.
+// Reader can track the modification by the flag : HI-MODIFICATION
+
 #ifndef _HI_SeparateConstOffsetFromGEP
 #define _HI_SeparateConstOffsetFromGEP
 
@@ -346,6 +349,7 @@ private:
   bool isLegalToSwapOperand(GetElementPtrInst *First, GetElementPtrInst *Second,
                             Loop *CurLoop);
 
+  // Get the length of a Type which is aligned by element. (Array [100 x i32] --> length = 100; i32 ---> length = 1)
   unsigned int getLength(Type *TY);
 
   const DataLayout *DL = nullptr;
