@@ -69,9 +69,9 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 
       -- keywords: erase an instruction, remove duplicatied instruction, eraseFromParent, replaceAllUsesWith
 
-**Experiment 8**: By using SCEV, Successfully obtain the range of the targe value for latter bitwidth optimization
+**Experiment 8**: By using SCEV, Successfully obtain the range of the targe value and then implement bitwidth optimization (IR insertion/operand replacement/IR removal/reduncdant instruction check T_T....) (Passed implemented in previous experimented are analysis passes.)
 
-      -- keywords: SCEV, value range, bitwidth optimization
+      -- keywords: SCEV, value range, bitwidth optimization, Usage of IR Builder, change type/width of value
 
 
 **Experiment 9**: Build a GEP operation transformation pass for HLS  (Passed implemented in previous experimented are analysis passes.)
