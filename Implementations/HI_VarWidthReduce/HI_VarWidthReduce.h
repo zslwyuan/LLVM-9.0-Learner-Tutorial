@@ -32,6 +32,35 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
+
+#include "llvm/IR/Instructions.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/Twine.h"
+#include "llvm/IR/Attributes.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/CallSite.h"
+#include "llvm/IR/Constant.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Value.h"
+#include "llvm/Support/AtomicOrdering.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/MathExtras.h"
+#include <algorithm>
+
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Type.h"
@@ -242,6 +271,7 @@ public:
         Instruction2User_id.clear();
         Instruction2Pre_id.clear();
         Blcok2InstructionList_id.clear();
+        Instruction_BitNeeded.clear();
 
         return false;
     }
@@ -260,12 +290,14 @@ public:
    // static Optional<ConstantRange> GetRangeFromMetadata(Value *V);
     const ConstantRange &setRange(const SCEV *S, ConstantRange CR);
     unsigned int bitNeededFor(ConstantRange CR);
-    
+    void ReplaceUsesUnsafe(Instruction *from, Value *to);
+
     int callCounter;
     int Instruction_Counter;
     int Function_Counter;
     int BasicBlock_Counter;
     int Loop_Counter;
+    unsigned int changed_id = 0;
 
     Function* TargeFunction;
 
@@ -282,6 +314,7 @@ public:
     std::map<int, std::vector<int>*> Instruction2Pre_id;
     std::map<int, std::vector<int>*> Blcok2InstructionList_id;
     DenseMap<const SCEV *, ConstantRange> SignedRanges;
+    std::map<Instruction *, unsigned int> Instruction_BitNeeded;
 
     std::error_code ErrInfo;
     raw_ostream *VarWidthChangeLog;
