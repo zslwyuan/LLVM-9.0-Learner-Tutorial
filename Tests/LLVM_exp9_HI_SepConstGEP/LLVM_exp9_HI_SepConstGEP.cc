@@ -75,16 +75,23 @@ int main(int argc, char **argv) {
   print_info("Enable HI_DuplicateInstRm Pass");
 
 
-  auto lazyvalueinfowrapperpass = new LazyValueInfoWrapperPass();
-  PM.add(lazyvalueinfowrapperpass);
-  print_info("Enable LazyValueInfoWrapperPass Pass");
+  // auto lazyvalueinfowrapperpass = new LazyValueInfoWrapperPass();
+  // PM.add(lazyvalueinfowrapperpass);
+  // print_info("Enable LazyValueInfoWrapperPass Pass");
 
   auto hi_varwidthreduce = new HI_VarWidthReduce("VarWidth");
   PM.add(hi_varwidthreduce);
   print_info("Enable HI_VarWidthReduce Pass");
 
-  PM.add(createCorrelatedValuePropagationPass());
-  print_info("Enable CorrelatedValuePropagation Pass");
+  // PM.add(createCorrelatedValuePropagationPass());
+  // print_info("Enable CorrelatedValuePropagation Pass");
+
+
+
+
+
+
+
 
   PM.add(createStraightLineStrengthReducePass());
   print_info("Enable StraightLineStrengthReduce Pass");
@@ -175,10 +182,6 @@ int main(int argc, char **argv) {
   PM.add(hi_dependencelist);
 
 
-
-
-    // AU.addRequiredTransitive<polly::DependenceInfoWrapperPass>();
-    // AU.addRequiredTransitive<polly::ScopInfoWrapperPass>();
 
   print_status("Start LLVM processing");  
   PM.run(*Mod);

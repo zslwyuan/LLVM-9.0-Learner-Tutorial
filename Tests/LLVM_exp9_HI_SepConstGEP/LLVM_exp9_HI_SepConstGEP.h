@@ -83,7 +83,6 @@
 #include "HI_LoopInFormationCollect.h"
 #include "HI_DuplicateInstRm.h"
 #include "HI_SeparateConstOffsetFromGEP.h"
-
 // #include "polly/LinkAllPasses.h"
 #include "polly/PolyhedralInfo.h"
 #include "HI_Polly_Info.h"
