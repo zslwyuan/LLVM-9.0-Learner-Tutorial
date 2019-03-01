@@ -285,13 +285,43 @@ public:
     virtual bool runOnFunction(Function &M);
     static char ID;
 
+    // Determine the range for a particular SCEV, but bypass the operands generated from PtrToInt Instruction, considering the actual 
+    // implementation in HLS
     const ConstantRange HI_getSignedRangeRef(const SCEV *S);
+
+    // check whether we should bypass the PtrToInt Instruction
     bool bypassPTI(const SCEV *S);
-   // static Optional<ConstantRange> GetRangeFromMetadata(Value *V);
+
+    // cache constant range for those evaluated SCEVs
     const ConstantRange &setRange(const SCEV *S, ConstantRange CR);
+
+
     unsigned int bitNeededFor(ConstantRange CR);
+
     void ReplaceUsesUnsafe(Instruction *from, Value *to);
 
+    // Analysis: check the value range of the instructions in the source code and determine the bitwidth
+    void Bitwidth_Analysis(Function *F);    
+
+    // Forward Process: check the bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of the instruction
+    bool InsturctionUpdate_WidthCast(Function *F);
+
+    // Forward Process of BinaryOperator: check the bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of the instruction
+    void BOI_WidthCast(BinaryOperator *BOI);
+
+    // Forward Process of ICmpInst: check the bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of the instruction
+    void ICMP_WidthCast(ICmpInst *ICMP_I);
+
+    // Forward Process of PHI: check the bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of the instruction
+    void PHI_WidthCast(PHINode *PHI_I);
+
+    // Check Redundancy: Some instructions could be truncated to be an operand, but itself is actually updated with the same bitwidth with the truncation.
+    bool RedundantCastRemove(Function *F);
+
+    // Validation Check: Check whether there is any binary operation with operands in different types.
+    void VarWidthReduce_Validation(Function *F);
+
+    
     int callCounter;
     int Instruction_Counter;
     int Function_Counter;
