@@ -34,27 +34,27 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 
 ## [List of Experiments I conducted](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial#list-of-experiments-i-conducted):
 
-**Experiment 0**: Find all the functions' names in the program.
+**Experiment 0**: Find all the functions' names in the program. (Analysis Pass)
 
       -- keywords: installation of LLVM, basic pass template
 
-**Experiment 1**: Get the dependence graph in a function and plot it.
+**Experiment 1**: Get the dependence graph in a function and plot it. (Analysis Pass)
 
       -- keywords: dependence types, graph, iterator, passmanager, iterator, types in LLVM
 
-**Experiment 2**: Utilize existing LLVM passes in your project 
+**Experiment 2**: Utilize existing LLVM passes in your project  (Analysis Pass)
 
       -- keywords: invoke different passes in your application, createXXXXPass (or new xxxxPass), 
 
-**Experiment 3**: Basic Loop information analysis
+**Experiment 3**: Basic Loop information analysis  (Analysis Pass)
 
       -- keywords: co-operation/dependence between Pass, Basic function for loop analysis
 
-**Experiment 4**: Invoke polyhedral Information Pass
+**Experiment 4**: Invoke polyhedral Information Pass  (Analysis Pass)
 
       -- keywords: compilation with polly libraries, pass dependence
 
-**Experiment 5**: Build a ASAP scheduler to schedule the instructions for parallel machine (e.g. FPGA) and evaluate latency
+**Experiment 5**: Build a ASAP scheduler to schedule the instructions for parallel machine (e.g. FPGA) and evaluate latency (Analysis Pass)
 
       -- keywords: information processing, DFS traverse, comprehensively used the Function/Loop/Block information, basic scheduler implementation
       -- PS: Experiment 5a is just used to collect involved instructions in a IR file.
@@ -65,18 +65,23 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
       -- SeparateConstOffsetFromGEP, GEP Lowering, Transformation Pass, DataLayout
 
 
-**Experiment 7**: Implementation a transformation pass to safely remove duplicated instrcutions  (Passed implemented in previous experimented are analysis passes.)
+**Experiment 7**: Implementation a transformation pass to safely remove duplicated instrcutions (Transformation Pass) 
 
       -- keywords: erase an instruction, remove duplicatied instruction, eraseFromParent, replaceAllUsesWith
 
-**Experiment 8**: By using SCEV, Successfully obtain the range of the targe value and then implement bitwidth optimization (IR insertion/operand replacement/IR removal/reduncdant instruction check T_T....) (Passed implemented in previous experimented are analysis passes.)
+**Experiment 8**: By using SCEV, Successfully obtain the range of the targe value and then implement bitwidth optimization (IR insertion/operand replacement/IR removal/reduncdant instruction check T_T....) (Transformation Pass)
 
       -- keywords: SCEV, value range, bitwidth optimization, Usage of IR Builder, change type/width of value
 
 
-**Experiment 9**: Build a GEP operation transformation pass for HLS  (Passed implemented in previous experimented are analysis passes.)
+**Experiment 9**: Build a GEP operation transformation pass for HLS  (Transformation Pass)
 
       --- HLS, ByteAlignment->ElementAlignment, SeparateConstOffsetFromGEP, GEP Lowering, Transformation Pass, DataLayout
+
+
+**Experiment 10**: TODO: Hack on Clang to make arbitary precision integer ap_int<X> in source code for VivadoHLS mapped to iX in IR generation  (Front-end Operation)
+
+      --- Front-End Operation, IR generation, Clang
 
 
 **usage example**
