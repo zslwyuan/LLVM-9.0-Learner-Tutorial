@@ -37,14 +37,19 @@
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/LoopVersioning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include <string>
 using namespace llvm;
 
 class HI_LoopInFormationCollect : public LoopPass {
 public:
-    HI_LoopInFormationCollect(const char* Loop_out_file) : LoopPass(ID) 
+    HI_LoopInFormationCollect(const char * loopfile) : LoopPass(ID) 
     {
+      //  this->getAsPMDataManager();
         Loop_Counter = 0;
-        Loop_out = new raw_fd_ostream(Loop_out_file, ErrInfo, sys::fs::F_None);
+        Loop_out = new raw_fd_ostream(loopfile, ErrInfo, sys::fs::F_None);
+        Loop2Blocks.clear();
+        Block2Loops.clear();
+        Loop_id.clear();
     } // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
     ~HI_LoopInFormationCollect()
     {
@@ -58,12 +63,13 @@ public:
         }
         Loop_out->flush(); delete Loop_out;
     }
-    virtual bool doInitialization(Loop *L, LPPassManager &)
+    virtual bool doInitialization(Loop *L, LPPassManager &LPPM)
     {
-        print_status("Initilizing HI_LoopInFormationCollect pass.");  
-        Loop2Blocks.clear();
-        Block2Loops.clear();
-        Loop_id.clear();
+        std::string tmpInfo = std::string("Initilizing HI_LoopInFormationCollect pass for Loop ")+L->getName().str();
+        print_status(tmpInfo.c_str());  
+
+        
+
         return false;
     } 
     void printMaps()
@@ -124,5 +130,36 @@ public:
     LoopAccessLegacyAnalysis *LAA;
 
 
+    void solveDependency(legacy::PassManager &PM)
+    {
+
+        auto loopinfowrapperpass = new LoopInfoWrapperPass();
+        PM.add(loopinfowrapperpass);
+
+        auto scalarevolutionwrapperpass = new ScalarEvolutionWrapperPass();
+        PM.add(scalarevolutionwrapperpass);
+
+        auto loopaccesslegacyanalysis = new LoopAccessLegacyAnalysis();
+        PM.add(loopaccesslegacyanalysis);
+
+        auto dominatortreewrapperpass = new DominatorTreeWrapperPass();
+        PM.add(dominatortreewrapperpass);
+
+        auto optimizationremarkemitterwrapperpass = new OptimizationRemarkEmitterWrapperPass();
+        PM.add(optimizationremarkemitterwrapperpass);
+    }
+
 };
+
+
+namespace llvm {
+//void initializeHI_LoopInFormationCollectPass(PassRegistry &);
+//void initializeHI_LoopInFormationCollectPassOnce(PassRegistry &);
+
+// void initializeHI_LoopInFormationCollectPass(PassRegistry&);
+   // void *initializeHI_LoopInFormationCollectPassOnce(PassRegistry &Registry);           
+  //  void initializeHI_LoopInFormationCollectPass(PassRegistry &Registry);
+}
+
+
 #endif

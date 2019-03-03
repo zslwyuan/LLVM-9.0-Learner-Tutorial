@@ -42,23 +42,9 @@ int main(int argc, char **argv) {
   auto indvarsimplifypass = createIndVarSimplifyPass();
   PM.add(createIndVarSimplifyPass());
 
-  auto loopinfowrapperpass = new LoopInfoWrapperPass();
-  PM.add(loopinfowrapperpass);
-
-  auto scalarevolutionwrapperpass = new ScalarEvolutionWrapperPass();
-  PM.add(scalarevolutionwrapperpass);
-
-  auto loopaccesslegacyanalysis = new LoopAccessLegacyAnalysis();
-  PM.add(loopaccesslegacyanalysis);
-
-  auto dominatortreewrapperpass = new DominatorTreeWrapperPass();
-  PM.add(dominatortreewrapperpass);
-
-  auto optimizationremarkemitterwrapperpass = new OptimizationRemarkEmitterWrapperPass();
-  PM.add(optimizationremarkemitterwrapperpass);
   print_info("Enable HI_LoopInFormationCollect Pass");
-
   auto hi_loopinformationcollect = new HI_LoopInFormationCollect("Loops");
+  hi_loopinformationcollect->solveDependency(PM);
   PM.add(hi_loopinformationcollect); 
   
   print_status("Start LLVM processing");  

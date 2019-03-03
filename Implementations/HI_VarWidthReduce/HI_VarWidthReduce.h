@@ -295,6 +295,7 @@ public:
     // cache constant range for those evaluated SCEVs
     const ConstantRange &setRange(const SCEV *S, ConstantRange CR);
 
+    unsigned int HI_getBidwith(Value *I);
 
     unsigned int bitNeededFor(ConstantRange CR);
 

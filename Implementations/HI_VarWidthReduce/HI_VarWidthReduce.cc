@@ -100,7 +100,19 @@ void HI_VarWidthReduce::Bitwidth_Analysis(Function *F)
                 }
                 else  // otherwise, extract the bitwidth from the value range
                 {
-                    Instruction_BitNeeded[&I] = bitNeededFor(tmp_CR2) ;
+                    if (ICmpInst *Icmp_I = dyn_cast<ICmpInst>(&I))
+                    {
+                        Instruction_BitNeeded[&I] = 1;
+                        for (int i =0;i<Icmp_I->getNumOperands();i++)
+                        {
+                            if (HI_getBidwith(Icmp_I->getOperand(i)) > Instruction_BitNeeded[&I] )
+                            {
+                                Instruction_BitNeeded[&I] = HI_getBidwith(Icmp_I->getOperand(i)) ;
+                            }
+                        }
+                    }
+                    else
+                        Instruction_BitNeeded[&I] = bitNeededFor(tmp_CR2);
                 }                
                  *VarWidthChangeLog << Instruction_BitNeeded[&I] <<")\n";
                 *VarWidthChangeLog << "\n\n\n";
@@ -110,6 +122,12 @@ void HI_VarWidthReduce::Bitwidth_Analysis(Function *F)
     }
 }
 
+unsigned int HI_VarWidthReduce::HI_getBidwith(Value *I)
+{
+    const SCEV *tmp_S = SE->getSCEV(I);
+    ConstantRange tmp_CR2 = HI_getSignedRangeRef(tmp_S);
+    return bitNeededFor(tmp_CR2);
+}
 
 // Forward Process: check the bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of the instruction
 bool HI_VarWidthReduce::InsturctionUpdate_WidthCast(Function *F) 
@@ -180,15 +198,9 @@ bool HI_VarWidthReduce::InsturctionUpdate_WidthCast(Function *F)
                         //VarWidthChangeLog->flush(); 
                         
                         // process different operations with corresponding consideration/procedure
-                        if (BinaryOperator* BOI = dyn_cast<BinaryOperator>(&I))
+                        if (ICmpInst* ICMP_I = dyn_cast<ICmpInst>(&I))
                         {
-                            BOI_WidthCast(BOI);
-                            take_action = 1;
-                            changed = 1;    
-                            break;
-                        }
-                        else if (ICmpInst* ICMP_I = dyn_cast<ICmpInst>(&I))
-                        {
+                            *VarWidthChangeLog << "          "<< *ICMP_I << " is a ICmpInst\n ";
                             ICMP_WidthCast(ICMP_I);
                             take_action = 1;
                             changed = 1;    
@@ -196,7 +208,16 @@ bool HI_VarWidthReduce::InsturctionUpdate_WidthCast(Function *F)
                         }
                         else if (PHINode* PHI_I = dyn_cast<PHINode>(&I))
                         {
+                            *VarWidthChangeLog << "          "<< *PHI_I << " is a PHINode\n ";
                             PHI_WidthCast(PHI_I);
+                            take_action = 1;
+                            changed = 1;    
+                            break;
+                        }
+                        else if (BinaryOperator* BOI = dyn_cast<BinaryOperator>(&I))
+                        {
+                            *VarWidthChangeLog << "          "<< *BOI << " is a BinaryOperator\n ";
+                            BOI_WidthCast(BOI);
                             take_action = 1;
                             changed = 1;    
                             break;
