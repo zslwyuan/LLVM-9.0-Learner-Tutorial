@@ -19,14 +19,18 @@
 #include "clang/Parse/Parser.h"
 #include "clang/Parse/ParseAST.h"
 #include "clang/Rewrite/Core/Rewriter.h"
-
+#include "clang/Lex/HeaderSearchOptions.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include <iostream>
 #include <sstream>
 #include <string>
 #include<cstdlib>
-
+#include <sstream>
+#include <string>
+#include <fstream>
+#include "HI_SysExec.h"
+#include "HI_print.h"
 
 using namespace clang;
 // By implementing RecursiveASTVisitor, we can specify which AST nodes
@@ -118,8 +122,22 @@ private:
     MyASTVisitor Visitor;
 };
 
+ void ReplaceAll(std::string& strSource, const std::string& strOld, const std::string& strNew)
+ {
+  int nPos = 0;
+  while ((nPos = strSource.find(strOld, nPos)) != strSource.npos)
+  {
+   strSource.replace(nPos, strOld.length(), strNew);
+   nPos += strNew.length();
+  }
+ } 
 
 std::string transform(std::string fileName) {
+
+  std::string cmd_str = "clang++ ../testcase/test.c  -v 2> ciinfor";
+  print_cmd(cmd_str.c_str());
+  bool result = sysexec(cmd_str.c_str()); 
+  std::ifstream infile("ciinfor");
 
   CompilerInstance compilerInstance;
   compilerInstance.createDiagnostics();
@@ -145,8 +163,38 @@ std::string transform(std::string fileName) {
   langOpts.RTTI = 1;  
   langOpts.Bool = 1;   // <-- Note the Bool option here !
   langOpts.CPlusPlus = 1;  
+ 
+
+
+    std::string line;
+    while (std::getline(infile, line))
+    {
+        if (line.find("#include <...> search starts here")!=std::string::npos)
+        {
+            while (std::getline(infile, line))
+            {
+                if (line.find("End of search list.")!=std::string::npos)
+                {                                        
+                    break;
+                }
+                else
+                {
+                    ReplaceAll(line," ","");
+                    ReplaceAll(line,"\n","");
+                    compilerInstance.getHeaderSearchOpts().AddPath(line,frontend::ExternCSystem,false,true);
+                }
+                
+            }
+            break;
+        }
+    }
+
+
   PreprocessorOptions &PPOpts = compilerInstance.getPreprocessorOpts();
 
+
+  std::cout << TO->Triple<< std::endl; 
+  std::cout << (llvm::Triple(TO->Triple)).getOSName().str() << std::endl;
   invocation.setLangDefaults(langOpts, 
                              clang::InputKind(),
                              llvm::Triple(TO->Triple), 
@@ -161,8 +209,8 @@ std::string transform(std::string fileName) {
                    LangStandard::Kind LangStd = LangStandard::lang_unspecified);
 
 */
-
-  compilerInstance.createPreprocessor(TU_Module);
+    
+  compilerInstance.createPreprocessor(TU_Complete);
   compilerInstance.createASTContext();
 
   // A Rewriter helps us manage the code rewriting task.
@@ -184,7 +232,7 @@ std::string transform(std::string fileName) {
     compilerInstance.getPreprocessor(), 
     &consumer, 
     compilerInstance.getASTContext());
-
+    
   // At this point the rewriter's buffer should be full with the rewritten
   // file contents.
   const RewriteBuffer* buffer = rewriter.getRewriteBufferFor(sourceManager.getMainFileID());
@@ -194,7 +242,7 @@ std::string transform(std::string fileName) {
 
 int main()
 {
-    std::cout << transform("test.c") << std::endl;
+    std::cout << transform("../testcase/test.c") << std::endl;
     // using clang::CompilerInstance;
     // using clang::TargetOptions;
     // using clang::TargetInfo;
