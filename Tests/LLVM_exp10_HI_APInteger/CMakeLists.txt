@@ -35,6 +35,7 @@ include_directories(./
 ../../Implementations/HI_DuplicateInstRm
 ../../Implementations/HI_VarWidthReduce
 ../../Implementations/HI_SeparateConstOffsetFromGEP
+../../Implementations/HI_APIntSrcTrans
 )
 
 link_directories("../LLVM_Learner_Libs")
@@ -50,7 +51,7 @@ add_executable(${Outputname} LLVM_exp10_HI_APInteger.cc)
 
 llvm_map_components_to_libnames(llvm_libs support core irreader engine nativecodegen) 
 
-target_link_libraries(${Outputname} pthread dl HI_FindFunctions HI_print HI_DependenceList HI_SysExec HI_LoopInFormationCollect HI_Polly_Info HI_LoopDependenceAnalysis HI_SimpleTimingEvaluation HI_DuplicateInstRm HI_VarWidthReduce HI_SeparateConstOffsetFromGEP) #link llvm component 
+target_link_libraries(${Outputname} pthread dl HI_FindFunctions HI_print HI_DependenceList HI_SysExec HI_LoopInFormationCollect HI_Polly_Info HI_LoopDependenceAnalysis HI_SimpleTimingEvaluation HI_DuplicateInstRm HI_VarWidthReduce HI_SeparateConstOffsetFromGEP HI_APIntSrcTrans) #link llvm component 
 
 target_link_libraries(${Outputname} ${Polly_LIBRARIES})
 
@@ -222,6 +223,9 @@ clangStaticAnalyzerCheckers
 clangStaticAnalyzerCore 
 clangRewrite 
 clangEdit 
+clangTooling
+clangARCMigrate
+clangRewriteFrontend
 ) 
 
 # message(STATUS "LLVM Libraries0 are: ${llvm_libs}") 

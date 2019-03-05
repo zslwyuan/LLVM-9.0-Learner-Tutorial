@@ -1,5 +1,4 @@
-HI_SeparateConstOffsetFromGEP pass is tested by LLVM_exp9_HI_SepConstGEP
-
-The pass is modified from the SeparateConstOffsetFromGEP pass, but in this pass, we lower the GEP considering that in HLS, arrays are not aligned by bytes (like DDR), but elements.
-
-Therefore, we do not need to consider how wide (how many bytes/bits) a element is. You can trace the modification by the flag "HI-MODIFICATION" in comments.
+ 
+ Test Command:
+ 
+ ./LLVM_exp10_HI_APInteger ../testcase/test.c -- -I/usr/local/lib/clang/9.0.0/include

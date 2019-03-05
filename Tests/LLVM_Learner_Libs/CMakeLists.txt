@@ -6,16 +6,18 @@ cmake_minimum_required(VERSION 3.10)
 
 find_package(LLVM REQUIRED CONFIG) 
 find_package(Polly) 
+find_package(Clang) 
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}") 
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}") 
 
 message(STATUS "Using PollyConfig.cmake in: ${Polly_CMAKE_DIR}") 
-
+message(STATUS "Using ClangConfig.cmake in: ${CLANG_CMAKE_DIR}") 
 # Needed to use support library 
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -std=c++14 -g") 
 
+include_directories(${Clang_INCLUDE_DIRS}) 
 include_directories(${LLVM_INCLUDE_DIRS}) 
 include_directories(${Polly_INCLUDE_DIRS}) 
 
@@ -32,6 +34,7 @@ include_directories(./ ../../Implementations/
 ../../Implementations/HI_DuplicateInstRm
 ../../Implementations/HI_VarWidthReduce
 ../../Implementations/HI_SeparateConstOffsetFromGEP
+../../Implementations/HI_APIntSrcTrans
 )
 
 add_subdirectory(../../Implementations ./building)
