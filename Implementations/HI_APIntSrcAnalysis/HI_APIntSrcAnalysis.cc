@@ -1,7 +1,7 @@
 
-#include "HI_APIntSrcTrans.h"
+#include "HI_APIntSrcAnalysis.h"
 
-void HI_APIntSrcTrans_Visitor::printTypeInfo(const Type *T)
+void HI_APIntSrcAnalysis_Visitor::printTypeInfo(const Type *T)
 {        
 
     *parseLog << "    TypeClassName: "  << T->getTypeClassName()  << " ";
@@ -36,7 +36,7 @@ void HI_APIntSrcTrans_Visitor::printTypeInfo(const Type *T)
 }
 
 
-bool HI_APIntSrcTrans_Visitor::isAPInt(VarDecl *VD)
+bool HI_APIntSrcAnalysis_Visitor::isAPInt(VarDecl *VD)
 {        
     const Type *T = VD->getType().getTypePtr();
     if (const TemplateSpecializationType* TST = dyn_cast<const TemplateSpecializationType>(T))
@@ -47,7 +47,7 @@ bool HI_APIntSrcTrans_Visitor::isAPInt(VarDecl *VD)
 }
 
 
-std::string HI_APIntSrcTrans_Visitor::getAPIntName(VarDecl *VD)
+std::string HI_APIntSrcAnalysis_Visitor::getAPIntName(VarDecl *VD)
 {        
     const Type *T = VD->getType().getTypePtr();
     if (const TemplateSpecializationType* TST = dyn_cast<const TemplateSpecializationType>(T))

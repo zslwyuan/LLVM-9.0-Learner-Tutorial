@@ -1,4 +1,4 @@
-#include "LLVM_exp10_HI_APInteger.h"
+#include "LLVM_exp10_HI_APIntegerAnalysis.h"
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -69,15 +69,17 @@ int main(int argc, const char **argv) {
     // parse the command-line args passed to your code
     CommonOptionsParser op(argc, argv, StatSampleCategory);     
 
+    // create a consumer with rewriter embeded inside
     Rewriter rewriter;
-    HI_APIntSrcTrans_Creator *creator = new HI_APIntSrcTrans_Creator(&rewriter);   
+    HI_APIntSrcAnalysis_Creator *creator = new HI_APIntSrcAnalysis_Creator(&rewriter);   
+
     // create a new Clang Tool instance (a LibTooling environment)
     ClangTool Tool(op.getCompilations(), op.getSourcePathList());
-    std::cout<<"tag 1" << std::endl;
-    // run the Clang Tool, creating a new FrontendAction (explained below)
-    int result = Tool.run(HI_Rewrite_newFrontendActionFactory<HI_APIntSrcTrans_Creator>(creator,nullptr).get());
-    std::cout<<"tag 2" << std::endl;
-    // print out the rewritten source code ("rewriter" is a global var.)
+    
+    // run the Clang Tool, creating a new FrontendAction, which will run the AST consumer 
+    int result = Tool.run(HI_Rewrite_newFrontendActionFactory<HI_APIntSrcAnalysis_Creator>(creator,nullptr).get());
+    
+    // print out the rewritten source code 
     rewriter.getEditBuffer(rewriter.getSourceMgr().getMainFileID()).write(llvm::errs());
     return 0;
 }

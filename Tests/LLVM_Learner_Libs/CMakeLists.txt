@@ -34,7 +34,7 @@ include_directories(./ ../../Implementations/
 ../../Implementations/HI_DuplicateInstRm
 ../../Implementations/HI_VarWidthReduce
 ../../Implementations/HI_SeparateConstOffsetFromGEP
-../../Implementations/HI_APIntSrcTrans
+../../Implementations/HI_APIntSrcAnalysis
 )
 
 add_subdirectory(../../Implementations ./building)

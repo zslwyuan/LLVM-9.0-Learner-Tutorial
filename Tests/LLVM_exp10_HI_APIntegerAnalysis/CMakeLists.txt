@@ -1,6 +1,6 @@
-project(LLVM_exp10_HI_APInteger) 
+project(LLVM_exp10_HI_APIntegerAnalysis) 
 
-set(Outputname "LLVM_exp10_HI_APInteger")
+set(Outputname "LLVM_exp10_HI_APIntegerAnalysis")
 
 cmake_minimum_required(VERSION 3.10) 
 
@@ -35,7 +35,7 @@ include_directories(./
 ../../Implementations/HI_DuplicateInstRm
 ../../Implementations/HI_VarWidthReduce
 ../../Implementations/HI_SeparateConstOffsetFromGEP
-../../Implementations/HI_APIntSrcTrans
+../../Implementations/HI_APIntSrcAnalysis
 )
 
 link_directories("../LLVM_Learner_Libs")
@@ -47,11 +47,11 @@ execute_process(COMMAND ${MAKE_CMD}
 add_definitions(${LLVM_DEFINITIONS}) 
 add_definitions(${Polly_DEFINITIONS}) 
 
-add_executable(${Outputname} LLVM_exp10_HI_APInteger.cc) 
+add_executable(${Outputname} LLVM_exp10_HI_APIntegerAnalysis.cc) 
 
 llvm_map_components_to_libnames(llvm_libs support core irreader engine nativecodegen) 
 
-target_link_libraries(${Outputname} pthread dl HI_FindFunctions HI_print HI_DependenceList HI_SysExec HI_LoopInFormationCollect HI_Polly_Info HI_LoopDependenceAnalysis HI_SimpleTimingEvaluation HI_DuplicateInstRm HI_VarWidthReduce HI_SeparateConstOffsetFromGEP HI_APIntSrcTrans) #link llvm component 
+target_link_libraries(${Outputname} pthread dl HI_FindFunctions HI_print HI_DependenceList HI_SysExec HI_LoopInFormationCollect HI_Polly_Info HI_LoopDependenceAnalysis HI_SimpleTimingEvaluation HI_DuplicateInstRm HI_VarWidthReduce HI_SeparateConstOffsetFromGEP HI_APIntSrcAnalysis) #link llvm component 
 
 target_link_libraries(${Outputname} ${Polly_LIBRARIES})
 

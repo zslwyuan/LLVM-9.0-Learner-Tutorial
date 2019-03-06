@@ -1,4 +1,0 @@
- 
- Test Command:
- 
- ./LLVM_exp10_HI_APInteger ../testcase/test.c -- -I/usr/local/lib/clang/9.0.0/include

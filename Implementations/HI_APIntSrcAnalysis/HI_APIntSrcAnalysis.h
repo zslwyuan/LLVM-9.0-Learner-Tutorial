@@ -1,5 +1,5 @@
-#ifndef _HI_APIntSrcTrans
-#define _HI_APIntSrcTrans
+#ifndef _HI_APIntSrcAnalysis
+#define _HI_APIntSrcAnalysis
 // related headers should be included.
 #include <algorithm>
 #include <cassert>
@@ -33,7 +33,22 @@
 using namespace clang;
 
 
-class HI_APIntSrcTrans_Visitor : public RecursiveASTVisitor<HI_APIntSrcTrans_Visitor> 
+
+
+//                         declare a rewriter
+//                               |  pass the pointer to
+//                  call         V
+// frontend action  --->   the creator
+//         |                     |  create / pass the rewriter
+//         |   Src Code          V
+//         ------------->   AST consumer
+//                               |
+//                               |  generate AST
+//                               V
+//                            Visitor (visit the nodes in AST and do the rewritting)
+
+
+class HI_APIntSrcAnalysis_Visitor : public RecursiveASTVisitor<HI_APIntSrcAnalysis_Visitor> 
 {
 private:
     ASTContext *astContext; // used for getting additional AST info
@@ -45,7 +60,7 @@ public:
         return PrintingPolicy(CI->getLangOpts());
     }
 
-    explicit HI_APIntSrcTrans_Visitor(CompilerInstance *_CI, Rewriter *_R): astContext(&(_CI->getASTContext())) 
+    explicit HI_APIntSrcAnalysis_Visitor(CompilerInstance *_CI, Rewriter *_R): astContext(&(_CI->getASTContext())) 
     {  // initialize private members
         CI = _CI;
         R = _R;
@@ -54,7 +69,7 @@ public:
         tmp_stream = new llvm::raw_string_ostream(tmp_stream_str);
     }
 
-    ~HI_APIntSrcTrans_Visitor()
+    ~HI_APIntSrcAnalysis_Visitor()
     {
         parseLog->flush();
         delete parseLog;
@@ -112,40 +127,50 @@ public:
 
 
 
-class HI_APIntSrcTrans_ASTConsumer : public ASTConsumer 
+class HI_APIntSrcAnalysis_ASTConsumer : public ASTConsumer 
 {
 private:
-    HI_APIntSrcTrans_Visitor *visitor; // doesn't have to be private
+    HI_APIntSrcAnalysis_Visitor *visitor; // doesn't have to be private
     Rewriter *R;
 public:
     // override the constructor in order to pass CI
-    explicit HI_APIntSrcTrans_ASTConsumer(CompilerInstance *CI,Rewriter *_R): visitor(new HI_APIntSrcTrans_Visitor(CI,_R)) {R = _R;}// initialize the visitor
+    explicit HI_APIntSrcAnalysis_ASTConsumer(CompilerInstance *CI,Rewriter *_R): visitor(new HI_APIntSrcAnalysis_Visitor(CI,_R)) {R = _R;}// initialize the visitor
 
-    // override this to call our HI_APIntSrcTrans_Visitor on the entire source file
-    virtual void HandleTranslationUnit(ASTContext &Context) 
+    // override this to call our HI_APIntSrcAnalysis_Visitor on the entire source file
+    virtual void HandleAnalysislationUnit(ASTContext &Context) 
     {
-        /* we can use ASTContext to get the TranslationUnitDecl, which is
+        /* we can use ASTContext to get the AnalysislationUnitDecl, which is
              a single Decl that collectively represents the entire source file */
         visitor->TraverseDecl(Context.getTranslationUnitDecl());
     }
 };
 
-class HI_APIntSrcTrans_Creator
+
+// According the official template of Clang, this is a creater with newASTConsumer(), which
+// will generator a AST consumer. We can first create a rewriter and pass the pointer of the
+// rewriter to the creator. Finally,  we can pass the rewriter pointer to the inner visitor.
+// rewriter ptr -> creator -> frontend-action -> ASTconsumer -> Visitor
+class HI_APIntSrcAnalysis_Creator
 {
 private:
     Rewriter *R;
 public:
     
-    // override the constructor in order to pass CI
-    explicit HI_APIntSrcTrans_Creator(Rewriter *_R) { R = _R;}// initialize the visitor
+    // override the constructor in order to pass the rewriter to the ASTConsumer
+    explicit HI_APIntSrcAnalysis_Creator(Rewriter *_R) { R = _R;}// initialize the creator, pass the pointer of rewriter
     std::unique_ptr<ASTConsumer> newASTConsumer(CompilerInstance &CI) 
     {
-        return llvm::make_unique<HI_APIntSrcTrans_ASTConsumer>(&CI,R);
+        return llvm::make_unique<HI_APIntSrcAnalysis_ASTConsumer>(&CI,R);
     }
 };
 
 
 
+
+// According the official template of Clang, this is a creater with newASTConsumer(), which
+// will generator a AST consumer. We can first create a rewriter and pass the pointer of the
+// rewriter to the creator. Finally,  we can pass the rewriter pointer to the inner visitor.
+// rewriter ptr -> creator -> frontend-action -> ASTconsumer -> Visitor
 template <typename FactoryT>
 inline std::unique_ptr<tooling::FrontendActionFactory> HI_Rewrite_newFrontendActionFactory(
     FactoryT *ConsumerFactory, tooling::SourceFileCallbacks *Callbacks) {
@@ -172,8 +197,8 @@ inline std::unique_ptr<tooling::FrontendActionFactory> HI_Rewrite_newFrontendAct
           : ConsumerFactory(ConsumerFactory), Callbacks(Callbacks) {}
 
       std::unique_ptr<ASTConsumer>
-      CreateASTConsumer(CompilerInstance &CI, StringRef file)  override {
-        return ConsumerFactory->newASTConsumer(CI);
+      CreateASTConsumer(CompilerInstance &CI, StringRef file)  override { // we cannot modify the declaration of function (name+argument)
+        return ConsumerFactory->newASTConsumer(CI);   // <====  This line is different from the  official template, we use newASTConsumer to pass CI
       }
 
     protected:
