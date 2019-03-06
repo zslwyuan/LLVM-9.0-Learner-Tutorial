@@ -79,9 +79,14 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
       --- HLS, ByteAlignment->ElementAlignment, SeparateConstOffsetFromGEP, GEP Lowering, Transformation Pass, DataLayout
 
 
-**Experiment 10**: TODO: Hack on Clang to make arbitary precision integer ap_int<X> in source code for VivadoHLS mapped to iX in IR generation  (Front-end Operation)
+**Experiment 10**: Hack on Clang to detect arbitary precision integer ap_int<X> in source code for VivadoHLS and mark them in the source code (Front-end Operation: AST Consumer)
 
-      --- Front-End Operation, IR generation, Clang
+      --- Front-End Operation, AST Consumer, Visit Nodes in AST, Clang, Template Detection
+
+
+**Experiment 11**: (WIP) Hack on Clang to properly map arbitary precision integer ap_int<X> in source code for VivadoHLS into iX in IR generation  (Front-end Operation: CodeGen)
+
+      --- CodeGen Operation, AST Consumer, Visit Nodes in AST, Clang
 
 
 **usage example**
