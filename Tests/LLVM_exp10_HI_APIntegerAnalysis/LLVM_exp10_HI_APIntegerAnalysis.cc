@@ -54,22 +54,14 @@ void pathAdvice()
     std::cout<< "===============================================================================" << std::endl;
 }
 
-// template <typename T>
-// std::unique_ptr<tooling::FrontendActionFactory> HI_newFrontendActionFactory() {
-//   class SimpleFrontendActionFactory : public FrontendActionFactory {
-//   public:
-//     FrontendAction *create() override { return new T; }
-//   };
-
-//   return std::unique_ptr<tooling::FrontendActionFactory>(
-//       new SimpleFrontendActionFactory);
-// }
-
-
-static llvm::cl::OptionCategory StatSampleCategory("Stat Sample");
 using namespace clang;
 using namespace clang::driver;
 using namespace clang::tooling;
+
+
+
+static llvm::cl::OptionCategory StatSampleCategory("Stat Sample");
+
 
 int main(int argc, const char **argv) {
 
@@ -81,20 +73,23 @@ int main(int argc, const char **argv) {
 
     // create a new Clang Tool instance (a LibTooling environment)
     ClangTool Tool(op.getCompilations(), op.getSourcePathList());
-    
+    Rewriter TheRewriter;
+
     // run the Clang Tool, creating a new FrontendAction, which will run the AST consumer 
-    return Tool.run(newFrontendActionFactory<HI_APIntSrcAnalysis_FrontendAction>().get());
+    return Tool.run(HI_rewrite_newFrontendActionFactory<HI_APIntSrcAnalysis_FrontendAction>("PLog",TheRewriter,"rewriteOut").get());
     
     return 0;
 }
 
 
 
-
+// ANOTHER VERSION OF IMPLEMENTATION
+// in which I construct a lot of components according to some other codes
+// The following part is actually what the frontendAction does in the function
+// BeginSourceFileAction(), initializing and configuring infrastructures.
 
 // using namespace clang;
-// // By implementing RecursiveASTVisitor, we can specify which AST nodes
-// // we're interested in by overriding relevant methods.
+
 // class MyASTVisitor : public RecursiveASTVisitor<MyASTVisitor>
 // {
 // public:
@@ -103,51 +98,11 @@ int main(int argc, const char **argv) {
 //     {}
 
 //     bool VisitStmt(Stmt *s) {
-//         // Only care about If statements.
-//         if (isa<IfStmt>(s)) {
-//             IfStmt *IfStatement = cast<IfStmt>(s);
-//             Stmt *Then = IfStatement->getThen();
-
-//             TheRewriter.InsertText(Then->getBeginLoc(),
-//                                    "// the 'if' part\n",
-//                                    true, true);
-
-//             Stmt *Else = IfStatement->getElse();
-//             if (Else)
-//                 TheRewriter.InsertText(Else->getBeginLoc(),
-//                                        "// the 'else' part\n",
-//                                        true, true);
-//         }
 
 //         return true;
 //     }
 
 //     bool VisitFunctionDecl(FunctionDecl *f) {
-//         // Only function definitions (with bodies), not declarations.
-//         if (f->hasBody()) {
-//             Stmt *FuncBody = f->getBody();
-
-//             // Type name as string
-//             QualType QT = f->getReturnType();
-//             std::string TypeStr = QT.getAsString();
-
-//             // Function name
-//             DeclarationName DeclName = f->getNameInfo().getName();
-//             std::string FuncName = DeclName.getAsString();
-
-//             // Add comment before
-//             std::stringstream SSBefore("");
-//             SSBefore << "// Begin function " << FuncName << " returning "
-//                      << TypeStr << "\n";
-//             SourceLocation ST = f->getSourceRange().getBegin();
-//             TheRewriter.InsertText(ST, SSBefore.str(), true, true);
-
-//             // And after
-//             std::stringstream SSAfter("");
-//             SSAfter << "\n// End function " << FuncName << "\n";
-//             ST = FuncBody->getEndLoc().getLocWithOffset(1);
-//             TheRewriter.InsertText(ST, SSAfter.str(), true, true);
-//         }
 
 //         return true;
 //     }
@@ -292,46 +247,4 @@ int main(int argc, const char **argv) {
 //     const RewriteBuffer* buffer = rewriter.getRewriteBufferFor(sourceManager.getMainFileID());
 
 //     return std::string(buffer->begin(), buffer->end());
-// }
-
-// int main()
-// {
-//     std::cout << transform("../testcase/test.c") << std::endl;
-//     // using clang::CompilerInstance;
-//     // using clang::TargetOptions;
-//     // using clang::TargetInfo;
-//     // using clang::FileEntry;
-//     // using clang::Token;
-//     // using clang::ASTContext;
-//     // using clang::ASTConsumer;
-//     // using clang::Parser;
-//     // using clang::DiagnosticOptions;
-//     // using clang::TextDiagnosticPrinter;
-
-//     // CompilerInstance ci;
-//     // DiagnosticOptions diagnosticOptions;
-//     // ci.createDiagnostics();
-
-//     // std::shared_ptr<clang::TargetOptions> pto = std::make_shared<clang::TargetOptions>();
-//     // pto->Triple = llvm::sys::getDefaultTargetTriple();
-//     // TargetInfo *pti = TargetInfo::CreateTargetInfo(ci.getDiagnostics(), pto);
-//     // ci.setTarget(pti);
-
-//     // ci.createFileManager();
-//     // ci.createSourceManager(ci.getFileManager());
-//     // ci.createPreprocessor(clang::TU_Complete);
-//     // PreprocessorOptions &PO = (ci.getPreprocessorOpts());
-//     // PO.UsePredefines = false;
-
-//     // ci.setASTConsumer(llvm::make_unique<ASTConsumer>());
-
-//     // ci.createASTContext();
-//     // ci.createSema(clang::TU_Complete, NULL);
-
-//     // const FileEntry *pFile = ci.getFileManager().getFile("test.c");
-//     // ci.getSourceManager().setMainFileID( ci.getSourceManager().createFileID( pFile, clang::SourceLocation(), clang::SrcMgr::C_User));
-//     // clang::ParseAST(ci.getSema());
-//     // ci.getASTContext().Idents.PrintStats();
-
-//     return 0;
 // }

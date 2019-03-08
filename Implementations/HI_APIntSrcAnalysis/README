@@ -8,33 +8,35 @@ The rewriter shoud be passed as reference but not pointer, otherwise errors will
 
 Such implementation is based on the following hierarchy:
 
-                        declare a rewriter
-                              |  pass the pointer to
-                 call         V
-frontend action  --->   the creator
-        |                     |  create / pass the rewriter
-        |   Src Code          V
-        ------------->   AST consumer
-                              |
-                              |  generate AST
-                              V
-                           Visitor (visit the nodes in AST and do the rewritting)
 
-IMPORTANT
+// According the official template of Clang, this is a frontend factory with function createASTConsumer(), which
+// will generator a AST consumer. We can first create a rewriter and pass the reference of the
+// rewriter to the factory. Finally,  we can pass the rewriter reference to the inner visitor.
+// rewriter  -> factory -> frontend-action -> ASTconsumer -> Visitor
 
-    // override this to call our HI_APIntSrcAnalysis_Visitor on the entire source file
-  //  virtual void HandleAnalysislationUnit(ASTContext &Context) 
-  //  {
-        /* we can use ASTContext to get the AnalysislationUnitDecl, which is
-             a single Decl that collectively represents the entire source file */
- //       visitor.TraverseDecl(Context.getTranslationUnitDecl());
- //   }
+//                         declare a rewriter
+//                               |  pass the pointer to
+//                  create       V
+// frontend Factory ----->   FrontEnd Action
+//         |                     |  create / pass the rewriter
+//         |   Src Code          V
+//         ------------->   AST consumer
+//                               |
+//                               |  generate AST
+//                               V
+//                            Visitor (visit the nodes in AST and do the rewritting)
+
+IMPORTANT: Compare the differences between the following two implementation
+
+//  virtual void HandleAnalysislationUnit(ASTContext &Context) 
+//  {
+//       visitor.TraverseDecl(Context.getTranslationUnitDecl());
+//   }
 
     bool HandleTopLevelDecl(DeclGroupRef DR) override 
     { 
         for (DeclGroupRef::iterator b = DR.begin(), e = DR.end(); b != e; ++b) 
         { 
-            // Traverse the declaration using our AST visitor. 
             visitor.TraverseDecl(*b); //(*b)->dump(); 
         } 
         return true; 

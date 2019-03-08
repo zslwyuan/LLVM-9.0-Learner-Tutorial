@@ -1,6 +1,7 @@
 
 #include "HI_APIntSrcAnalysis.h"
 
+// print the detailed information of the type
 void HI_APIntSrcAnalysis_Visitor::printTypeInfo(const Type *T)
 {        
 
@@ -35,7 +36,7 @@ void HI_APIntSrcAnalysis_Visitor::printTypeInfo(const Type *T)
     parseLog->flush();
 }
 
-
+// check whether it is a template structure like XXXX<X>
 bool HI_APIntSrcAnalysis_Visitor::isAPInt(VarDecl *VD)
 {        
     const Type *T = VD->getType().getTypePtr();
@@ -46,7 +47,7 @@ bool HI_APIntSrcAnalysis_Visitor::isAPInt(VarDecl *VD)
     return false;
 }
 
-
+// get tht template name
 std::string HI_APIntSrcAnalysis_Visitor::getAPIntName(VarDecl *VD)
 {        
     const Type *T = VD->getType().getTypePtr();
