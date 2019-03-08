@@ -54,7 +54,16 @@ void pathAdvice()
     std::cout<< "===============================================================================" << std::endl;
 }
 
+// template <typename T>
+// std::unique_ptr<tooling::FrontendActionFactory> HI_newFrontendActionFactory() {
+//   class SimpleFrontendActionFactory : public FrontendActionFactory {
+//   public:
+//     FrontendAction *create() override { return new T; }
+//   };
 
+//   return std::unique_ptr<tooling::FrontendActionFactory>(
+//       new SimpleFrontendActionFactory);
+// }
 
 
 static llvm::cl::OptionCategory StatSampleCategory("Stat Sample");
@@ -69,18 +78,13 @@ int main(int argc, const char **argv) {
     // parse the command-line args passed to your code
     CommonOptionsParser op(argc, argv, StatSampleCategory);     
 
-    // create a consumer with rewriter embeded inside
-    Rewriter rewriter;
-    HI_APIntSrcAnalysis_Creator *creator = new HI_APIntSrcAnalysis_Creator(&rewriter);   
 
     // create a new Clang Tool instance (a LibTooling environment)
     ClangTool Tool(op.getCompilations(), op.getSourcePathList());
     
     // run the Clang Tool, creating a new FrontendAction, which will run the AST consumer 
-    int result = Tool.run(HI_Rewrite_newFrontendActionFactory<HI_APIntSrcAnalysis_Creator>(creator,nullptr).get());
+    return Tool.run(newFrontendActionFactory<HI_APIntSrcAnalysis_FrontendAction>().get());
     
-    // print out the rewritten source code 
-    rewriter.getEditBuffer(rewriter.getSourceMgr().getMainFileID()).write(llvm::errs());
     return 0;
 }
 

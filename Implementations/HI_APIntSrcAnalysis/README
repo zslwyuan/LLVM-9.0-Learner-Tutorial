@@ -4,6 +4,8 @@ HI_APIntegerAnalysis is based on Clang LibTooling
 
 It implement a frontend action to find the declartions of arbitrary precision integer and add comments in the source code to mark those declartions.
 
+The rewriter shoud be passed as reference but not pointer, otherwise errors will come out.
+
 Such implementation is based on the following hierarchy:
 
                         declare a rewriter
@@ -17,3 +19,23 @@ frontend action  --->   the creator
                               |  generate AST
                               V
                            Visitor (visit the nodes in AST and do the rewritting)
+
+IMPORTANT
+
+    // override this to call our HI_APIntSrcAnalysis_Visitor on the entire source file
+  //  virtual void HandleAnalysislationUnit(ASTContext &Context) 
+  //  {
+        /* we can use ASTContext to get the AnalysislationUnitDecl, which is
+             a single Decl that collectively represents the entire source file */
+ //       visitor.TraverseDecl(Context.getTranslationUnitDecl());
+ //   }
+
+    bool HandleTopLevelDecl(DeclGroupRef DR) override 
+    { 
+        for (DeclGroupRef::iterator b = DR.begin(), e = DR.end(); b != e; ++b) 
+        { 
+            // Traverse the declaration using our AST visitor. 
+            visitor.TraverseDecl(*b); //(*b)->dump(); 
+        } 
+        return true; 
+    } 

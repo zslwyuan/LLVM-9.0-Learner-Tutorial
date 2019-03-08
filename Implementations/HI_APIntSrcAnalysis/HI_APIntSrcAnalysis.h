@@ -16,10 +16,12 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Frontend/ASTConsumers.h"
 #include "clang/Frontend/FrontendActions.h"
+#include "clang/Frontend/FrontendAction.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "clang/Tooling/Tooling.h"
 #include "clang/Rewrite/Core/Rewriter.h"
+#include "clang/Parse/ParseAST.h"
 #include <stdio.h>
 #include <string>
 #include <ios>
@@ -49,119 +51,133 @@ using namespace clang;
 
 
 class HI_APIntSrcAnalysis_Visitor : public RecursiveASTVisitor<HI_APIntSrcAnalysis_Visitor> 
-{
-private:
-    ASTContext *astContext; // used for getting additional AST info
-    CompilerInstance *CI;
-    Rewriter *R;
-public:
-    PrintingPolicy PP()
+{ 
+public: 
+    HI_APIntSrcAnalysis_Visitor(CompilerInstance &_CI, Rewriter &R) : CI(_CI), TheRewriter(R) 
     {
-        return PrintingPolicy(CI->getLangOpts());
-    }
-
-    explicit HI_APIntSrcAnalysis_Visitor(CompilerInstance *_CI, Rewriter *_R): astContext(&(_CI->getASTContext())) 
-    {  // initialize private members
-        CI = _CI;
-        R = _R;
-        R->setSourceMgr(astContext->getSourceManager(), astContext->getLangOpts());
         parseLog = new llvm::raw_fd_ostream("parseLog", ErrInfo, llvm::sys::fs::F_None);
-        tmp_stream = new llvm::raw_string_ostream(tmp_stream_str);
-    }
+    } 
 
-    ~HI_APIntSrcAnalysis_Visitor()
+    ~HI_APIntSrcAnalysis_Visitor() 
     {
         parseLog->flush();
         delete parseLog;
-    }
-
+    } 
+    
+    
+    bool VisitStmt(Stmt *s) 
+    { 
+        // Only care about If statements. 
+        if (isa<IfStmt>(s)) 
+        { 
+            IfStmt *IfStatement = cast<IfStmt>(s); 
+            Stmt *Then = IfStatement->getThen(); 
+            TheRewriter.InsertText(Then->getBeginLoc(), "// the 'if' part\n", true, true); 
+            Stmt *Else = IfStatement->getElse(); 
+            if (Else) TheRewriter.InsertText(Else->getBeginLoc(), "// the 'else' part\n", true, true); 
+        } 
+        parseLog->flush();
+        return true; 
+    } 
 
     virtual bool VisitVarDecl(VarDecl *VD) 
     { 
         *parseLog << "find VarDecl: VarName: ["  << VD->getNameAsString() << "] DeclKind:[" 
             << VD->getDeclKindName()<< "] Type: ["<< VD->getType().getAsString() << "] at Loc: [" 
-            << VD->getBeginLoc().printToString(CI->getSourceManager()) <<"]\n";
+            << VD->getBeginLoc().printToString(CI.getSourceManager()) <<"]\n";
         *parseLog << "    ---  detailed information of the type\n";
         printTypeInfo(VD->getType().getTypePtr());
         if (isAPInt(VD))
         {
-            R->InsertText(VD->getBeginLoc(), "// "+VD->getNameAsString() +" is ap int type ("+getAPIntName(VD)+").\n");
-        }
-        return true;
-    }
-
-    virtual bool VisitFunctionDecl(FunctionDecl *func) 
-    {
-        std::string funcName;
-        funcName = func->getNameInfo().getName().getAsString();
-        if (func->isReferenced())
-        {
-            R->InsertText(func->getBody()->getBeginLoc(), "// used function\n");
+            TheRewriter.InsertText(VD->getBeginLoc(), "// "+VD->getNameAsString() +" is ap int type ("+getAPIntName(VD)+").\n");
         }
         parseLog->flush();
         return true;
     }
 
-
-    virtual bool VisitStmt(Stmt *st) 
-    {        
-        return true;
-    }
-    
-    virtual bool VisitType(Type *T) 
-    {
-        return true;
-    }
+    bool VisitFunctionDecl(FunctionDecl *f) 
+    { 
+        // Only function definitions (with bodies), not declarations. 
+        if (f->hasBody()) 
+        { 
+            Stmt *FuncBody = f->getBody(); // Type name as string 
+            QualType QT = f->getReturnType(); 
+            std::string TypeStr = QT.getAsString(); // Function name 
+            DeclarationName DeclName = f->getNameInfo().getName(); 
+            std::string FuncName = DeclName.getAsString(); // Add comment before 
+            std::stringstream SSBefore; SSBefore << "// Begin function " << FuncName << " returning " << TypeStr << "\n"; 
+            SourceLocation ST = f->getSourceRange().getBegin(); 
+            TheRewriter.InsertText(ST, SSBefore.str(), true, true); // And after 
+            std::stringstream SSAfter; 
+            SSAfter << "\n// End function " << FuncName; 
+            ST = FuncBody->getEndLoc().getLocWithOffset(1); 
+            TheRewriter.InsertText(ST, SSAfter.str(), true, true); 
+        } 
+        return true; 
+    } 
 
     void printTypeInfo(const Type *T);
+
+
     bool isAPInt(VarDecl *VD);
+
     std::string getAPIntName(VarDecl *VD);
 
+    PrintingPolicy PP()
+    {
+        return PrintingPolicy(CI.getLangOpts());
+    }
+
+private: 
+    Rewriter &TheRewriter; 
+    CompilerInstance &CI;
     std::error_code ErrInfo;
     raw_ostream *parseLog;
 
-    llvm::raw_string_ostream *tmp_stream;
-    std::string tmp_stream_str;
-
-};
-
-
+}; // Implementation of the ASTConsumer interface for reading an AST produced // by the Clang parser. 
 
 class HI_APIntSrcAnalysis_ASTConsumer : public ASTConsumer 
-{
-private:
-    HI_APIntSrcAnalysis_Visitor *visitor; // doesn't have to be private
-    Rewriter *R;
-public:
-    // override the constructor in order to pass CI
-    explicit HI_APIntSrcAnalysis_ASTConsumer(CompilerInstance *CI,Rewriter *_R): visitor(new HI_APIntSrcAnalysis_Visitor(CI,_R)) {R = _R;}// initialize the visitor
-
-    // override this to call our HI_APIntSrcAnalysis_Visitor on the entire source file
-    virtual void HandleAnalysislationUnit(ASTContext &Context) 
+{ 
+  public: 
+    HI_APIntSrcAnalysis_ASTConsumer(CompilerInstance &_CI,Rewriter &R) : Visitor(_CI,R),CI(_CI)
     {
-        /* we can use ASTContext to get the AnalysislationUnitDecl, which is
-             a single Decl that collectively represents the entire source file */
-        visitor->TraverseDecl(Context.getTranslationUnitDecl());
-    }
-};
 
+    } // Override the method that gets called for each parsed top-level // declaration. 
+    bool HandleTopLevelDecl(DeclGroupRef DR) override 
+    { 
+        for (DeclGroupRef::iterator b = DR.begin(), e = DR.end(); b != e; ++b) 
+        { 
+            // Traverse the declaration using our AST visitor. 
+            Visitor.TraverseDecl(*b); //(*b)->dump(); 
+        } 
+        return true; 
+    } 
 
-// According the official template of Clang, this is a creater with newASTConsumer(), which
-// will generator a AST consumer. We can first create a rewriter and pass the pointer of the
-// rewriter to the creator. Finally,  we can pass the rewriter pointer to the inner visitor.
-// rewriter ptr -> creator -> frontend-action -> ASTconsumer -> Visitor
-class HI_APIntSrcAnalysis_Creator
-{
-private:
-    Rewriter *R;
-public:
+private: 
+    HI_APIntSrcAnalysis_Visitor Visitor; 
+    CompilerInstance &CI;
+}; 
+
+// For each source file provided to the tool, a new FrontendAction is created. 
+
+class HI_APIntSrcAnalysis_FrontendAction : public ASTFrontendAction 
+{ 
+    public: HI_APIntSrcAnalysis_FrontendAction() {} 
+    void EndSourceFileAction() override 
+    { 
+        SourceManager &SM = TheRewriter.getSourceMgr(); 
+        llvm::errs() << "** EndSourceFileAction for: " << SM.getFileEntryForID(SM.getMainFileID())->getName() << "\n";  // Now emit the rewritten buffer. 
+        TheRewriter.getEditBuffer(SM.getMainFileID()).write(llvm::outs()); 
+    } 
+    std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, StringRef file) override 
+    { 
+        llvm::errs() << "** Creating AST consumer for: " << file << "\n"; 
+        TheRewriter.setSourceMgr(CI.getSourceManager(), CI.getLangOpts()); 
+        return llvm::make_unique<HI_APIntSrcAnalysis_ASTConsumer>(CI,TheRewriter); 
+    } 
     
-    // override the constructor in order to pass the rewriter to the ASTConsumer
-    explicit HI_APIntSrcAnalysis_Creator(Rewriter *_R) { R = _R;}// initialize the creator, pass the pointer of rewriter
-    std::unique_ptr<ASTConsumer> newASTConsumer(CompilerInstance &CI) 
-    {
-        return llvm::make_unique<HI_APIntSrcAnalysis_ASTConsumer>(&CI,R);
-    }
+private: 
+    Rewriter TheRewriter; 
 };
 
 
@@ -171,64 +187,80 @@ public:
 // will generator a AST consumer. We can first create a rewriter and pass the pointer of the
 // rewriter to the creator. Finally,  we can pass the rewriter pointer to the inner visitor.
 // rewriter ptr -> creator -> frontend-action -> ASTconsumer -> Visitor
-template <typename FactoryT>
-inline std::unique_ptr<tooling::FrontendActionFactory> HI_Rewrite_newFrontendActionFactory(
-    FactoryT *ConsumerFactory, tooling::SourceFileCallbacks *Callbacks) {
+
+// template <typename T>
+// class HI_Rewrite_FrontendActionFactory : public tooling::FrontendActionFactory 
+// {
+// private:
+//     std::string outputName;
+
+// public:
+//     HI_Rewrite_FrontendActionFactory(const char *rewriteout_name) 
+//     {
+//         outputName = rewriteout_name;
+//     }
+//     FrontendAction *create() override { return new T(outputName.c_str()); }
+// };
 
 
+// class HI_APIntSrcAnalysis_FrontendAction : public ASTFrontendAction 
+// { 
+// public: 
+//     HI_APIntSrcAnalysis_FrontendAction(const char *rewriteout_name) 
+//     {
+//         rewriteout = new llvm::raw_fd_ostream(rewriteout_name, ErrInfo, llvm::sys::fs::F_None);
+//     } 
+    
+//     void EndSourceFileAction() override 
+//     { 
+//         SourceManager &SM = TheRewriter.getSourceMgr(); 
+//         llvm::errs() << "** EndSourceFileAction for: " << SM.getFileEntryForID(SM.getMainFileID())->getName() << "\n"; // Now emit the rewritten buffer. 
+//         TheRewriter.getEditBuffer(SM.getMainFileID()).write(*rewriteout); 
+//     } 
 
-  class FrontendActionFactoryAdapter : public tooling::FrontendActionFactory {
-  public:
-    explicit FrontendActionFactoryAdapter(FactoryT *ConsumerFactory,
-                                          tooling::SourceFileCallbacks *Callbacks)
-        : ConsumerFactory(ConsumerFactory), Callbacks(Callbacks) {}
+//     void ExecuteAction() override
+//     {
+//       CompilerInstance &CI = getCompilerInstance();
+//       if (!CI.hasPreprocessor())
+//         return;
 
-    FrontendAction *create() override {
-      return new ConsumerFactoryAdaptor(ConsumerFactory, Callbacks);
-    }
+//       // FIXME: Move the truncation aspect of this into Sema, we delayed this till
+//       // here so the source manager would be initialized.
+//       if (hasCodeCompletionSupport() &&
+//           !CI.getFrontendOpts().CodeCompletionAt.FileName.empty())
+//         CI.createCodeCompletionConsumer();
 
+//       // Use a code completion consumer?
+//       CodeCompleteConsumer *CompletionConsumer = nullptr;
+//       if (CI.hasCodeCompletionConsumer())
+//         CompletionConsumer = &CI.getCodeCompletionConsumer();
 
+//       if (!CI.hasSema())
+//         CI.createSema(getTranslationUnitKind(), CompletionConsumer);
 
-  private:
-    class ConsumerFactoryAdaptor : public ASTFrontendAction {
-    public:
-      ConsumerFactoryAdaptor(FactoryT *ConsumerFactory,
-                             tooling::SourceFileCallbacks *Callbacks)
-          : ConsumerFactory(ConsumerFactory), Callbacks(Callbacks) {}
-
-      std::unique_ptr<ASTConsumer>
-      CreateASTConsumer(CompilerInstance &CI, StringRef file)  override { // we cannot modify the declaration of function (name+argument)
-        return ConsumerFactory->newASTConsumer(CI);   // <====  This line is different from the  official template, we use newASTConsumer to pass CI
-      }
-
-    protected:
-      bool BeginSourceFileAction(CompilerInstance &CI) override {
-        if (!ASTFrontendAction::BeginSourceFileAction(CI))
-          return false;
-        if (Callbacks)
-          return Callbacks->handleBeginSource(CI);
-        return true;
-      }
-
-      void EndSourceFileAction() override {
-        if (Callbacks)
-          Callbacks->handleEndSource();
-        ASTFrontendAction::EndSourceFileAction();
-      }
-
-    private:
-      FactoryT *ConsumerFactory;
-      tooling::SourceFileCallbacks *Callbacks;
-    };
-    FactoryT *ConsumerFactory;
-    tooling::SourceFileCallbacks *Callbacks;
-  };
-
-  return std::unique_ptr<tooling::FrontendActionFactory>(
-      new FrontendActionFactoryAdapter(ConsumerFactory, Callbacks));
-}
+//       llvm::errs() << "** Begin to parse AST\n"; 
+//       // Sema &S = CI.getSema();
+//       // ASTConsumer *Consumer = (&S.getASTConsumer());
+//       // if (!Consumer )
+//       //   llvm::errs() << "** No Consumer Found\n"; 
+//       CI.getASTConsumer();
+//       clang::ParseAST(CI.getSema(), CI.getFrontendOpts().ShowStats,
+//               CI.getFrontendOpts().SkipFunctionBodies);
+//       llvm::errs() << "** End parsing AST\n"; 
+//     }
 
 
+//     std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, StringRef file) override 
+//     { 
+//         llvm::errs() << "** Creating AST consumer for: " << file << "\n"; 
+//         TheRewriter.setSourceMgr(CI.getSourceManager(), CI.getLangOpts()); 
+//         return llvm::make_unique<HI_APIntSrcAnalysis_ASTConsumer>(&CI,&TheRewriter); 
+//     } 
 
+// private:
+//     std::error_code ErrInfo;
+//     raw_ostream *rewriteout; 
+//     Rewriter TheRewriter;
+// };
 
 #endif

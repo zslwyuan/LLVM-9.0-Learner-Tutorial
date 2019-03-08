@@ -17,7 +17,7 @@ void HI_APIntSrcAnalysis_Visitor::printTypeInfo(const Type *T)
     else if (const TagType* TT = dyn_cast<const TagType>(T))
     {
         // if (ST->isStructureType())
-        *parseLog << " TagType : "  << TT->getDecl()->getKindName() << " at " << TT->getDecl()->getBeginLoc().printToString(CI->getSourceManager()) << " \n";
+        *parseLog << " TagType : "  << TT->getDecl()->getKindName() << " at " << TT->getDecl()->getBeginLoc().printToString(CI.getSourceManager()) << " \n";
     }        
     else if (const TemplateSpecializationType* TST = dyn_cast<const TemplateSpecializationType>(T))
     {
