@@ -30,6 +30,20 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 6. looking into the source code with detailed comments, reader can trace the headers and functions to understand how the experiment work.
 
 
+
+
+***
+
+
+
+**usage example**
+
+      When built, most test executables can be used like below but please check the source code for confirmation.
+      (1) ./LLVM\_expXXXXX  <C/C++ FILE> <top\_function\_name>   
+      or
+      (2) ./LLVM\_expXXXXX  <IR FILE>
+
+
 ***
 
 ## [List of Experiments I conducted](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial#list-of-experiments-i-conducted):
@@ -88,13 +102,6 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 
       --- CodeGen Operation, AST Consumer, Visit Nodes in AST, Clang
 
-
-**usage example**
-
-      When built, most test executables can be used like below but please check the source code for confirmation.
-      (1) ./LLVM\_expXXXXX  <C/C++ FILE> <top\_function\_name>   
-      or
-      (2) ./LLVM\_expXXXXX  <IR FILE>
 
 
 ***
