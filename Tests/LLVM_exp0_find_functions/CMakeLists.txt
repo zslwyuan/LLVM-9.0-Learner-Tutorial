@@ -17,7 +17,11 @@ include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(./ ../../Implementations/ ../../Implementations/HI_FindFunctions ../../Implementations/HI_print)
 
 link_directories("../LLVM_Learner_Libs")
-
+set(MAKE_CMD "../../../BuildLibs.sh")
+MESSAGE("COMMAND: ${MAKE_CMD} ")
+execute_process(COMMAND ${MAKE_CMD}
+   RESULT_VARIABLE CMD_ERROR
+      OUTPUT_FILE CMD_OUTPUT)
 add_definitions(${LLVM_DEFINITIONS}) 
 
 add_executable(${Outputname} LLVM_exp0_find_functions.cc) 

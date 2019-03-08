@@ -16,6 +16,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -std=c++14")
 include_directories(${LLVM_INCLUDE_DIRS}) 
 include_directories(./ ../../Implementations/ ../../Implementations/HI_FindFunctions ../../Implementations/HI_print ../../Implementations/HI_DependenceList ../../Implementations/HI_SysExec)
 link_directories("../LLVM_Learner_Libs")
+set(MAKE_CMD "../../../BuildLibs.sh")
+MESSAGE("COMMAND: ${MAKE_CMD} ")
+execute_process(COMMAND ${MAKE_CMD}
+   RESULT_VARIABLE CMD_ERROR
+      OUTPUT_FILE CMD_OUTPUT)
 add_definitions(${LLVM_DEFINITIONS}) 
 
 add_executable(${Outputname} LLVM_exp1_dependence_list.cc) 

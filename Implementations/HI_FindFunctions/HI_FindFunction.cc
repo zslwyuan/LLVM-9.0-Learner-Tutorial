@@ -17,8 +17,35 @@ bool HI_FindFunctions::runOnModule(Module &M) // The runOnModule declaration wil
 {
     for (Module::iterator GI = M.begin(),GE = M.end(); GI != GE; ++GI) //Module iterator is used to iterate the functions in the module, ++GI is better than GI ++, for the sake of stability
     {
-        outs() << "Found function named == " << GI->getName() << "\n"; // a Function class is inherited from Value class, which has a function to get the name of the value (function).
+        outs() << "Found function Definition named == " << GI->getName() << "\n"; // a Function class is inherited from Value class, which has a function to get the name of the value (function).
+        std::string fname(GI->getName());
+        if (fname[0]=='_')
+            outs() << "     its demangeld name == " << DemangleFunctionName(GI->getName()) << "\n";
     }
+
+    // find all the Call Instruction and demangle the called function name
+    for (Function &F : M) 
+    {
+        for (BasicBlock &B : F) 
+        {        
+            for (Instruction &I : B) 
+            {
+                if (CallInst* Call_I = dyn_cast<CallInst>(&I))
+                {
+                    if (Function_Checked.find(Call_I->getCalledFunction())==Function_Checked.end())
+                    {
+                        outs() << "Found CallInst == " << I << "\n";
+                        outs() << "     its getCalledFunction == " << Call_I->getCalledFunction()->getName() << "\n";
+                        std::string fname(Call_I->getCalledFunction()->getName());
+                        if (fname[0]=='_')
+                            outs() << "     its demangeld name == " << DemangleFunctionName(fname) << "\n";
+                        Function_Checked.insert(Call_I->getCalledFunction());
+                    }
+                }
+            }
+        }
+    }
+
     return false;
 }
 

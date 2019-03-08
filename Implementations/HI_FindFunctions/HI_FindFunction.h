@@ -12,22 +12,71 @@
 #include <string>
 #include <ios>
 #include <stdlib.h>
-
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/raw_ostream.h"
+#include "HI_print.h"
+#include <stdio.h>
+#include <string>
+#include <ios>
+#include <stdlib.h>
+#include "llvm/Pass.h"
+#include "llvm/IR/Function.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/GraphWriter.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/LoopPass.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IRReader/IRReader.h"
+#include <bits/stl_map.h>
+#include "llvm/ADT/Statistic.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/PassAnalysisSupport.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/LoopAccessAnalysis.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Transforms/Utils/LoopVersioning.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
+#include "llvm/ADT/SmallVector.h"
+#include <set>
+#include <cxxabi.h>
 using namespace llvm;
 
 class HI_FindFunctions : public ModulePass {
 public:
-  HI_FindFunctions() : ModulePass(ID) {} // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
-  void getAnalysisUsage(AnalysisUsage &AU) const;
-  virtual bool runOnModule(Module &M);
-  virtual bool doInitialization(Module &M)
-  {
-      print_status("Initilizing HI_FindFunctions pass.");
-      return false;      
-  }
-  static char ID;
+    HI_FindFunctions() : ModulePass(ID) {} // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
+    void getAnalysisUsage(AnalysisUsage &AU) const;
+    virtual bool runOnModule(Module &M);
+    virtual bool doInitialization(Module &M)
+    {
+        print_status("Initilizing HI_FindFunctions pass.");
+        Function_Checked.clear();
+        return false;      
+    }
+    static char ID;
+    std::string DemangleFunctionName (std::string functioname)
+    {
+        size_t size = 0;
+        int status = -4;
+        
+        // try to demangle a c++ name, __cxa_demangle is a very interesting function in <cxxabi.h>
+        // it can demangle a function name in IR like _ZN6ap_intILi271EEC2Ei, to a readable name, like ap_int<271>::ap_int(int)
+        std::string ans(abi::__cxa_demangle(functioname.c_str(), NULL, &size, &status));
+        return ans;
+    }
+    std::set<Function*> Function_Checked;
 };
-
 
 
 #endif
