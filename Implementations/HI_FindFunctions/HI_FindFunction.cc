@@ -10,6 +10,9 @@
 #include <string>
 #include <ios>
 #include <stdlib.h>
+#include <fstream>
+#include <sstream>
+#include <string>
 
 using namespace llvm;
 
@@ -17,10 +20,10 @@ bool HI_FindFunctions::runOnModule(Module &M) // The runOnModule declaration wil
 {
     for (Module::iterator GI = M.begin(),GE = M.end(); GI != GE; ++GI) //Module iterator is used to iterate the functions in the module, ++GI is better than GI ++, for the sake of stability
     {
-        outs() << "Found function Definition named == " << GI->getName() << "\n"; // a Function class is inherited from Value class, which has a function to get the name of the value (function).
+        *Function_Demangle << "Found function Definition named == " << GI->getName() << "\n"; // a Function class is inherited from Value class, which has a function to get the name of the value (function).
         std::string fname(GI->getName());
         if (fname[0]=='_')
-            outs() << "     its demangeld name == " << DemangleFunctionName(GI->getName()) << "\n";
+            *Function_Demangle << "     its demangeld name == " << DemangleFunctionName(GI->getName()) << "\n";
     }
 
     // find all the Call Instruction and demangle the called function name
@@ -34,11 +37,15 @@ bool HI_FindFunctions::runOnModule(Module &M) // The runOnModule declaration wil
                 {
                     if (Function_Checked.find(Call_I->getCalledFunction())==Function_Checked.end())
                     {
-                        outs() << "Found CallInst == " << I << "\n";
-                        outs() << "     its getCalledFunction == " << Call_I->getCalledFunction()->getName() << "\n";
+                        *Function_Demangle << "Found CallInst == " << I << "\n";
+                        *Function_Demangle << "     its getCalledFunction == " << Call_I->getCalledFunction()->getName() << "\n";
                         std::string fname(Call_I->getCalledFunction()->getName());
                         if (fname[0]=='_')
-                            outs() << "     its demangeld name == " << DemangleFunctionName(fname) << "\n";
+                        {
+                            *Function_Demangle << Call_I->getCalledFunction()->getName() << " **** " <<  DemangleFunctionName(fname) << "\n";
+                            *Function_Demangle << "     its demangeld name == " << DemangleFunctionName(fname) << "\n";
+                            Function_Demangle_Map[Call_I->getCalledFunction()->getName()] = DemangleFunctionName(fname);
+                        }
                         Function_Checked.insert(Call_I->getCalledFunction());
                     }
                 }

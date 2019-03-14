@@ -50,12 +50,22 @@
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/ADT/SmallVector.h"
 #include <set>
+#include <map>
 #include <cxxabi.h>
 using namespace llvm;
 
 class HI_FindFunctions : public ModulePass {
 public:
-    HI_FindFunctions() : ModulePass(ID) {} // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
+    HI_FindFunctions() : ModulePass(ID) 
+    {
+        Function_Demangle = new raw_fd_ostream("Function_Demangle", ErrInfo, sys::fs::F_None);
+        Function_Demangle_Map.clear();
+    } // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
+    ~HI_FindFunctions()
+    {
+        Function_Demangle->flush();
+        delete Function_Demangle;
+    }
     void getAnalysisUsage(AnalysisUsage &AU) const;
     virtual bool runOnModule(Module &M);
     virtual bool doInitialization(Module &M)
@@ -76,6 +86,9 @@ public:
         return ans;
     }
     std::set<Function*> Function_Checked;
+    std::error_code ErrInfo;
+    raw_ostream *Function_Demangle;
+    std::map<std::string,std::string> Function_Demangle_Map;
 };
 
 

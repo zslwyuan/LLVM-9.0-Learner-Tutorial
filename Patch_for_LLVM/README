@@ -1,0 +1,13 @@
+The D59105 patch to make Clang compatible to arbitrary precision integer is shared by:
+
+            Erich Keane
+            erich.keane@intel.com
+            Compiler Engineer
+            Intel Corporation
+
+Thanks to his kindly sharing of this patch, I can walk around many tough work. This 
+patch is under review: https://reviews.llvm.org/D59105. Therefore, people who also
+want to make use of the patch, please obey the related license of LLVM and make a proper
+citation/reference. Here, I want to mention that the community of LLVM is so active and
+I am convinced that it is thoes active and generous developers who make LLVM be a great
+tool.

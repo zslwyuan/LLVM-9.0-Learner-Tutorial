@@ -1,0 +1,3446 @@
+Index: include/clang/AST/ASTContext.h
+===================================================================
+--- include/clang/AST/ASTContext.h
++++ include/clang/AST/ASTContext.h
+@@ -219,6 +219,9 @@
+   mutable llvm::FoldingSet<AtomicType> AtomicTypes;
+   llvm::FoldingSet<AttributedType> AttributedTypes;
+   mutable llvm::FoldingSet<PipeType> PipeTypes;
++  mutable llvm::FoldingSet<ArbPrecIntType> ArbPrecIntTypes;
++  mutable llvm::FoldingSet<DependentSizedArbPrecIntType>
++      DependentSizedArbPrecIntTypes;
+ 
+   mutable llvm::FoldingSet<QualifiedTemplateName> QualifiedTemplateNames;
+   mutable llvm::FoldingSet<DependentTemplateName> DependentTemplateNames;
+@@ -1261,6 +1264,16 @@
+   /// Return a write_only pipe type for the specified type.
+   QualType getWritePipeType(QualType T) const;
+ 
++  /// Return an Arbitrary Precision Integer type with the specified underlying
++  /// type and bit count.
++  QualType getArbPrecIntType(QualType Type, unsigned NumBits,
++                             SourceLocation AttrLoc) const;
++
++  /// Return an Arbitrary Precision Integer type with the specified underlying
++  /// type and dependent bit count.
++  QualType getDependentSizedArbPrecIntType(QualType Type, Expr *BitsExpr,
++                                           SourceLocation AttrLoc) const;
++
+   /// Gets the struct used to keep track of the extended descriptor for
+   /// pointer to blocks.
+   QualType getBlockDescriptorExtendedType() const;
+Index: include/clang/AST/RecursiveASTVisitor.h
+===================================================================
+--- include/clang/AST/RecursiveASTVisitor.h
++++ include/clang/AST/RecursiveASTVisitor.h
+@@ -1103,6 +1103,15 @@
+ 
+ DEF_TRAVERSE_TYPE(PipeType, { TRY_TO(TraverseType(T->getElementType())); })
+ 
++DEF_TRAVERSE_TYPE(ArbPrecIntType,
++                  { TRY_TO(TraverseType(T->getUnderlyingType())); })
++
++DEF_TRAVERSE_TYPE(DependentSizedArbPrecIntType, {
++  if (T->getNumBitsExpr())
++    TRY_TO(TraverseStmt(T->getNumBitsExpr()));
++  TRY_TO(TraverseType(T->getUnderlyingType()));
++})
++
+ #undef DEF_TRAVERSE_TYPE
+ 
+ // ----------------- TypeLoc traversal -----------------
+@@ -1355,6 +1364,15 @@
+ 
+ DEF_TRAVERSE_TYPELOC(PipeType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
+ 
++DEF_TRAVERSE_TYPELOC(ArbPrecIntType, {
++  TRY_TO(TraverseType(TL.getTypePtr()->getUnderlyingType()));
++})
++
++DEF_TRAVERSE_TYPELOC(DependentSizedArbPrecIntType, {
++  TRY_TO(TraverseType(TL.getTypePtr()->getUnderlyingType()));
++  TRY_TO(TraverseStmt(TL.getTypePtr()->getNumBitsExpr()));
++})
++
+ #undef DEF_TRAVERSE_TYPELOC
+ 
+ // ----------------- Decl traversal -----------------
+Index: include/clang/AST/Type.h
+===================================================================
+--- include/clang/AST/Type.h
++++ include/clang/AST/Type.h
+@@ -2055,6 +2055,7 @@
+   bool isOCLExtOpaqueType() const;              // Any OpenCL extension type
+ 
+   bool isPipeType() const;                      // OpenCL pipe type
++  bool isArbPrecIntType() const;                // Arbitrary Precision Int type
+   bool isOpenCLSpecificType() const;            // Any OpenCL specific type
+ 
+   /// Determines if this type, which must satisfy
+@@ -6045,6 +6046,71 @@
+   bool isReadOnly() const { return isRead; }
+ };
+ 
++/// ArbPrecIntType - Arbitrary Precision Integer.
++class ArbPrecIntType : public Type, public llvm::FoldingSetNode {
++  friend class ASTContext;
++  QualType UnderlyingType;
++  unsigned NumBits;
++  SourceLocation Loc;
++
++protected:
++  ArbPrecIntType(QualType Type, unsigned NumBits, QualType CanonType,
++                 SourceLocation Loc);
++
++public:
++  QualType getUnderlyingType() const { return UnderlyingType; }
++  unsigned getNumBits() const { return NumBits; }
++  SourceLocation getAttributeLoc() const { return Loc; }
++
++  bool isSugared() const { return false; }
++  QualType desugar() const { return QualType(this, 0); }
++
++  void Profile(llvm::FoldingSetNodeID &ID) {
++    Profile(ID, getUnderlyingType(), getNumBits());
++  }
++
++  static void Profile(llvm::FoldingSetNodeID &ID, QualType UnderlyingType,
++                      unsigned NumBits) {
++    ID.AddPointer(UnderlyingType.getAsOpaquePtr());
++    ID.AddInteger(NumBits);
++  }
++
++  static bool classof(const Type *T) { return T->getTypeClass() == ArbPrecInt; }
++};
++
++/// DependentSizedArbPrecIntType - Arbitrary Precision Integer with
++/// dependent size.
++class DependentSizedArbPrecIntType : public Type, public llvm::FoldingSetNode {
++  friend class ASTContext;
++  const ASTContext &Context;
++  QualType UnderlyingType;
++  Expr *NumBitsExpr;
++  SourceLocation Loc;
++
++  DependentSizedArbPrecIntType(const ASTContext &Context,
++                               QualType UnderlyingType, QualType CanonType,
++                               Expr *NumBitsExpr, SourceLocation Loc);
++
++public:
++  QualType getUnderlyingType() const { return UnderlyingType; }
++  Expr *getNumBitsExpr() const { return NumBitsExpr; }
++  SourceLocation getAttributeLoc() const { return Loc; }
++
++  bool isSugared() const { return false; }
++  QualType desugar() const { return QualType(this, 0); }
++
++  void Profile(llvm::FoldingSetNodeID &ID) {
++    Profile(ID, Context, getUnderlyingType(), getNumBitsExpr());
++  }
++
++  static void Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
++                      QualType UnderlyingType, Expr *NumBitsExpr);
++
++  static bool classof(const Type *T) {
++    return T->getTypeClass() == DependentSizedArbPrecInt;
++  }
++};
++
+ /// A qualifier set is used to build a set of qualifiers.
+ class QualifierCollector : public Qualifiers {
+ public:
+@@ -6492,6 +6558,10 @@
+   return isa<PipeType>(CanonicalType);
+ }
+ 
++inline bool Type::isArbPrecIntType() const {
++  return isa<ArbPrecIntType>(CanonicalType);
++}
++
+ #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
+   inline bool Type::is##Id##Type() const { \
+     return isSpecificBuiltinType(BuiltinType::Id); \
+@@ -6599,7 +6669,8 @@
+     return IsEnumDeclComplete(ET->getDecl()) &&
+       !IsEnumDeclScoped(ET->getDecl());
+   }
+-  return false;
++
++  return isArbPrecIntType();
+ }
+ 
+ inline bool Type::isFixedPointType() const {
+@@ -6656,7 +6727,8 @@
+          isa<BlockPointerType>(CanonicalType) ||
+          isa<MemberPointerType>(CanonicalType) ||
+          isa<ComplexType>(CanonicalType) ||
+-         isa<ObjCObjectPointerType>(CanonicalType);
++         isa<ObjCObjectPointerType>(CanonicalType) ||
++         isa<ArbPrecIntType>(CanonicalType);
+ }
+ 
+ inline bool Type::isIntegralOrEnumerationType() const {
+@@ -6669,7 +6741,7 @@
+   if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
+     return IsEnumDeclComplete(ET->getDecl());
+ 
+-  return false;
++  return isArbPrecIntType();
+ }
+ 
+ inline bool Type::isBooleanType() const {
+Index: include/clang/AST/TypeLoc.h
+===================================================================
+--- include/clang/AST/TypeLoc.h
++++ include/clang/AST/TypeLoc.h
+@@ -2295,6 +2295,14 @@
+   return Cur.getAs<T>();
+ }
+ 
++class ArbPrecIntTypeLoc
++    : public InheritingConcreteTypeLoc<TypeSpecTypeLoc, ArbPrecIntTypeLoc,
++                                       ArbPrecIntType> {};
++class DependentSizedArbPrecIntTypeLoc
++    : public InheritingConcreteTypeLoc<TypeSpecTypeLoc,
++                                       DependentSizedArbPrecIntTypeLoc,
++                                       DependentSizedArbPrecIntType> {};
++
+ } // namespace clang
+ 
+ #endif // LLVM_CLANG_AST_TYPELOC_H
+Index: include/clang/AST/TypeNodes.def
+===================================================================
+--- include/clang/AST/TypeNodes.def
++++ include/clang/AST/TypeNodes.def
+@@ -109,6 +109,8 @@
+ TYPE(ObjCInterface, ObjCObjectType)
+ TYPE(ObjCObjectPointer, Type)
+ TYPE(Pipe, Type)
++TYPE(ArbPrecInt, Type)
++DEPENDENT_TYPE(DependentSizedArbPrecInt, Type)
+ TYPE(Atomic, Type)
+ 
+ #ifdef LAST_TYPE
+Index: include/clang/Basic/Attr.td
+===================================================================
+--- include/clang/Basic/Attr.td
++++ include/clang/Basic/Attr.td
+@@ -3207,3 +3207,12 @@
+   let Subjects = SubjectList<[NonParmVar, Function, Block, ObjCMethod]>;
+   let Documentation = [ObjCExternallyRetainedDocs];
+ }
++
++def ArbPrecInt : TypeAttr {
++  let Spellings = [Clang<"__ap_int">];
++  let Subjects = SubjectList<[TypedefName], ErrorDiag>;
++  let Args = [ExprArgument<"NumBits">];
++  let Documentation = [ArbPrecIntDocs];
++  let ASTNode = 0;
++}
++
+Index: include/clang/Basic/AttrDocs.td
+===================================================================
+--- include/clang/Basic/AttrDocs.td
++++ include/clang/Basic/AttrDocs.td
+@@ -4116,3 +4116,28 @@
+ attribute can also be written using C++11 syntax: ``[[mig::server_routine]]``.
+ }];
+ }
++
++def ArbPrecIntDocs : Documentation {
++  let Category = DocCatType;
++  let Content = [{
++Since FPGAs have the ability to produce non-power-of-2 math units, there is a
++requirement to have an integer type that supports an arbitrary compile time bit
++representation. These need to be expressed in IR as the correct precision int
++types (such as i3, i46, etc).
++
++This implements an arbitrary precision integer type (and a version where the
++number of bits is Dependent). The syntax for declaring an integer with an
++arbitrary number of bits is via the attribute __ap_int(N), which is usable only
++on typedef/using clauses. For example:
++
++typedef int int3_tt __attribute__((__ap_int(3)));
++// Dependent Version:
++template <unsigned Size>
++using MyInt = int __attribute__((__ap_int(Size)));
++
++The typedef inherits its 'signedness' from the 'underlying type'. Otherwise,
++this type has no affect on the ArbPrecInt. All operations on an ArbPrecInt
++should take place as an ArbPrecInt type, promoting to the larger of the two
++types.
++  }];
++}
+Index: include/clang/Basic/DiagnosticSemaKinds.td
+===================================================================
+--- include/clang/Basic/DiagnosticSemaKinds.td
++++ include/clang/Basic/DiagnosticSemaKinds.td
+@@ -9534,4 +9534,9 @@
+   "%select{non-pointer|function pointer|void pointer}0 argument to "
+   "'__builtin_launder' is not allowed">;
+ 
++def err_ap_int_type : Error <
++  "invalid __ap_int element type %0; must be 'int' or 'unsigned int'">;
++def err_ap_int_bad_size : Error <
++  "%select{signed|unsigned|}0 __ap_int must have a size of at least %select{2|1|1}0">;
++
+ } // end of sema component.
+Index: include/clang/Sema/Sema.h
+===================================================================
+--- include/clang/Sema/Sema.h
++++ include/clang/Sema/Sema.h
+@@ -1513,6 +1513,7 @@
+                          SourceLocation Loc);
+   QualType BuildWritePipeType(QualType T,
+                          SourceLocation Loc);
++  QualType BuildArbPrecIntType(QualType T, Expr *Size, SourceLocation AttrLoc);
+ 
+   TypeSourceInfo *GetTypeForDeclarator(Declarator &D, Scope *S);
+   TypeSourceInfo *GetTypeForDeclaratorCast(Declarator &D, QualType FromTy);
+@@ -9887,6 +9888,11 @@
+                                       BinaryOperatorKind Opc);
+   QualType CheckVectorLogicalOperands(ExprResult &LHS, ExprResult &RHS,
+                                       SourceLocation Loc);
++  QualType CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
++                                   SourceLocation Loc, bool IsCompAssign,
++                                   bool IsShift);
++  QualType CheckArbPrecIntCompareOperands(ExprResult &LHS, ExprResult &RHS,
++                                          SourceLocation Loc);
+ 
+   bool areLaxCompatibleVectorTypes(QualType srcType, QualType destType);
+   bool isLaxVectorConversion(QualType srcType, QualType destType);
+Index: include/clang/Serialization/ASTBitCodes.h
+===================================================================
+--- include/clang/Serialization/ASTBitCodes.h
++++ include/clang/Serialization/ASTBitCodes.h
+@@ -1173,7 +1173,12 @@
+       TYPE_DEPENDENT_ADDRESS_SPACE = 47,
+ 
+       /// A dependentSizedVectorType record.
+-      TYPE_DEPENDENT_SIZED_VECTOR = 48
++      TYPE_DEPENDENT_SIZED_VECTOR = 48,
++
++      /// An ArbPrecIntType record.
++      TYPE_ARBPRECINT = 49,
++      /// A DependentSizedArbPrecIntType record.
++      TYPE_DEPENDENT_SIZED_ARBPRECINT = 50,
+     };
+ 
+     /// The type IDs for special types constructed by semantic
+Index: lib/AST/ASTContext.cpp
+===================================================================
+--- lib/AST/ASTContext.cpp
++++ lib/AST/ASTContext.cpp
+@@ -1666,6 +1666,11 @@
+               (uint64_t)(-1)/Size) &&
+          "Overflow in array type char size evaluation");
+   uint64_t Width = EltInfo.first.getQuantity() * Size;
++  if (CAT->getElementType()->isArbPrecIntType() &&
++      !llvm::isPowerOf2_64(Context.getTypeSize(CAT->getElementType())))
++    Width = llvm::alignTo(EltInfo.first.getQuantity(),
++                          EltInfo.second.getQuantity()) *
++            Size;
+   unsigned Align = EltInfo.second.getQuantity();
+   if (!Context.getTargetInfo().getCXXABI().isMicrosoft() ||
+       Context.getTargetInfo().getPointerWidth(0) == 64)
+@@ -1679,7 +1684,13 @@
+   if (const auto *CAT = dyn_cast<ConstantArrayType>(T))
+     return getConstantArrayInfoInChars(*this, CAT);
+   TypeInfo Info = getTypeInfo(T);
+-  return std::make_pair(toCharUnitsFromBits(Info.Width),
++  // toCharUnitsFromBits always rounds down, which isn't a problem when the size
++  // Width is a multiple of chars, however ArbPrecInt makes this not a valid
++  // assumption.
++  return std::make_pair(toCharUnitsFromBits(Info.Width) +
++                            (Info.Width % getCharWidth() == 0
++                                 ? CharUnits::Zero()
++                                 : CharUnits::One()),
+                         toCharUnitsFromBits(Info.Align));
+ }
+ 
+@@ -1774,7 +1785,7 @@
+     uint64_t Size = CAT->getSize().getZExtValue();
+     assert((Size == 0 || EltInfo.Width <= (uint64_t)(-1) / Size) &&
+            "Overflow in array type bit size evaluation");
+-    Width = EltInfo.Width * Size;
++    Width = llvm::alignTo(EltInfo.Width, EltInfo.Align) * Size;
+     Align = EltInfo.Align;
+     if (!getTargetInfo().getCXXABI().isMicrosoft() ||
+         getTargetInfo().getPointerWidth(0) == 64)
+@@ -2116,6 +2127,13 @@
+     Width = Target->getPointerWidth(getTargetAddressSpace(LangAS::opencl_global));
+     Align = Target->getPointerAlign(getTargetAddressSpace(LangAS::opencl_global));
+     break;
++  case Type::ArbPrecInt: {
++    const ArbPrecIntType *AT = cast<ArbPrecIntType>(T);
++    Width = AT->getNumBits();
++    Align = std::min(std::max(getCharWidth(), llvm::PowerOf2Ceil(Width)),
++                     static_cast<uint64_t>(64));
++    break;
++  }
+   }
+ 
+   assert(llvm::isPowerOf2_32(Align) && "Alignment must be power of 2");
+@@ -3166,6 +3184,8 @@
+   case Type::BlockPointer:
+   case Type::MemberPointer:
+   case Type::Pipe:
++  case Type::ArbPrecInt:
++  case Type::DependentSizedArbPrecInt:
+     return type;
+ 
+   // These types can be variably-modified.  All these modifications
+@@ -3824,6 +3844,70 @@
+   return getPipeType(T, false);
+ }
+ 
++QualType ASTContext::getArbPrecIntType(QualType Type, unsigned NumBits,
++                                       SourceLocation AttrLoc) const {
++  assert(Type->isIntegerType() || Type->isDependentType());
++
++  llvm::FoldingSetNodeID ID;
++  ArbPrecIntType::Profile(ID, Type, NumBits);
++
++  void *InsertPos = nullptr;
++  if (ArbPrecIntType *VTP = ArbPrecIntTypes.FindNodeOrInsertPos(ID, InsertPos))
++    return QualType(VTP, 0);
++
++  QualType Canonical;
++  if (!Type.isCanonical()) {
++    Canonical = getArbPrecIntType(getCanonicalType(Type), NumBits, AttrLoc);
++
++    ArbPrecIntType *NewIP = ArbPrecIntTypes.FindNodeOrInsertPos(ID, InsertPos);
++    assert(!NewIP && "Shouldn't be in the map!");
++    (void)NewIP;
++  }
++
++  ArbPrecIntType *New = new (*this, TypeAlignment)
++      ArbPrecIntType(Type, NumBits, Canonical, AttrLoc);
++  ArbPrecIntTypes.InsertNode(New, InsertPos);
++  Types.push_back(New);
++  return QualType(New, 0);
++}
++
++QualType
++ASTContext::getDependentSizedArbPrecIntType(QualType Type, Expr *NumBitsExpr,
++                                            SourceLocation AttrLoc) const {
++  llvm::FoldingSetNodeID ID;
++  DependentSizedArbPrecIntType::Profile(ID, *this, getCanonicalType(Type),
++                                        NumBitsExpr);
++
++  void *InsertPos = nullptr;
++  DependentSizedArbPrecIntType *Canon =
++      DependentSizedArbPrecIntTypes.FindNodeOrInsertPos(ID, InsertPos);
++  DependentSizedArbPrecIntType *New;
++
++  if (Canon) {
++    New = new (*this, TypeAlignment) DependentSizedArbPrecIntType(
++        *this, Type, QualType(Canon, 0), NumBitsExpr, AttrLoc);
++  } else {
++    QualType CanonTy = getCanonicalType(Type);
++    if (CanonTy == Type) {
++      New = new (*this, TypeAlignment) DependentSizedArbPrecIntType(
++          *this, Type, QualType(), NumBitsExpr, AttrLoc);
++      DependentSizedArbPrecIntType *CanonCheck =
++          DependentSizedArbPrecIntTypes.FindNodeOrInsertPos(ID, InsertPos);
++      assert(!CanonCheck && "Shouldn't be in the map!");
++      (void)CanonCheck;
++      DependentSizedArbPrecIntTypes.InsertNode(New, InsertPos);
++    } else {
++      QualType Canon =
++          getDependentSizedArbPrecIntType(CanonTy, NumBitsExpr, AttrLoc);
++      New = new (*this, TypeAlignment) DependentSizedArbPrecIntType(
++          *this, Type, Canon, NumBitsExpr, AttrLoc);
++    }
++  }
++
++  Types.push_back(New);
++  return QualType(New, 0);
++}
++
+ #ifndef NDEBUG
+ static bool NeedsInjectedClassNameType(const RecordDecl *D) {
+   if (!isa<CXXRecordDecl>(D)) return false;
+@@ -5623,6 +5707,9 @@
+ unsigned ASTContext::getIntegerRank(const Type *T) const {
+   assert(T->isCanonicalUnqualified() && "T should be canonicalized");
+ 
++  if (isa<ArbPrecIntType>(T))
++    return 7 + (getIntWidth(QualType(T, 0)) << 3);
++
+   switch (cast<BuiltinType>(T)->getKind()) {
+   default: llvm_unreachable("getIntegerRank(): not a built-in integer");
+   case BuiltinType::Bool:
+@@ -7006,6 +7093,7 @@
+     return;
+ 
+   case Type::Pipe:
++  case Type::ArbPrecInt:
+ #define ABSTRACT_TYPE(KIND, BASE)
+ #define TYPE(KIND, BASE)
+ #define DEPENDENT_TYPE(KIND, BASE) \
+@@ -9022,6 +9110,33 @@
+     assert(LHS != RHS &&
+            "Equivalent pipe types should have already been handled!");
+     return {};
++  case Type::ArbPrecInt: {
++    // Merge two pointer types, while trying to preserve typedef info
++    QualType LHSValue = LHS->getAs<ArbPrecIntType>()->getUnderlyingType();
++    QualType RHSValue = RHS->getAs<ArbPrecIntType>()->getUnderlyingType();
++    unsigned LHSBits = LHS->getAs<ArbPrecIntType>()->getNumBits();
++    unsigned RHSBits = RHS->getAs<ArbPrecIntType>()->getNumBits();
++
++    if (Unqualified) {
++      LHSValue = LHSValue.getUnqualifiedType();
++      RHSValue = RHSValue.getUnqualifiedType();
++    }
++    QualType UnderlyingType =
++        mergeTypes(LHSValue, RHSValue, false, Unqualified);
++    if (UnderlyingType.isNull())
++      return QualType();
++
++    if (getCanonicalType(LHSValue) == getCanonicalType(UnderlyingType) &&
++        LHSBits == RHSBits)
++      return LHS;
++    if (getCanonicalType(RHSValue) == getCanonicalType(UnderlyingType) &&
++        LHSBits == RHSBits)
++      return RHS;
++
++    if (LHSBits >= RHSBits)
++      return LHS;
++    return RHS;
++  }
+   }
+ 
+   llvm_unreachable("Invalid Type::Class!");
+@@ -9179,6 +9294,11 @@
+   if (const auto *ETy = T->getAs<EnumType>())
+     T = ETy->getDecl()->getIntegerType();
+ 
++  if (const auto *AP = T->getAs<ArbPrecIntType>())
++    return getArbPrecIntType(
++        getCorrespondingUnsignedType(AP->getUnderlyingType()), AP->getNumBits(),
++        AP->getAttributeLoc());
++
+   const auto *BTy = T->getAs<BuiltinType>();
+   assert(BTy && "Unexpected signed integer or fixed point type");
+   switch (BTy->getKind()) {
+Index: lib/AST/ASTStructuralEquivalence.cpp
+===================================================================
+--- lib/AST/ASTStructuralEquivalence.cpp
++++ lib/AST/ASTStructuralEquivalence.cpp
+@@ -835,6 +835,27 @@
+                                   cast<PipeType>(T2)->getElementType()))
+       return false;
+     break;
++  case Type::ArbPrecInt: {
++    const ArbPrecIntType *Int1 = cast<ArbPrecIntType>(T1);
++    const ArbPrecIntType *Int2 = cast<ArbPrecIntType>(T2);
++    if (!IsStructurallyEquivalent(Context, Int1->getUnderlyingType(),
++                                  Int2->getUnderlyingType()) ||
++        Int1->getNumBits() != Int2->getNumBits())
++      return false;
++    break;
++  }
++  case Type::DependentSizedArbPrecInt: {
++    const DependentSizedArbPrecIntType *Int1 =
++        cast<DependentSizedArbPrecIntType>(T1);
++    const DependentSizedArbPrecIntType *Int2 =
++        cast<DependentSizedArbPrecIntType>(T2);
++    if (!IsStructurallyEquivalent(Context, Int1->getUnderlyingType(),
++                                  Int2->getUnderlyingType()) ||
++        !IsStructurallyEquivalent(Context, Int1->getNumBitsExpr(),
++                                  Int2->getNumBitsExpr()))
++      return false;
++    break;
++  }
+   } // end switch
+ 
+   return true;
+Index: lib/AST/ExprConstant.cpp
+===================================================================
+--- lib/AST/ExprConstant.cpp
++++ lib/AST/ExprConstant.cpp
+@@ -2496,6 +2496,13 @@
+     return false;
+   }
+ 
++  if (Type->isArbPrecIntType()) {
++    std::pair<CharUnits, CharUnits> SizeAndAlign =
++        Info.Ctx.getTypeInfoInChars(Type);
++    Size = SizeAndAlign.first.alignTo(SizeAndAlign.second);
++    return true;
++  }
++
+   Size = Info.Ctx.getTypeSizeInChars(Type);
+   return true;
+ }
+@@ -7769,6 +7776,7 @@
+   case Type::ObjCInterface:
+   case Type::ObjCObjectPointer:
+   case Type::Pipe:
++  case Type::ArbPrecInt:
+     // GCC classifies vectors as None. We follow its lead and classify all
+     // other types that don't fit into the regular classification the same way.
+     return GCCTypeClass::None;
+Index: lib/AST/ItaniumMangle.cpp
+===================================================================
+--- lib/AST/ItaniumMangle.cpp
++++ lib/AST/ItaniumMangle.cpp
+@@ -1941,6 +1941,8 @@
+   case Type::ObjCTypeParam:
+   case Type::Atomic:
+   case Type::Pipe:
++  case Type::ArbPrecInt:
++  case Type::DependentSizedArbPrecInt:
+     llvm_unreachable("type is illegal as a nested name specifier");
+ 
+   case Type::SubstTemplateTypeParmPack:
+@@ -3371,6 +3373,20 @@
+   Out << "8ocl_pipe";
+ }
+ 
++void CXXNameMangler::mangleType(const ArbPrecIntType *T) {
++  Out << "11clang_apint_";
++  mangleNumber(T->getNumBits());
++  Out << '_';
++  mangleType(T->getUnderlyingType());
++}
++
++void CXXNameMangler::mangleType(const DependentSizedArbPrecIntType *T) {
++  Out << "11clang_apint_";
++  mangleExpression(T->getNumBitsExpr());
++  Out << '_';
++  mangleType(T->getUnderlyingType());
++}
++
+ void CXXNameMangler::mangleIntegerLiteral(QualType T,
+                                           const llvm::APSInt &Value) {
+   //  <expr-primary> ::= L <type> <value number> E # integer literal
+Index: lib/AST/MicrosoftMangle.cpp
+===================================================================
+--- lib/AST/MicrosoftMangle.cpp
++++ lib/AST/MicrosoftMangle.cpp
+@@ -2902,6 +2902,28 @@
+     << Range;
+ }
+ 
++void MicrosoftCXXNameMangler::mangleType(const ArbPrecIntType *T, Qualifiers,
++                                         SourceRange Range) {
++  QualType UnderlyingType = T->getUnderlyingType();
++  llvm::SmallString<64> TemplateMangling;
++  llvm::raw_svector_ostream Stream(TemplateMangling);
++  MicrosoftCXXNameMangler Extra(Context, Stream);
++  Stream << "?$";
++  Extra.mangleSourceName("__ap_int");
++  Extra.mangleNumber(T->getNumBits());
++  Extra.mangleType(UnderlyingType, Range, QMM_Escape);
++  mangleArtificialTagType(TTK_Struct, TemplateMangling, {"__clang"});
++}
++
++void MicrosoftCXXNameMangler::mangleType(const DependentSizedArbPrecIntType *T,
++                                         Qualifiers, SourceRange Range) {
++  DiagnosticsEngine &Diags = Context.getDiags();
++  unsigned DiagID =
++      Diags.getCustomDiagID(DiagnosticsEngine::Error,
++                            "cannot mangle this Dependent ArbPrecInt type yet");
++  Diags.Report(Range.getBegin(), DiagID) << Range;
++}
++
+ void MicrosoftMangleContextImpl::mangleCXXName(const NamedDecl *D,
+                                                raw_ostream &Out) {
+   assert((isa<FunctionDecl>(D) || isa<VarDecl>(D)) &&
+Index: lib/AST/ODRHash.cpp
+===================================================================
+--- lib/AST/ODRHash.cpp
++++ lib/AST/ODRHash.cpp
+@@ -889,6 +889,19 @@
+     VisitType(T);
+   }
+ 
++  void VisitArbPrecIntType(const ArbPrecIntType *T) {
++    AddQualType(T->getUnderlyingType());
++    ID.AddInteger(T->getNumBits());
++    VisitType(T);
++  }
++
++  void
++  VisitDependentSizedArbPrecIntType(const DependentSizedArbPrecIntType *T) {
++    AddQualType(T->getUnderlyingType());
++    AddStmt(T->getNumBitsExpr());
++    VisitType(T);
++  }
++
+   void VisitPointerType(const PointerType *T) {
+     AddQualType(T->getPointeeType());
+     VisitType(T);
+Index: lib/AST/RecordLayoutBuilder.cpp
+===================================================================
+--- lib/AST/RecordLayoutBuilder.cpp
++++ lib/AST/RecordLayoutBuilder.cpp
+@@ -1755,6 +1755,11 @@
+     FieldSize = FieldInfo.first;
+     FieldAlign = FieldInfo.second;
+ 
++    // ArbPrecInt sizes require extra room to llvm::alloca due to the different
++    // offset. Include this in the layout size.
++    if (D->getType()->isArbPrecIntType())
++      FieldSize = FieldSize.alignTo(FieldAlign);
++
+     if (IsMsStruct) {
+       // If MS bitfield layout is required, figure out what type is being
+       // laid out and align the field to the width of that type.
+@@ -2394,6 +2399,12 @@
+   ElementInfo Info;
+   std::tie(Info.Size, Info.Alignment) =
+       Context.getTypeInfoInChars(FD->getType()->getUnqualifiedDesugaredType());
++
++  // ArbPrecInt sizes require extra room to llvm::alloca due to the different
++  // offset. Include this in the layout size.
++  if (FD->getType()->isArbPrecIntType())
++    Info.Size = Info.Size.alignTo(Info.Alignment);
++
+   // Respect align attributes on the field.
+   CharUnits FieldRequiredAlignment =
+       Context.toCharUnitsFromBits(FD->getMaxAlignment());
+Index: lib/AST/Type.cpp
+===================================================================
+--- lib/AST/Type.cpp
++++ lib/AST/Type.cpp
+@@ -255,6 +255,33 @@
+   VectorTypeBits.NumElements = nElements;
+ }
+ 
++ArbPrecIntType::ArbPrecIntType(QualType UnderlyingType, unsigned NumBits,
++                               QualType CanonType, SourceLocation Loc)
++    : Type(ArbPrecInt, CanonType, UnderlyingType->isDependentType(),
++           UnderlyingType->isInstantiationDependentType(),
++           UnderlyingType->isVariablyModifiedType(),
++           UnderlyingType->containsUnexpandedParameterPack()),
++      UnderlyingType(UnderlyingType), NumBits(NumBits), Loc(Loc) {}
++
++DependentSizedArbPrecIntType::DependentSizedArbPrecIntType(
++    const ASTContext &Context, QualType UnderlyingType, QualType CanonType,
++    Expr *NumBitsExpr, SourceLocation Loc)
++    : Type(DependentSizedArbPrecInt, CanonType, /*Dependent=*/true,
++           /*InstantationDependent=*/true,
++           UnderlyingType->isVariablyModifiedType(),
++           (UnderlyingType->containsUnexpandedParameterPack() ||
++            (NumBitsExpr && NumBitsExpr->containsUnexpandedParameterPack()))),
++      Context(Context), UnderlyingType(UnderlyingType),
++      NumBitsExpr(NumBitsExpr), Loc(Loc) {}
++
++void DependentSizedArbPrecIntType::Profile(llvm::FoldingSetNodeID &ID,
++                                           const ASTContext &Context,
++                                           QualType UnderlyingType,
++                                           Expr *SizeExpr) {
++  ID.AddPointer(UnderlyingType.getAsOpaquePtr());
++  SizeExpr->Profile(ID, Context, true);
++}
++
+ /// getArrayElementTypeNoTypeQual - If this is an array type, return the
+ /// element type of the array, potentially with type qualifiers missing.
+ /// This method should never be used when type qualifiers are meaningful.
+@@ -1783,6 +1810,9 @@
+     return BT->getKind() >= BuiltinType::Bool &&
+            BT->getKind() <= BuiltinType::Int128;
+ 
++  if (isArbPrecIntType())
++    return true;
++
+   // Complete enum types are integral in C.
+   if (!Ctx.getLangOpts().CPlusPlus)
+     if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
+@@ -1796,6 +1826,9 @@
+     return BT->getKind() >= BuiltinType::Bool &&
+            BT->getKind() <= BuiltinType::Int128;
+ 
++  if (isArbPrecIntType())
++    return true;
++
+   // Check for a complete enum type; incomplete enum types are not properly an
+   // enumeration type in the sense required here.
+   // C++0x: However, if the underlying type of the enum is fixed, it is
+@@ -1876,6 +1909,9 @@
+       return ET->getDecl()->getIntegerType()->isSignedIntegerType();
+   }
+ 
++  if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
++    return AP->getUnderlyingType()->isSignedIntegerType();
++
+   return false;
+ }
+ 
+@@ -1890,6 +1926,9 @@
+       return ET->getDecl()->getIntegerType()->isSignedIntegerType();
+   }
+ 
++  if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
++    return AP->getUnderlyingType()->isSignedIntegerOrEnumerationType();
++
+   return false;
+ }
+ 
+@@ -1916,6 +1955,9 @@
+       return ET->getDecl()->getIntegerType()->isUnsignedIntegerType();
+   }
+ 
++  if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
++    return AP->getUnderlyingType()->isUnsignedIntegerType();
++
+   return false;
+ }
+ 
+@@ -1930,6 +1972,9 @@
+       return ET->getDecl()->getIntegerType()->isUnsignedIntegerType();
+   }
+ 
++  if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
++    return AP->getUnderlyingType()->isUnsignedIntegerOrEnumerationType();
++
+   return false;
+ }
+ 
+@@ -1968,7 +2013,8 @@
+            BT->getKind() <= BuiltinType::Float128;
+   if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
+       return ET->getDecl()->isComplete() && !ET->getDecl()->isScoped();
+-  return false;
++
++  return isArbPrecIntType();
+ }
+ 
+ bool Type::isArithmeticType() const {
+@@ -1983,7 +2029,7 @@
+     // false for scoped enumerations since that will disable any
+     // unwanted implicit conversions.
+     return !ET->getDecl()->isScoped() && ET->getDecl()->isComplete();
+-  return isa<ComplexType>(CanonicalType);
++  return isa<ComplexType>(CanonicalType) || isArbPrecIntType();
+ }
+ 
+ Type::ScalarTypeKind Type::getScalarTypeKind() const {
+@@ -2012,6 +2058,8 @@
+     if (CT->getElementType()->isRealFloatingType())
+       return STK_FloatingComplex;
+     return STK_IntegralComplex;
++  } else if (isa<ArbPrecIntType>(T)) {
++    return STK_Integral;
+   }
+ 
+   llvm_unreachable("unknown scalar type");
+@@ -2161,6 +2209,7 @@
+   case Type::MemberPointer:
+   case Type::Vector:
+   case Type::ExtVector:
++  case Type::ArbPrecInt:
+     return true;
+ 
+   case Type::Enum:
+@@ -3659,6 +3708,8 @@
+     return Cache::get(cast<AtomicType>(T)->getValueType());
+   case Type::Pipe:
+     return Cache::get(cast<PipeType>(T)->getElementType());
++  case Type::ArbPrecInt:
++    return Cache::get(cast<ArbPrecIntType>(T)->getUnderlyingType());
+   }
+ 
+   llvm_unreachable("unhandled type class");
+@@ -3743,6 +3794,8 @@
+     return computeTypeLinkageInfo(cast<AtomicType>(T)->getValueType());
+   case Type::Pipe:
+     return computeTypeLinkageInfo(cast<PipeType>(T)->getElementType());
++  case Type::ArbPrecInt:
++    return computeTypeLinkageInfo(cast<ArbPrecIntType>(T)->getUnderlyingType());
+   }
+ 
+   llvm_unreachable("unhandled type class");
+@@ -3893,6 +3946,8 @@
+   case Type::ObjCInterface:
+   case Type::Atomic:
+   case Type::Pipe:
++  case Type::ArbPrecInt:
++  case Type::DependentSizedArbPrecInt:
+     return false;
+   }
+   llvm_unreachable("bad type kind!");
+Index: lib/AST/TypePrinter.cpp
+===================================================================
+--- lib/AST/TypePrinter.cpp
++++ lib/AST/TypePrinter.cpp
+@@ -227,6 +227,8 @@
+     case Type::ObjCInterface:
+     case Type::Atomic:
+     case Type::Pipe:
++    case Type::ArbPrecInt:
++    case Type::DependentSizedArbPrecInt:
+       CanPrefixQualifiers = true;
+       break;
+ 
+@@ -1117,6 +1119,24 @@
+   }
+ }
+ 
++void TypePrinter::printArbPrecIntBefore(const ArbPrecIntType *T,
++                                        raw_ostream &OS) {
++  OS << "__ap_int(" << T->getNumBits() << ") ";
++  printBefore(T->getUnderlyingType(), OS);
++}
++void TypePrinter::printArbPrecIntAfter(const ArbPrecIntType *T,
++                                       raw_ostream &OS) {}
++
++void TypePrinter::printDependentSizedArbPrecIntBefore(
++    const DependentSizedArbPrecIntType *T, raw_ostream &OS) {
++  OS << "__ap_int(";
++  T->getNumBitsExpr()->printPretty(OS, nullptr, Policy);
++  OS << ") ";
++  printBefore(T->getUnderlyingType(), OS);
++}
++void TypePrinter::printDependentSizedArbPrecIntAfter(
++    const DependentSizedArbPrecIntType *T, raw_ostream &OS) {}
++
+ void TypePrinter::printTag(TagDecl *D, raw_ostream &OS) {
+   if (Policy.IncludeTagDefinition) {
+     PrintingPolicy SubPolicy = Policy;
+Index: lib/CodeGen/CGDebugInfo.h
+===================================================================
+--- lib/CodeGen/CGDebugInfo.h
++++ lib/CodeGen/CGDebugInfo.h
+@@ -177,6 +177,7 @@
+   llvm::DIType *CreateType(const MemberPointerType *Ty, llvm::DIFile *F);
+   llvm::DIType *CreateType(const AtomicType *Ty, llvm::DIFile *F);
+   llvm::DIType *CreateType(const PipeType *Ty, llvm::DIFile *F);
++  llvm::DIType *CreateType(const ArbPrecIntType *Ty, llvm::DIFile *F);
+   /// Get enumeration type.
+   llvm::DIType *CreateEnumType(const EnumType *Ty);
+   llvm::DIType *CreateTypeDefinition(const EnumType *Ty);
+Index: lib/CodeGen/CGDebugInfo.cpp
+===================================================================
+--- lib/CodeGen/CGDebugInfo.cpp
++++ lib/CodeGen/CGDebugInfo.cpp
+@@ -2648,6 +2648,18 @@
+   return getOrCreateType(Ty->getElementType(), U);
+ }
+ 
++llvm::DIType *CGDebugInfo::CreateType(const ArbPrecIntType *Ty,
++                                      llvm::DIFile *U) {
++  StringRef Name = "ap_uint";
++  llvm::dwarf::TypeKind Encoding = llvm::dwarf::DW_ATE_unsigned;
++  if (Ty->isSignedIntegerOrEnumerationType()) {
++    Name = "ap_int";
++    Encoding = llvm::dwarf::DW_ATE_signed;
++  }
++  return DBuilder.createBasicType(Name, CGM.getContext().getTypeSize(Ty),
++                                  Encoding);
++}
++
+ llvm::DIType *CGDebugInfo::CreateEnumType(const EnumType *Ty) {
+   const EnumDecl *ED = Ty->getDecl();
+ 
+@@ -2950,6 +2962,9 @@
+   case Type::Pipe:
+     return CreateType(cast<PipeType>(Ty), Unit);
+ 
++  case Type::ArbPrecInt:
++    return CreateType(cast<ArbPrecIntType>(Ty), Unit);
++
+   case Type::TemplateSpecialization:
+     return CreateType(cast<TemplateSpecializationType>(Ty), Unit);
+ 
+Index: lib/CodeGen/CGExprCXX.cpp
+===================================================================
+--- lib/CodeGen/CGExprCXX.cpp
++++ lib/CodeGen/CGExprCXX.cpp
+@@ -669,7 +669,9 @@
+   QualType type = e->getAllocatedType();
+ 
+   if (!e->isArray()) {
+-    CharUnits typeSize = CGF.getContext().getTypeSizeInChars(type);
++    std::pair<CharUnits, CharUnits> TypeInfo =
++        CGF.getContext().getTypeInfoInChars(type);
++    CharUnits typeSize = TypeInfo.first.alignTo(TypeInfo.second);
+     sizeWithoutCookie
+       = llvm::ConstantInt::get(CGF.SizeTy, typeSize.getQuantity());
+     return sizeWithoutCookie;
+@@ -711,7 +713,9 @@
+     arraySizeMultiplier *= CAT->getSize();
+   }
+ 
+-  CharUnits typeSize = CGF.getContext().getTypeSizeInChars(type);
++  std::pair<CharUnits, CharUnits> TypeInfo =
++      CGF.getContext().getTypeInfoInChars(type);
++  CharUnits typeSize = TypeInfo.first.alignTo(TypeInfo.second);
+   llvm::APInt typeSizeMultiplier(sizeWidth, typeSize.getQuantity());
+   typeSizeMultiplier *= arraySizeMultiplier;
+ 
+Index: lib/CodeGen/CGExprScalar.cpp
+===================================================================
+--- lib/CodeGen/CGExprScalar.cpp
++++ lib/CodeGen/CGExprScalar.cpp
+@@ -733,6 +733,11 @@
+                                                   llvm::Value *Zero,bool isDiv);
+   // Common helper for getting how wide LHS of shift is.
+   static Value *GetWidthMinusOneValue(Value* LHS,Value* RHS);
++
++  // Used for OpenCL mode, constraints the RHS of a shift toavoid poisonable
++  // shift-results (shifting greater-than the bitcount of the LHS).
++  Value *ConstrainShiftValue(Value *LHS, Value *RHS, const Twine &Name);
++
+   Value *EmitDiv(const BinOpInfo &Ops);
+   Value *EmitRem(const BinOpInfo &Ops);
+   Value *EmitAdd(const BinOpInfo &Ops);
+@@ -3616,6 +3621,21 @@
+   return llvm::ConstantInt::get(RHS->getType(), Ty->getBitWidth() - 1);
+ }
+ 
++Value *ScalarExprEmitter::ConstrainShiftValue(Value *LHS, Value *RHS,
++                                              const Twine &Name) {
++  llvm::IntegerType *Ty;
++  if (const auto *VT = dyn_cast<llvm::VectorType>(LHS->getType()))
++    Ty = cast<llvm::IntegerType>(VT->getElementType());
++  else
++    Ty = cast<llvm::IntegerType>(LHS->getType());
++
++  if (llvm::isPowerOf2_64(Ty->getBitWidth()))
++    return Builder.CreateAnd(RHS, GetWidthMinusOneValue(LHS, RHS), Name);
++
++  return Builder.CreateURem(
++      RHS, llvm::ConstantInt::get(RHS->getType(), Ty->getBitWidth()), Name);
++}
++
+ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
+   // LLVM requires the LHS and RHS to be the same type: promote or truncate the
+   // RHS to the same size as the LHS.
+@@ -3629,8 +3649,7 @@
+   bool SanitizeExponent = CGF.SanOpts.has(SanitizerKind::ShiftExponent);
+   // OpenCL 6.3j: shift values are effectively % word size of LHS.
+   if (CGF.getLangOpts().OpenCL)
+-    RHS =
+-        Builder.CreateAnd(RHS, GetWidthMinusOneValue(Ops.LHS, RHS), "shl.mask");
++    RHS = ConstrainShiftValue(Ops.LHS, RHS, "shl.mask");
+   else if ((SanitizeBase || SanitizeExponent) &&
+            isa<llvm::IntegerType>(Ops.LHS->getType())) {
+     CodeGenFunction::SanitizerScope SanScope(&CGF);
+@@ -3692,8 +3711,7 @@
+ 
+   // OpenCL 6.3j: shift values are effectively % word size of LHS.
+   if (CGF.getLangOpts().OpenCL)
+-    RHS =
+-        Builder.CreateAnd(RHS, GetWidthMinusOneValue(Ops.LHS, RHS), "shr.mask");
++    RHS = ConstrainShiftValue(Ops.LHS, RHS, "shr.mask");
+   else if (CGF.SanOpts.has(SanitizerKind::ShiftExponent) &&
+            isa<llvm::IntegerType>(Ops.LHS->getType())) {
+     CodeGenFunction::SanitizerScope SanScope(&CGF);
+Index: lib/CodeGen/CodeGenFunction.cpp
+===================================================================
+--- lib/CodeGen/CodeGenFunction.cpp
++++ lib/CodeGen/CodeGenFunction.cpp
+@@ -218,6 +218,7 @@
+     case Type::Enum:
+     case Type::ObjCObjectPointer:
+     case Type::Pipe:
++    case Type::ArbPrecInt:
+       return TEK_Scalar;
+ 
+     // Complexes.
+@@ -2157,6 +2158,10 @@
+     case Type::Pipe:
+       type = cast<PipeType>(ty)->getElementType();
+       break;
++
++    case Type::ArbPrecInt:
++      type = cast<ArbPrecIntType>(ty)->getUnderlyingType();
++      break;
+     }
+   } while (type->isVariablyModifiedType());
+ }
+Index: lib/CodeGen/CodeGenTypes.cpp
+===================================================================
+--- lib/CodeGen/CodeGenTypes.cpp
++++ lib/CodeGen/CodeGenTypes.cpp
+@@ -676,6 +676,11 @@
+     ResultType = CGM.getOpenCLRuntime().getPipeType(cast<PipeType>(Ty));
+     break;
+   }
++  case Type::ArbPrecInt: {
++    const auto *IntTy = cast<ArbPrecIntType>(Ty);
++    ResultType = llvm::Type::getIntNTy(getLLVMContext(), IntTy->getNumBits());
++    break;
++  }
+   }
+ 
+   assert(ResultType && "Didn't convert a type?");
+Index: lib/CodeGen/ItaniumCXXABI.cpp
+===================================================================
+--- lib/CodeGen/ItaniumCXXABI.cpp
++++ lib/CodeGen/ItaniumCXXABI.cpp
+@@ -3074,6 +3074,9 @@
+   case Type::Pipe:
+     llvm_unreachable("Pipe types shouldn't get here");
+ 
++  case Type::ArbPrecInt:
++    llvm_unreachable("ArbPrecInt type not implemented here");
++
+   case Type::Builtin:
+   // GCC treats vector and complex types as fundamental types.
+   case Type::Vector:
+@@ -3330,6 +3333,9 @@
+   case Type::Pipe:
+     llvm_unreachable("Pipe type shouldn't get here");
+ 
++  case Type::ArbPrecInt:
++    llvm_unreachable("ArbPrecInt type not implemented here");
++
+   case Type::ConstantArray:
+   case Type::IncompleteArray:
+   case Type::VariableArray:
+Index: lib/Sema/SemaChecking.cpp
+===================================================================
+--- lib/Sema/SemaChecking.cpp
++++ lib/Sema/SemaChecking.cpp
+@@ -9547,6 +9547,8 @@
+       T = CT->getElementType().getTypePtr();
+     if (const AtomicType *AT = dyn_cast<AtomicType>(T))
+       T = AT->getValueType().getTypePtr();
++    if (const auto *AP = dyn_cast<ArbPrecIntType>(T))
++      return IntRange(AP->getNumBits(), AP->isUnsignedIntegerType());
+ 
+     if (!C.getLangOpts().CPlusPlus) {
+       // For enum types in C code, use the underlying datatype.
+@@ -9594,6 +9596,8 @@
+       T = AT->getValueType().getTypePtr();
+     if (const EnumType *ET = dyn_cast<EnumType>(T))
+       T = C.getCanonicalType(ET->getDecl()->getIntegerType()).getTypePtr();
++    if (const ArbPrecIntType *AP = dyn_cast<ArbPrecIntType>(T))
++      return IntRange(AP->getNumBits(), AP->isUnsignedIntegerType());
+ 
+     const BuiltinType *BT = cast<BuiltinType>(T);
+     assert(BT->isInteger());
+Index: lib/Sema/SemaExpr.cpp
+===================================================================
+--- lib/Sema/SemaExpr.cpp
++++ lib/Sema/SemaExpr.cpp
+@@ -4038,6 +4038,7 @@
+     case Type::ObjCObjectPointer:
+     case Type::ObjCTypeParam:
+     case Type::Pipe:
++    case Type::ArbPrecInt:
+       llvm_unreachable("type class is never variably-modified!");
+     case Type::Adjusted:
+       T = cast<AdjustedType>(Ty)->getOriginalType();
+@@ -8003,6 +8004,16 @@
+     }
+   }
+ 
++  // Allow Integer/ArbPrecInt conversions. Note that ArbPrecInt isIntegerType,
++  // so this covers conversions between two ArbPrecInts.
++  if ((LHSType->isArbPrecIntType() && RHSType->isIntegerType()) ||
++      (LHSType->isIntegerType() && RHSType->isArbPrecIntType())) {
++    Kind = CK_IntegralCast;
++    if (Context.getTypeSize(LHSType) == Context.getTypeSize(RHSType))
++      Kind = CK_BitCast;
++    return Compatible;
++  }
++
+   // Conversions to or from vector type.
+   if (LHSType->isVectorType() || RHSType->isVectorType()) {
+     if (LHSType->isVectorType() && RHSType->isVectorType()) {
+@@ -8954,6 +8965,102 @@
+   return QualType();
+ }
+ 
++static bool DoExprResultConversionConversions(Sema &S, ExprResult &Expr) {
++  Expr = S.DefaultFunctionArrayLvalueConversion(Expr.get());
++  if (Expr.isInvalid())
++    return false;
++
++  // Handle Bitfield to type conversion, note bitfields are always int.
++  QualType BFTy = S.getASTContext().isPromotableBitField(Expr.get());
++  if (!BFTy.isNull())
++    Expr = S.ImpCastExprToType(Expr.get(), BFTy, CK_IntegralCast);
++
++  return !Expr.isInvalid();
++}
++
++QualType Sema::CheckArbPrecIntOperands(ExprResult &LHS, ExprResult &RHS,
++                                       SourceLocation Loc, bool IsCompAssign,
++                                       bool IsShift) {
++  // Handle L->R Value conversions.
++  if (!IsCompAssign && !DoExprResultConversionConversions(*this, LHS))
++    return QualType();
++  if (!DoExprResultConversionConversions(*this, RHS))
++    return QualType();
++
++  QualType LHSType = LHS.get()->getType().getUnqualifiedType();
++  QualType RHSType = RHS.get()->getType().getUnqualifiedType();
++  const bool LHSIsAPType = LHSType->isArbPrecIntType();
++  const bool RHSIsAPType = RHSType->isArbPrecIntType();
++  unsigned LHSBits = Context.getTypeSize(LHSType);
++  unsigned RHSBits = Context.getTypeSize(RHSType);
++
++  assert((LHSIsAPType || RHSIsAPType) &&
++         "At least 1 operand must be ArbPrecInt");
++
++  if (LHSType == RHSType)
++    return LHSType;
++
++  // Only integer types are valid operands.
++  if (!LHSType->isIntegerType() || !RHSType->isIntegerType())
++    return InvalidOperands(Loc, LHS, RHS);
++
++  if (LHSType->isBooleanType()) {
++    if (!IsCompAssign)
++      LHS = doIntegralCast(*this, LHS.get(), RHSType);
++    return RHSType;
++  } else if (RHSType->isBooleanType()) {
++    RHS = doIntegralCast(*this, RHS.get(), LHSType);
++    return LHSType;
++  }
++
++  // At this point, both sides are either Integer or ArbPrecInt type.  Since the
++  // result of the operation between an ArbPrecInt and an integer should be an
++  // ArbPrecInt, convert BOTH to the ArbPrecInt of the right size.
++  if (!LHSIsAPType)
++    LHSType = Context.getArbPrecIntType(LHSType, LHSBits, {});
++  if (!RHSIsAPType)
++    RHSType = Context.getArbPrecIntType(RHSType, RHSBits, {});
++
++  // Shift result is always the LHS.
++  if (IsShift) {
++    RHS = doIntegralCast(*this, RHS.get(), LHSType);
++    return LHSType;
++  }
++
++  // Always convert to the biggest type.
++  if (LHSBits > RHSBits) {
++    RHS = doIntegralCast(*this, RHS.get(), LHSType);
++    return LHSType;
++  }
++
++  if (LHSBits < RHSBits) {
++    if (!IsCompAssign)
++      LHS = doIntegralCast(*this, LHS.get(), RHSType);
++    return RHSType;
++  }
++
++  // Last Tie-breaker is unsigned-before-signed.
++  if (!LHSType->hasSignedIntegerRepresentation()) {
++    RHS = doIntegralCast(*this, RHS.get(), LHSType);
++    return LHSType;
++  }
++
++  if (!IsCompAssign)
++    LHS = doIntegralCast(*this, LHS.get(), RHSType);
++  return RHSType;
++}
++
++QualType Sema::CheckArbPrecIntCompareOperands(ExprResult &LHS, ExprResult &RHS,
++                                              SourceLocation Loc) {
++  QualType CmpType = CheckArbPrecIntOperands(
++      LHS, RHS, Loc, /*IsCompAssign=*/false, /*IsShift=*/false);
++
++  if (CmpType.isNull())
++    return CmpType;
++
++  return Context.getLogicalOperationType();
++}
++
+ // checkArithmeticNull - Detect when a NULL constant is used improperly in an
+ // expression.  These are mainly cases where the null pointer is used as an
+ // integer instead of a pointer.
+@@ -9043,6 +9150,11 @@
+                                /*AllowBothBool*/getLangOpts().AltiVec,
+                                /*AllowBoolConversions*/false);
+ 
++  if (LHS.get()->getType()->isArbPrecIntType() ||
++      RHS.get()->getType()->isArbPrecIntType())
++    return CheckArbPrecIntOperands(LHS, RHS, Loc, IsCompAssign,
++                                   /*IsShift=*/false);
++
+   QualType compType = UsualArithmeticConversions(LHS, RHS, IsCompAssign);
+   if (LHS.isInvalid() || RHS.isInvalid())
+     return QualType();
+@@ -9071,6 +9183,11 @@
+     return InvalidOperands(Loc, LHS, RHS);
+   }
+ 
++  if (LHS.get()->getType()->isArbPrecIntType() ||
++      RHS.get()->getType()->isArbPrecIntType())
++    return CheckArbPrecIntOperands(LHS, RHS, Loc, IsCompAssign,
++                                   /*IsShift=*/false);
++
+   QualType compType = UsualArithmeticConversions(LHS, RHS, IsCompAssign);
+   if (LHS.isInvalid() || RHS.isInvalid())
+     return QualType();
+@@ -9360,6 +9477,15 @@
+     return compType;
+   }
+ 
++  if (LHS.get()->getType()->isArbPrecIntType() ||
++      RHS.get()->getType()->isArbPrecIntType()) {
++    QualType CompTy = CheckArbPrecIntOperands(LHS, RHS, Loc, CompLHSTy,
++                                              /*IsShift=*/false);
++    if (CompLHSTy)
++      *CompLHSTy = CompTy;
++    return CompTy;
++  }
++
+   QualType compType = UsualArithmeticConversions(LHS, RHS, CompLHSTy);
+   if (LHS.isInvalid() || RHS.isInvalid())
+     return QualType();
+@@ -9454,6 +9580,15 @@
+     return compType;
+   }
+ 
++  if (LHS.get()->getType()->isArbPrecIntType() ||
++      RHS.get()->getType()->isArbPrecIntType()) {
++    QualType CompTy = CheckArbPrecIntOperands(LHS, RHS, Loc, CompLHSTy,
++                                              /*IsShift=*/false);
++    if (CompLHSTy)
++      *CompLHSTy = CompTy;
++    return CompTy;
++  }
++
+   QualType compType = UsualArithmeticConversions(LHS, RHS, CompLHSTy);
+   if (LHS.isInvalid() || RHS.isInvalid())
+     return QualType();
+@@ -9746,6 +9881,11 @@
+     return checkVectorShift(*this, LHS, RHS, Loc, IsCompAssign);
+   }
+ 
++  if (LHS.get()->getType()->isArbPrecIntType() ||
++      RHS.get()->getType()->isArbPrecIntType())
++    return CheckArbPrecIntOperands(LHS, RHS, Loc, IsCompAssign,
++                                   /*IsShift=*/true);
++
+   // Shifts don't perform usual arithmetic conversions, they just do integer
+   // promotions on each operand. C99 6.5.7p3
+ 
+@@ -10412,6 +10552,10 @@
+       RHS.get()->getType()->isVectorType())
+     return CheckVectorCompareOperands(LHS, RHS, Loc, Opc);
+ 
++  if (LHS.get()->getType()->isArbPrecIntType() ||
++      RHS.get()->getType()->isArbPrecIntType())
++    return CheckArbPrecIntCompareOperands(LHS, RHS, Loc);
++
+   diagnoseLogicalNotOnLHSofCheck(*this, LHS, RHS, Loc, Opc);
+   diagnoseTautologicalComparison(*this, Loc, LHS.get(), RHS.get(), Opc);
+ 
+@@ -10930,6 +11074,11 @@
+     return InvalidOperands(Loc, LHS, RHS);
+   }
+ 
++  if (LHS.get()->getType()->isArbPrecIntType() ||
++      RHS.get()->getType()->isArbPrecIntType())
++    return CheckArbPrecIntOperands(LHS, RHS, Loc, IsCompAssign,
++                                   /*IsShift=*/false);
++
+   if (Opc == BO_And)
+     diagnoseLogicalNotOnLHSofCheck(*this, LHS, RHS, Loc, Opc);
+ 
+Index: lib/Sema/SemaLookup.cpp
+===================================================================
+--- lib/Sema/SemaLookup.cpp
++++ lib/Sema/SemaLookup.cpp
+@@ -2773,6 +2773,12 @@
+     case Type::Pipe:
+       T = cast<PipeType>(T)->getElementType().getTypePtr();
+       continue;
++    case Type::ArbPrecInt:
++      // This likely doesn't do anything since we only permit
++      // integer types, so ADL isn't very handy here, but do this to
++      // silence the warning and give it a reasonable implementation anyway.
++      T = cast<ArbPrecIntType>(T)->getUnderlyingType().getTypePtr();
++      continue;
+     }
+ 
+     if (Queue.empty())
+Index: lib/Sema/SemaOverload.cpp
+===================================================================
+--- lib/Sema/SemaOverload.cpp
++++ lib/Sema/SemaOverload.cpp
+@@ -7398,7 +7398,7 @@
+ 
+   /// The set of vector types that will be used in the built-in
+   /// candidates.
+-  TypeSet VectorTypes;
++  TypeSet ExtensionTypes;
+ 
+   /// A flag indicating non-record types are viable candidates
+   bool HasNonRecordTypes;
+@@ -7457,8 +7457,8 @@
+   /// enumeration_end - Past the last enumeration type found;
+   iterator enumeration_end() { return EnumerationTypes.end(); }
+ 
+-  iterator vector_begin() { return VectorTypes.begin(); }
+-  iterator vector_end() { return VectorTypes.end(); }
++  iterator extension_begin() { return ExtensionTypes.begin(); }
++  iterator extension_end() { return ExtensionTypes.end(); }
+ 
+   bool hasNonRecordTypes() { return HasNonRecordTypes; }
+   bool hasArithmeticOrEnumeralTypes() { return HasArithmeticOrEnumeralTypes; }
+@@ -7629,11 +7629,11 @@
+   } else if (Ty->isEnumeralType()) {
+     HasArithmeticOrEnumeralTypes = true;
+     EnumerationTypes.insert(Ty);
+-  } else if (Ty->isVectorType()) {
+-    // We treat vector types as arithmetic types in many contexts as an
+-    // extension.
++  } else if (Ty->isVectorType() || Ty->isArbPrecIntType()) {
++    // We treat vector types and ArbPrecInt types as arithmetic types in many
++    // contexts as an extension.
+     HasArithmeticOrEnumeralTypes = true;
+-    VectorTypes.insert(Ty);
++    ExtensionTypes.insert(Ty);
+   } else if (Ty->isNullPtrType()) {
+     HasNullPtrType = true;
+   } else if (AllowUserConversions && TyRec) {
+@@ -7980,13 +7980,13 @@
+       S.AddBuiltinCandidate(&ArithTy, Args, CandidateSet);
+     }
+ 
+-    // Extension: We also add these operators for vector types.
++    // Extension: We also add these operators for vector/ArbPrecInt types.
+     for (BuiltinCandidateTypeSet::iterator
+-              Vec = CandidateTypes[0].vector_begin(),
+-           VecEnd = CandidateTypes[0].vector_end();
+-         Vec != VecEnd; ++Vec) {
+-      QualType VecTy = *Vec;
+-      S.AddBuiltinCandidate(&VecTy, Args, CandidateSet);
++             Ext = CandidateTypes[0].extension_begin(),
++             ExtEnd = CandidateTypes[0].extension_end();
++         Ext != ExtEnd; ++Ext) {
++      QualType ExtTy = *Ext;
++      S.AddBuiltinCandidate(&ExtTy, Args, CandidateSet);
+     }
+   }
+ 
+@@ -8020,13 +8020,13 @@
+       S.AddBuiltinCandidate(&IntTy, Args, CandidateSet);
+     }
+ 
+-    // Extension: We also add this operator for vector types.
++    // Extension: We also add this operator for vector/ArbPrecInt types.
+     for (BuiltinCandidateTypeSet::iterator
+-              Vec = CandidateTypes[0].vector_begin(),
+-           VecEnd = CandidateTypes[0].vector_end();
+-         Vec != VecEnd; ++Vec) {
+-      QualType VecTy = *Vec;
+-      S.AddBuiltinCandidate(&VecTy, Args, CandidateSet);
++             Ext = CandidateTypes[0].extension_begin(),
++             ExtEnd = CandidateTypes[0].extension_end();
++         Ext != ExtEnd; ++Ext) {
++      QualType ExtTy = *Ext;
++      S.AddBuiltinCandidate(&ExtTy, Args, CandidateSet);
+     }
+   }
+ 
+@@ -8251,16 +8251,16 @@
+     }
+ 
+     // Extension: Add the binary operators ==, !=, <, <=, >=, >, *, /, and the
+-    // conditional operator for vector types.
++    // conditional operator for vector/ArbPrecInt types.
+     for (BuiltinCandidateTypeSet::iterator
+-              Vec1 = CandidateTypes[0].vector_begin(),
+-           Vec1End = CandidateTypes[0].vector_end();
+-         Vec1 != Vec1End; ++Vec1) {
++             Ext1 = CandidateTypes[0].extension_begin(),
++             Ext1End = CandidateTypes[0].extension_end();
++         Ext1 != Ext1End; ++Ext1) {
+       for (BuiltinCandidateTypeSet::iterator
+-                Vec2 = CandidateTypes[1].vector_begin(),
+-             Vec2End = CandidateTypes[1].vector_end();
+-           Vec2 != Vec2End; ++Vec2) {
+-        QualType LandR[2] = { *Vec1, *Vec2 };
++               Ext2 = CandidateTypes[1].extension_begin(),
++               Ext2End = CandidateTypes[1].extension_end();
++           Ext2 != Ext2End; ++Ext2) {
++        QualType LandR[2] = {*Ext1, *Ext2};
+         S.AddBuiltinCandidate(LandR, Args, CandidateSet);
+       }
+     }
+@@ -8523,25 +8523,26 @@
+       }
+     }
+ 
+-    // Extension: Add the binary operators =, +=, -=, *=, /= for vector types.
++    // Extension: Add the binary operators =, +=, -=, *=, /= for
++    // vector/ArbPrecInt types.
+     for (BuiltinCandidateTypeSet::iterator
+-              Vec1 = CandidateTypes[0].vector_begin(),
+-           Vec1End = CandidateTypes[0].vector_end();
+-         Vec1 != Vec1End; ++Vec1) {
++             Ext1 = CandidateTypes[0].extension_begin(),
++             Ext1End = CandidateTypes[0].extension_end();
++         Ext1 != Ext1End; ++Ext1) {
+       for (BuiltinCandidateTypeSet::iterator
+-                Vec2 = CandidateTypes[1].vector_begin(),
+-             Vec2End = CandidateTypes[1].vector_end();
+-           Vec2 != Vec2End; ++Vec2) {
++               Ext2 = CandidateTypes[1].extension_begin(),
++               Ext2End = CandidateTypes[1].extension_end();
++           Ext2 != Ext2End; ++Ext2) {
+         QualType ParamTypes[2];
+-        ParamTypes[1] = *Vec2;
++        ParamTypes[1] = *Ext2;
+         // Add this built-in operator as a candidate (VQ is empty).
+-        ParamTypes[0] = S.Context.getLValueReferenceType(*Vec1);
++        ParamTypes[0] = S.Context.getLValueReferenceType(*Ext1);
+         S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
+                               /*IsAssigmentOperator=*/isEqualOp);
+ 
+         // Add this built-in operator as a candidate (VQ is 'volatile').
+         if (VisibleTypeConversionsQuals.hasVolatile()) {
+-          ParamTypes[0] = S.Context.getVolatileType(*Vec1);
++          ParamTypes[0] = S.Context.getVolatileType(*Ext1);
+           ParamTypes[0] = S.Context.getLValueReferenceType(ParamTypes[0]);
+           S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
+                                 /*IsAssigmentOperator=*/isEqualOp);
+Index: lib/Sema/SemaTemplate.cpp
+===================================================================
+--- lib/Sema/SemaTemplate.cpp
++++ lib/Sema/SemaTemplate.cpp
+@@ -5527,6 +5527,15 @@
+   return false;
+ }
+ 
++bool UnnamedLocalNoLinkageFinder::VisitArbPrecIntType(const ArbPrecIntType *T) {
++  return Visit(T->getUnderlyingType());
++}
++
++bool UnnamedLocalNoLinkageFinder::VisitDependentSizedArbPrecIntType(
++    const DependentSizedArbPrecIntType *T) {
++  return Visit(T->getUnderlyingType());
++}
++
+ bool UnnamedLocalNoLinkageFinder::VisitTagDecl(const TagDecl *Tag) {
+   if (Tag->getDeclContext()->isFunctionOrMethod()) {
+     S.Diag(SR.getBegin(),
+Index: lib/Sema/SemaTemplateDeduction.cpp
+===================================================================
+--- lib/Sema/SemaTemplateDeduction.cpp
++++ lib/Sema/SemaTemplateDeduction.cpp
+@@ -2095,6 +2095,62 @@
+       return Sema::TDK_NonDeducedMismatch;
+     }
+ 
++    case Type::ArbPrecInt: {
++      const auto *IntParam = cast<ArbPrecIntType>(Param);
++      if (const auto *IntArg = dyn_cast<ArbPrecIntType>(Arg)) {
++        if (IntParam->getNumBits() != IntArg->getNumBits())
++          return Sema::TDK_NonDeducedMismatch;
++        // This should deduce the element types.
++        return DeduceTemplateArgumentsByTypeMatch(
++            S, TemplateParams, IntParam->getUnderlyingType(),
++            IntArg->getUnderlyingType(), Info, Deduced, TDF);
++      }
++
++      if (const auto *IntArg = dyn_cast<DependentSizedArbPrecIntType>(Arg))
++        return DeduceTemplateArgumentsByTypeMatch(
++            S, TemplateParams, IntParam->getUnderlyingType(),
++            IntArg->getUnderlyingType(), Info, Deduced, TDF);
++
++      return Sema::TDK_NonDeducedMismatch;
++    }
++    case Type::DependentSizedArbPrecInt: {
++      const auto *IntParam = cast<DependentSizedArbPrecIntType>(Param);
++      if (const auto *IntArg = dyn_cast<ArbPrecIntType>(Arg)) {
++        if (Sema::TemplateDeductionResult Result =
++                DeduceTemplateArgumentsByTypeMatch(
++                    S, TemplateParams, IntParam->getUnderlyingType(),
++                    IntArg->getUnderlyingType(), Info, Deduced, TDF))
++          return Result;
++
++        NonTypeTemplateParmDecl *NTTP =
++            getDeducedParameterFromExpr(Info, IntParam->getNumBitsExpr());
++        if (!NTTP)
++          return Sema::TDK_Success;
++
++        llvm::APSInt ArgSize(S.Context.getTypeSize(S.Context.IntTy), false);
++        ArgSize = IntArg->getNumBits();
++
++        return DeduceNonTypeTemplateArgument(S, TemplateParams, NTTP, ArgSize,
++                                             S.Context.IntTy, true, Info,
++                                             Deduced);
++      }
++      if (const auto *IntArg = dyn_cast<DependentSizedArbPrecIntType>(Arg)) {
++        if (Sema::TemplateDeductionResult Result =
++                DeduceTemplateArgumentsByTypeMatch(
++                    S, TemplateParams, IntParam->getUnderlyingType(),
++                    IntArg->getUnderlyingType(), Info, Deduced, TDF))
++          return Result;
++        // Deduces Size.
++        NonTypeTemplateParmDecl *NTTP =
++            getDeducedParameterFromExpr(Info, IntParam->getNumBitsExpr());
++        if (!NTTP)
++          return Sema::TDK_Success;
++        return DeduceNonTypeTemplateArgument(
++            S, TemplateParams, NTTP, IntArg->getNumBitsExpr(), Info, Deduced);
++      }
++      return Sema::TDK_NonDeducedMismatch;
++    }
++
+     case Type::TypeOfExpr:
+     case Type::TypeOf:
+     case Type::DependentName:
+@@ -5389,6 +5445,20 @@
+     break;
+   }
+ 
++  case Type::ArbPrecInt:
++    MarkUsedTemplateParameters(Ctx,
++                               cast<ArbPrecIntType>(T)->getUnderlyingType(),
++                               OnlyDeduced, Depth, Used);
++    break;
++  case Type::DependentSizedArbPrecInt: {
++    const auto *IntType = cast<DependentSizedArbPrecIntType>(T);
++    MarkUsedTemplateParameters(Ctx, IntType->getUnderlyingType(), OnlyDeduced,
++                               Depth, Used);
++    MarkUsedTemplateParameters(Ctx, IntType->getNumBitsExpr(), OnlyDeduced,
++                               Depth, Used);
++    break;
++  }
++
+   case Type::DependentAddressSpace: {
+     const DependentAddressSpaceType *DependentASType =
+         cast<DependentAddressSpaceType>(T);
+Index: lib/Sema/SemaType.cpp
+===================================================================
+--- lib/Sema/SemaType.cpp
++++ lib/Sema/SemaType.cpp
+@@ -2055,6 +2055,53 @@
+   return Context.getWritePipeType(T);
+ }
+ 
++/// \brief Build an Arbitrary Precision Integer type.
++///
++/// \param T The underlying type for the ArbPrecInt
++///
++/// \param NumBitsExpr An expression representing the number of bits for this
++/// ArbPrecInt.
++///
++/// \param AttrLoc The Location of the attribute causing the ArbPrecInt.
++QualType Sema::BuildArbPrecIntType(QualType T, Expr *NumBitsExpr,
++                                   SourceLocation AttrLoc) {
++  if (!T->isDependentType() && T.getCanonicalType() != Context.IntTy &&
++      T.getCanonicalType() != Context.UnsignedIntTy) {
++    Diag(AttrLoc, diag::err_ap_int_type) << T;
++    return QualType();
++  }
++
++  if (!NumBitsExpr->isTypeDependent() && !NumBitsExpr->isValueDependent()) {
++    llvm::APSInt Bits(32);
++    if (!NumBitsExpr->isIntegerConstantExpr(Bits, Context)) {
++      Diag(AttrLoc, diag::err_attribute_argument_type)
++          << "__ap_int" << AANT_ArgumentIntegerConstant
++          << NumBitsExpr->getSourceRange();
++      return QualType();
++    }
++
++    int64_t NumBits = Bits.getSExtValue();
++    if (!T->isDependentType() && T->isSignedIntegerOrEnumerationType() &&
++        NumBits < 2) {
++      Diag(AttrLoc, diag::err_ap_int_bad_size) << 0;
++      return QualType();
++    }
++
++    if (!T->isDependentType() && !T->isSignedIntegerOrEnumerationType() &&
++        NumBits < 1) {
++      Diag(AttrLoc, diag::err_ap_int_bad_size) << 1;
++      return QualType();
++    }
++
++    if (T->isDependentType() && NumBits < 1) {
++      Diag(AttrLoc, diag::err_ap_int_bad_size) << 2;
++      return QualType();
++    }
++    return Context.getArbPrecIntType(T, NumBits, AttrLoc);
++  }
++  return Context.getDependentSizedArbPrecIntType(T, NumBitsExpr, AttrLoc);
++}
++
+ /// Check whether the specified array size makes the array type a VLA.  If so,
+ /// return true, if not, return the size of the array in SizeVal.
+ static bool isArraySizeVLA(Sema &S, Expr *ArraySize, llvm::APSInt &SizeVal) {
+@@ -7252,6 +7299,38 @@
+   }
+ }
+ 
++static void HandleArbPrecIntAttr(QualType &CurType, const ParsedAttr &Attr,
++                                 Sema &S) {
++  // check the attribute arguments.
++  if (Attr.getNumArgs() != 1) {
++    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
++        << Attr.getName() << 1;
++    return;
++  }
++
++  Expr *NumBitsExpr;
++  // Special case where the argument is a template id.
++  if (Attr.isArgIdent(0)) {
++    CXXScopeSpec SS;
++    SourceLocation TemplateKWLoc;
++    UnqualifiedId Id;
++    Id.setIdentifier(Attr.getArgAsIdent(0)->Ident, Attr.getLoc());
++
++    ExprResult NumBits = S.ActOnIdExpression(S.getCurScope(), SS, TemplateKWLoc,
++                                             Id, false, false);
++    if (NumBits.isInvalid())
++      return;
++
++    NumBitsExpr = NumBits.get();
++  } else {
++    NumBitsExpr = Attr.getArgAsExpr(0);
++  }
++
++  QualType T = S.BuildArbPrecIntType(CurType, NumBitsExpr, Attr.getLoc());
++  if (!T.isNull())
++    CurType = T;
++}
++
+ static void deduceOpenCLImplicitAddrSpace(TypeProcessingState &State,
+                                           QualType &T, TypeAttrLocation TAL) {
+   Declarator &D = State.getDeclarator();
+@@ -7484,6 +7563,11 @@
+       break;
+     }
+ 
++    case ParsedAttr::AT_ArbPrecInt:
++      HandleArbPrecIntAttr(type, attr, state.getSema());
++      attr.setUsedAsTypeAttr();
++      break;
++
+     MS_TYPE_ATTRS_CASELIST:
+       if (!handleMSPointerTypeQualifierAttr(state, attr, type))
+         attr.setUsedAsTypeAttr();
+Index: lib/Sema/TreeTransform.h
+===================================================================
+--- lib/Sema/TreeTransform.h
++++ lib/Sema/TreeTransform.h
+@@ -1145,6 +1145,14 @@
+   QualType RebuildPipeType(QualType ValueType, SourceLocation KWLoc,
+                            bool isReadPipe);
+ 
++  /// Build an arbitrary precision type given its value type.
++  QualType RebuildArbPrecIntType(QualType ValueType, unsigned NumBits,
++                                 SourceLocation Loc);
++  /// Build a dependent arbitrary precision type given its value type.
++  QualType RebuildDependentSizedArbPrecIntType(QualType ValueType,
++                                               Expr *NumBitsExpr,
++                                               SourceLocation Loc);
++
+   /// Build a new template name given a nested name specifier, a flag
+   /// indicating whether the "template" keyword was provided, and the template
+   /// that the template name refers to.
+@@ -5867,6 +5875,67 @@
+   return Result;
+ }
+ 
++template <typename Derived>
++QualType TreeTransform<Derived>::TransformArbPrecIntType(TypeLocBuilder &TLB,
++                                                         ArbPrecIntTypeLoc TL) {
++  const ArbPrecIntType *T = TL.getTypePtr();
++  QualType UnderlyingType = getDerived().TransformType(T->getUnderlyingType());
++  if (UnderlyingType.isNull())
++    return QualType();
++
++  QualType Result = TL.getType();
++  if (getDerived().AlwaysRebuild() ||
++      UnderlyingType != T->getUnderlyingType()) {
++    Result = getDerived().RebuildArbPrecIntType(UnderlyingType, T->getNumBits(),
++                                                T->getAttributeLoc());
++    if (Result.isNull())
++      return QualType();
++  }
++
++  ArbPrecIntTypeLoc NewTL = TLB.push<ArbPrecIntTypeLoc>(Result);
++  NewTL.setNameLoc(TL.getNameLoc());
++
++  return Result;
++}
++
++template <typename Derived>
++QualType TreeTransform<Derived>::TransformDependentSizedArbPrecIntType(
++    TypeLocBuilder &TLB, DependentSizedArbPrecIntTypeLoc TL) {
++  const DependentSizedArbPrecIntType *T = TL.getTypePtr();
++  QualType UnderlyingType = getDerived().TransformType(T->getUnderlyingType());
++  if (UnderlyingType.isNull())
++    return QualType();
++
++  EnterExpressionEvaluationContext Unevaluated(
++      SemaRef, Sema::ExpressionEvaluationContext::ConstantEvaluated);
++
++  ExprResult NumBits = getDerived().TransformExpr(T->getNumBitsExpr());
++  NumBits = SemaRef.ActOnConstantExpression(NumBits);
++  if (NumBits.isInvalid())
++    return QualType();
++
++  QualType Result = TL.getType();
++  if (getDerived().AlwaysRebuild() ||
++      UnderlyingType != T->getUnderlyingType() ||
++      NumBits.get() != T->getNumBitsExpr()) {
++    Result = getDerived().RebuildDependentSizedArbPrecIntType(
++        UnderlyingType, NumBits.get(), T->getAttributeLoc());
++    if (Result.isNull())
++      return QualType();
++  }
++
++  if (isa<DependentSizedArbPrecIntType>(Result)) {
++    DependentSizedArbPrecIntTypeLoc NewTL =
++        TLB.push<DependentSizedArbPrecIntTypeLoc>(Result);
++    NewTL.setNameLoc(TL.getNameLoc());
++  } else {
++    ArbPrecIntTypeLoc NewTL = TLB.push<ArbPrecIntTypeLoc>(Result);
++    NewTL.setNameLoc(TL.getNameLoc());
++  }
++
++  return Result;
++}
++
+   /// Simple iterator that traverses the template arguments in a
+   /// container that provides a \c getArgLoc() member function.
+   ///
+@@ -12705,6 +12774,22 @@
+                     : SemaRef.BuildWritePipeType(ValueType, KWLoc);
+ }
+ 
++template <typename Derived>
++QualType TreeTransform<Derived>::RebuildArbPrecIntType(
++    QualType UnderlyingType, unsigned NumBits, SourceLocation AttributeLoc) {
++  llvm::APInt NumBitsAP(SemaRef.Context.getIntWidth(SemaRef.Context.IntTy),
++                        NumBits, true);
++  IntegerLiteral *Bits = IntegerLiteral::Create(
++      SemaRef.Context, NumBitsAP, SemaRef.Context.IntTy, AttributeLoc);
++  return SemaRef.BuildArbPrecIntType(UnderlyingType, Bits, AttributeLoc);
++}
++
++template <typename Derived>
++QualType TreeTransform<Derived>::RebuildDependentSizedArbPrecIntType(
++    QualType ElementType, Expr *NumExpr, SourceLocation AttributeLoc) {
++  return SemaRef.BuildArbPrecIntType(ElementType, NumExpr, AttributeLoc);
++}
++
+ template<typename Derived>
+ TemplateName
+ TreeTransform<Derived>::RebuildTemplateName(CXXScopeSpec &SS,
+Index: lib/Serialization/ASTReader.cpp
+===================================================================
+--- lib/Serialization/ASTReader.cpp
++++ lib/Serialization/ASTReader.cpp
+@@ -6407,6 +6407,35 @@
+     return Context.getDependentAddressSpaceType(PointeeType, AddrSpaceExpr,
+                                                    AttrLoc);
+   }
++
++  case TYPE_ARBPRECINT: {
++    if (Record.size() != 3) {
++      Error("Incorrect encoding of ArbPrecInt type");
++      return QualType();
++    }
++
++    unsigned Idx = 0;
++    QualType UnderlyingType = readType(*Loc.F, Record, Idx);
++    unsigned NumBits = Record[Idx++];
++    SourceLocation AttrLoc = ReadSourceLocation(*Loc.F, Record, Idx);
++
++    return Context.getArbPrecIntType(UnderlyingType, NumBits, AttrLoc);
++  }
++
++  case TYPE_DEPENDENT_SIZED_ARBPRECINT: {
++    if (Record.size() != 3) {
++      Error("Incorrect encoding of Dependent APInt type");
++      return QualType();
++    }
++
++    unsigned Idx = 0;
++    QualType UnderlyingType = readType(*Loc.F, Record, Idx);
++    Expr *NumBitsExpr = ReadExpr(*Loc.F);
++    SourceLocation AttrLoc = ReadSourceLocation(*Loc.F, Record, Idx);
++
++    return Context.getDependentSizedArbPrecIntType(UnderlyingType, NumBitsExpr,
++                                                   AttrLoc);
++  }
+   }
+   llvm_unreachable("Invalid TypeCode!");
+ }
+@@ -6755,6 +6784,15 @@
+   TL.setKWLoc(ReadSourceLocation());
+ }
+ 
++void TypeLocReader::VisitArbPrecIntTypeLoc(ArbPrecIntTypeLoc TL) {
++  TL.setNameLoc(ReadSourceLocation());
++}
++
++void TypeLocReader::VisitDependentSizedArbPrecIntTypeLoc(
++    DependentSizedArbPrecIntTypeLoc TL) {
++  TL.setNameLoc(ReadSourceLocation());
++}
++
+ void ASTReader::ReadTypeLoc(ModuleFile &F, const ASTReader::RecordData &Record,
+                             unsigned &Idx, TypeLoc TL) {
+   TypeLocReader TLR(F, *this, Record, Idx);
+Index: lib/Serialization/ASTWriter.cpp
+===================================================================
+--- lib/Serialization/ASTWriter.cpp
++++ lib/Serialization/ASTWriter.cpp
+@@ -574,6 +574,21 @@
+   Code = TYPE_PIPE;
+ }
+ 
++void ASTTypeWriter::VisitArbPrecIntType(const ArbPrecIntType *T) {
++  Record.AddTypeRef(T->getUnderlyingType());
++  Record.push_back(T->getNumBits());
++  Record.AddSourceLocation(T->getAttributeLoc());
++  Code = TYPE_ARBPRECINT;
++}
++
++void ASTTypeWriter::VisitDependentSizedArbPrecIntType(
++    const DependentSizedArbPrecIntType *T) {
++  Record.AddTypeRef(T->getUnderlyingType());
++  Record.AddStmt(T->getNumBitsExpr());
++  Record.AddSourceLocation(T->getAttributeLoc());
++  Code = TYPE_DEPENDENT_SIZED_ARBPRECINT;
++}
++
+ namespace {
+ 
+ class TypeLocWriter : public TypeLocVisitor<TypeLocWriter> {
+@@ -864,6 +879,15 @@
+   Record.AddSourceLocation(TL.getKWLoc());
+ }
+ 
++void TypeLocWriter::VisitArbPrecIntTypeLoc(ArbPrecIntTypeLoc TL) {
++  Record.AddSourceLocation(TL.getNameLoc());
++}
++
++void TypeLocWriter::VisitDependentSizedArbPrecIntTypeLoc(
++    DependentSizedArbPrecIntTypeLoc TL) {
++  Record.AddSourceLocation(TL.getNameLoc());
++}
++
+ void ASTWriter::WriteTypeAbbrevs() {
+   using namespace llvm;
+ 
+Index: test/CodeGen/arb_prec_int.c
+===================================================================
+--- /dev/null
++++ test/CodeGen/arb_prec_int.c
+@@ -0,0 +1,870 @@
++// RUN: %clang -cc1 -triple x86_64-linux-pc %s -emit-llvm -o - | FileCheck %s
++
++typedef int __attribute__((__ap_int(4))) int4_tt;
++typedef unsigned __attribute__((__ap_int(4))) uint4_tt;
++
++typedef int __attribute__((__ap_int(5))) int5_tt;
++typedef unsigned __attribute__((__ap_int(5))) uint5_tt;
++
++typedef int __attribute__((__ap_int(15))) int15_tt;
++typedef unsigned __attribute__((__ap_int(15))) uint15_tt;
++
++typedef int __attribute__((__ap_int(16))) int16_tt;
++typedef unsigned __attribute__((__ap_int(16))) uint16_tt;
++
++typedef int __attribute__((__ap_int(17))) int17_tt;
++typedef unsigned __attribute__((__ap_int(17))) uint17_tt;
++
++typedef int __attribute__((__ap_int(43))) int43_tt;
++typedef unsigned __attribute__((__ap_int(43))) uint43_tt;
++
++typedef int int2053_tt __attribute__((__ap_int(2053)));
++typedef unsigned int uint2053_tt __attribute__((__ap_int(2053)));
++
++void BinOps() {
++  int43_tt x43_s = 1, y43_s = 1;
++  int4_tt x4_s = 1, y4_s = 1;
++  uint43_tt x43_u = 1, y43_u = 1;
++  uint4_tt x4_u = 1, y4_u = 1;
++  long res = 0;
++
++  res = x43_s / y43_s;
++  // CHECK: %[[L0:[0-9]+]] = load i43, i43* %x43_s, align 8
++  // CHECK: %[[L1:[0-9]+]] = load i43, i43* %y43_s, align 8
++  // CHECK: = sdiv i43 %[[L0]], %[[L1]]
++  // CHECK-NOT: = sdiv i32
++
++  res = x4_s / y4_s;
++  // CHECK: %[[L2:[0-9]+]] = load i4, i4* %x4_s, align 1
++  // CHECK: %[[L3:[0-9]+]] = load i4, i4* %y4_s, align 1
++  // CHECK: = sdiv i4 %[[L2]], %[[L3]]
++  // CHECK-NOT: = sdiv i32
++
++  res = x43_u + y43_u;
++  // CHECK: %[[L4:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[L5:[0-9]+]] = load i43, i43* %y43_u, align 8
++  // CHECK: = add i43 %[[L4]], %[[L5]]
++  // CHECK-NOT: = add i32
++
++  res = x4_u + y4_u;
++  // CHECK: %[[L6:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[L7:[0-9]+]] = load i4, i4* %y4_u, align 1
++  // CHECK: = add i4 %[[L6]], %[[L7]]
++  // CHECK-NOT: = add i32
++
++  res = x43_u - y43_u;
++  // CHECK: %[[L8:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[L9:[0-9]+]] = load i43, i43* %y43_u, align 8
++  // CHECK: = sub i43 %[[L8]], %[[L9]]
++  // CHECK-NOT: = sub i32
++  res = x4_u - y4_u;
++
++  // CHECK: %[[LA:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[LB:[0-9]+]] = load i4, i4* %y4_u, align 1
++  // CHECK: = sub i4 %[[LA]], %[[LB]]
++  // CHECK-NOT: = sub i32
++  res = x43_u * y43_u;
++  // CHECK: %[[LC:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[LD:[0-9]+]] = load i43, i43* %y43_u, align 8
++  // CHECK: = mul i43 %[[LC]], %[[LD]]
++  // CHECK-NOT: = mul i32
++
++  res = x4_u * y4_u;
++  // CHECK: %[[LE:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[LF:[0-9]+]] = load i4, i4* %y4_u, align 1
++  // CHECK: = mul i4 %[[LE]], %[[LF]]
++  // CHECK-NOT: = mul i32
++
++  res = x43_u / y43_u;
++  // CHECK: %[[LG:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[LH:[0-9]+]] = load i43, i43* %y43_u, align 8
++  // CHECK: = udiv i43 %[[LG]], %[[LH]]
++  // CHECK-NOT: = udiv i32
++
++  res = x4_u / y4_u;
++  // CHECK: %[[LI:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[LJ:[0-9]+]] = load i4, i4* %y4_u, align 1
++  // CHECK: = udiv i4 %[[LI]], %[[LJ]]
++  // CHECK-NOT: = udiv i32
++}
++
++void BitwiseOps() {
++  int43_tt x43_s = 0, y43_s = 0;
++  int4_tt x4_s = 0, y4_s = 0;
++  uint43_tt x43_u = 0, y43_u = 0;
++  uint4_tt x4_u = 0, y4_u = 0;
++  long res = 0;
++
++  res = x43_s % y43_s;
++  // CHECK: %[[L0:[0-9]+]] = load i43, i43* %x43_s, align 8
++  // CHECK: %[[L1:[0-9]+]] = load i43, i43* %y43_s, align 8
++  // CHECK: = srem i43 %[[L0]], %[[L1]]
++  // CHECK-NOT: srem i32
++
++  res = x4_s % y4_s;
++  // CHECK: %[[L2:[0-9]+]] = load i4, i4* %x4_s, align 1
++  // CHECK: %[[L3:[0-9]+]] = load i4, i4* %y4_s, align 1
++  // CHECK: = srem i4 %[[L2]], %[[L3]]
++  // CHECK-NOT: srem i32
++
++  res = x43_s >> 7;
++  // CHECK: %[[L4:[0-9]+]] = load i43, i43* %x43_s, align 8
++  // CHECK: = ashr i43 %[[L4]], 7
++
++  res = x4_s >> (int4_tt)7;
++  // CHECK: %[[L5:[0-9]+]] = load i4, i4* %x4_s, align 1
++  // CHECK: = ashr i4 %[[L5]], 7
++
++  res = x43_u % y43_u;
++  // CHECK: %[[L6:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[L7:[0-9]+]] = load i43, i43* %y43_u, align 8
++  // CHECK: = urem i43 %[[L6]], %[[L7]]
++  // CHECK-NOT: = urem i32
++
++  res = x4_u % y4_u;
++  // CHECK: %[[L8:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[L9:[0-9]+]] = load i4, i4* %y4_u, align 1
++  // CHECK: = urem i4 %[[L8]], %[[L9]]
++  // CHECK-NOT: = urem i32
++
++  res = x43_u | y43_u;
++  // CHECK: %[[LA:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[LB:[0-9]+]] = load i43, i43* %y43_u, align 8
++  // CHECK: = or i43 %[[LA]], %[[LB]]
++  // CHECK-NOT: = or i32
++
++  res = x4_u | y4_u;
++  // CHECK: %[[LC:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[LD:[0-9]+]] = load i4, i4* %y4_u, align 1
++  // CHECK: = or i4 %[[LC]], %[[LD]]
++  // CHECK-NOT: = or i32
++
++  res = x43_u & y43_u;
++  // CHECK: %[[LE:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[LF:[0-9]+]] = load i43, i43* %y43_u, align 8
++  // CHECK: = and i43 %[[LE]], %[[LF]]
++  // CHECK-NOT: = and i32
++
++  res = x4_u & y4_u;
++  // CHECK: %[[LG:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[LH:[0-9]+]] = load i4, i4* %y4_u, align 1
++  // CHECK: = and i4 %[[LG]], %[[LH]]
++  // CHECK-NOT: = and i32
++
++  res = x43_u ^ y43_u;
++  // CHECK: %[[LI:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[LJ:[0-9]+]] = load i43, i43* %y43_u, align 8
++  // CHECK: = xor i43 %[[LI]], %[[LJ]]
++  // CHECK-NOT: = xor i32
++
++  res = x4_u ^ y4_u;
++  // CHECK: %[[LK:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[LL:[0-9]+]] = load i4, i4* %y4_u, align 1
++  // CHECK: = xor i4 %[[LK]], %[[LL]]
++  // CHECK-NOT: = xor i32
++
++  res = ~x43_u;
++  // CHECK: %[[LM:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: = xor i43 %[[LM]], -1
++  // CHECK-NOT: = xor i32
++
++  res = ~x4_u;
++  // CHECK: %[[LN:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: = xor i4 %[[LN]], -1
++  // CHECK-NOT: = xor i32
++
++  res = x43_u >> 7;
++  // CHECK: %[[LO:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: = lshr i43 %[[LO]], 7
++  // CHECK-NOT: = lshr i32
++
++  res = x4_u >> (uint4_tt)7;
++  // CHECK: %[[LP:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: = lshr i4 %[[LP]], 7
++  // CHECK-NOT: = lshr i32
++
++  res = x43_u << 7;
++  // CHECK: %[[LQ:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: = shl i43 %[[LQ]], 7
++  // CHECK-NOT: = shl i32
++
++  res = x4_u << (uint4_tt)7;
++  // CHECK: %[[LR:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: = shl i4 %[[LR]], 7
++  // CHECK-NOT: = shl i32
++
++  // Huge Bitwise:
++  int2053_tt x2053_s = 0, y2053_s = 0;
++  uint2053_tt x2053_u = 0, y2053_u = 0;
++
++  res = x2053_s % y2053_s;
++  // CHECK: %[[LS:[0-9]+]] = load i2053, i2053* %x2053_s, align 8
++  // CHECK: %[[LT:[0-9]+]] = load i2053, i2053* %y2053_s, align 8
++  // CHECK: = srem i2053 %[[LS]], %[[LT]]
++
++  res = x2053_s >> 7;
++  // CHECK: %[[LU:[0-9]+]] = load i2053, i2053* %x2053_s, align 8
++  // CHECK: = ashr i2053 %[[LU]], 7
++
++  res = x2053_u % y2053_u;
++  // CHECK: %[[LV:[0-9]+]] = load i2053, i2053* %x2053_u, align 8
++  // CHECK: %[[LW:[0-9]+]] = load i2053, i2053* %y2053_u, align 8
++  // CHECK: = urem i2053 %[[LV]], %[[LW]]
++
++  res = x2053_u | y2053_u;
++  // CHECK: %[[LX:[0-9]+]] = load i2053, i2053* %x2053_u, align 8
++  // CHECK: %[[LY:[0-9]+]] = load i2053, i2053* %y2053_u, align 8
++  // CHECK: = or i2053 %[[LX]], %[[LY]]
++
++  res = x2053_u & y2053_u;
++  // CHECK: %[[LZ:[0-9]+]] = load i2053, i2053* %x2053_u, align 8
++  // CHECK: %[[L_0:[0-9]+]] = load i2053, i2053* %y2053_u, align 8
++  // CHECK: = and i2053 %[[LZ]], %[[L_0]]
++
++  res = x2053_u ^ y2053_u;
++  // CHECK: %[[L_1:[0-9]+]] = load i2053, i2053* %x2053_u, align 8
++  // CHECK: %[[L_2:[0-9]+]] = load i2053, i2053* %y2053_u, align 8
++  // CHECK: = xor i2053 %[[L_1]], %[[L_2]]
++
++  res = ~x2053_u;
++  // CHECK: %[[L_2:[0-9]+]] = load i2053, i2053* %x2053_u, align 8
++  // CHECK: = xor i2053 %[[L_2]], -1
++
++  res = x2053_u >> 7;
++  // CHECK: %[[L_3:[0-9]+]] = load i2053, i2053* %x2053_u, align 8
++  // CHECK: = lshr i2053 %[[L_3]], 7
++
++  res = x2053_u << 7;
++  // CHECK: %[[L_4:[0-9]+]] = load i2053, i2053* %x2053_u, align 8
++  // CHECK: = shl i2053 %[[L_4]], 7
++}
++
++void IncDecOps() {
++  uint43_tt x43_u = 0;
++  uint4_tt x4_u = 0;
++  long res = 0;
++
++  res = ++x43_u;
++  // CHECK: %[[L0:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[U0:[a-zA-Z0-9]+]] = add i43 %[[L0]], 1
++  // CHECK: store i43 %[[U0]], i43* %x43_u, align 8
++  // CHECK: %[[U0b:[a-zA-Z0-9]+]] = zext i43 %[[U0]] to i64
++  // CHECK: store i64 %[[U0b]], i64* %res, align 8
++
++  res = ++x4_u;
++  // CHECK: %[[L1:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[U1:[a-zA-Z0-9]+]] = add i4 %[[L1]], 1
++  // CHECK: store i4 %[[U1]], i4* %x4_u, align 1
++  // CHECK: %[[U1b:[a-zA-Z0-9]+]] = zext i4 %[[U1]] to i64
++  // CHECK: store i64 %[[U1b]], i64* %res, align 8
++
++  res = x43_u++;
++  // CHECK: %[[L2:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[U2:[a-zA-Z0-9]+]] = add i43 %[[L2]], 1
++  // CHECK: store i43 %[[U2]], i43* %x43_u, align 8
++  // CHECK: %[[U2b:[a-zA-Z0-9]+]] = zext i43 %[[L2]] to i64
++  // CHECK: store i64 %[[U2b]], i64* %res, align 8
++
++  res = x4_u++;
++  // CHECK: %[[L3:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[U3:[a-zA-Z0-9]+]] = add i4 %[[L3]], 1
++  // CHECK: store i4 %[[U3]], i4* %x4_u, align 1
++  // CHECK: %[[U3b:[a-zA-Z0-9]+]] = zext i4 %[[L3]] to i64
++  // CHECK: store i64 %[[U3b]], i64* %res, align 8
++
++  res = --x43_u;
++  // CHECK: %[[L4:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[U4:[a-zA-Z0-9]+]] = add i43 %[[L4]], -1
++  // CHECK: store i43 %[[U4]], i43* %x43_u, align 8
++  // CHECK: %[[U4b:[a-zA-Z0-9]+]] = zext i43 %[[U4]] to i64
++  // CHECK: store i64 %[[U4b]], i64* %res, align 8
++
++  res = --x4_u;
++  // CHECK: %[[L5:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[U5:[a-zA-Z0-9]+]] = add i4 %[[L5]], -1
++  // CHECK: store i4 %[[U5]], i4* %x4_u, align 1
++  // CHECK: %[[U5b:[a-zA-Z0-9]+]] = zext i4 %[[U5]] to i64
++  // CHECK: store i64 %[[U5b]], i64* %res, align 8
++
++  res = x43_u--;
++  // CHECK: %[[L6:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[U6:[a-zA-Z0-9]+]] = add i43 %[[L6]], -1
++  // CHECK: store i43 %[[U6]], i43* %x43_u, align 8
++  // CHECK: %[[U6b:[a-zA-Z0-9]+]] = zext i43 %[[L6]] to i64
++  // CHECK: store i64 %[[U6b]], i64* %res, align 8
++
++  res = x4_u--;
++  // CHECK: %[[L7:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[U7:[a-zA-Z0-9]+]] = add i4 %[[L7]], -1
++  // CHECK: store i4 %[[U7]], i4* %x4_u, align 1
++  // CHECK: %[[U7b:[a-zA-Z0-9]+]] = zext i4 %[[L7]] to i64
++  // CHECK: store i64 %[[U7b]], i64* %res, align 8
++}
++
++void UnaryOps() {
++  uint43_tt x43_u = 0, y43_u = 0;
++  uint17_tt x17_u = 0, y17_u = 0;
++  long res = 0;
++
++  x43_u = 8;
++  // CHECK: store i43 8, i43* %x43_u, align 8
++
++  x17_u = 8;
++  // CHECK: store i17 8, i17* %x17_u, align 4
++
++  res = +x43_u;
++  // CHECK: %[[L0:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[U0:[a-zA-Z0-9]+]] = zext i43 %[[L0]] to i64
++  // CHECK: store i64 %[[U0]], i64* %res, align 8
++
++  res = +x17_u;
++  // CHECK: %[[L00:[0-9]+]] = load i17, i17* %x17_u, align 4
++  // CHECK: %[[U00:[a-zA-Z0-9]+]] = zext i17 %[[L00]] to i64
++  // CHECK: store i64 %[[U00]], i64* %res, align 8
++
++  res = -x43_u;
++  // CHECK: %[[L1:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[U1:[a-zA-Z0-9]+]] = sub i43 0, %[[L1]]
++  // CHECK: %[[U2:[a-zA-Z0-9]+]] = zext i43 %[[U1]] to i64
++  // CHECK: store i64 %[[U2]], i64* %res, align 8
++
++  res = -x17_u;
++  // CHECK: %[[L10:[0-9]+]] = load i17, i17* %x17_u, align 4
++  // CHECK: %[[U10:[a-zA-Z0-9]+]] = sub i17 0, %[[L10]]
++  // CHECK: %[[U20:[a-zA-Z0-9]+]] = zext i17 %[[U10]] to i64
++  // CHECK: store i64 %[[U20]], i64* %res, align 8
++
++  res = !x43_u;
++  // CHECK: %[[L2:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[U3:[a-zA-Z0-9]+]] = icmp ne i43 %[[L2]], 0
++  // CHECK: %[[U4:[a-zA-Z0-9]+]] = xor i1 %[[U3]], true
++  // CHECK: %[[U5:[a-zA-Z0-9.]+]] = zext i1 %[[U4]] to i32
++  // CHECK: %[[U6:[a-zA-Z0-9]+]] = sext i32 %[[U5]] to i64
++  // CHECK: store i64 %[[U6]], i64* %res, align 8
++
++  res = !x17_u;
++  // CHECK: %[[L20:[0-9]+]] = load i17, i17* %x17_u, align 4
++  // CHECK: %[[U30:[a-zA-Z0-9]+]] = icmp ne i17 %[[L20]], 0
++  // CHECK: %[[U40:[a-zA-Z0-9]+]] = xor i1 %[[U30]], true
++  // CHECK: %[[U50:[a-zA-Z0-9.]+]] = zext i1 %[[U40]] to i32
++  // CHECK: %[[U60:[a-zA-Z0-9]+]] = sext i32 %[[U50]] to i64
++  // CHECK: store i64 %[[U60]], i64* %res, align 8
++
++  res = sizeof(uint43_tt);
++  // CHECK: store i64 8, i64* %res, align 8
++
++  res = sizeof(uint17_tt);
++  // CHECK: store i64 4, i64* %res, align 8
++
++  uint43_tt *p = &x43_u;
++  // CHECK: store i43* %x43_u, i43** %p, align 8
++
++  y43_u = *p;
++  // CHECK: %[[L3:[0-9]+]] = load i43*, i43** %p, align 8
++  // CHECK: %[[L4:[0-9]+]] = load i43, i43* %[[L3]], align 8
++  // CHECK: store i43 %[[L4]], i43* %y43_u, align 8
++
++  uint17_tt *p2 = &x17_u;
++  // CHECK: store i17* %x17_u, i17** %p2, align 8
++
++  y17_u = *p2;
++  // CHECK: %[[L30:[0-9]+]] = load i17*, i17** %p2, align 8
++  // CHECK: %[[L40:[0-9]+]] = load i17, i17* %[[L30]], align 4
++  // CHECK: store i17 %[[L40]], i17* %y17_u, align 4
++}
++
++void CompAssignOps() {
++  int43_tt x43_s = 0;
++  int4_tt x4_s = 0;
++  uint43_tt x43_u = 0;
++  uint4_tt x4_u = 0;
++
++  x43_s /= 7;
++  // CHECK: %[[L0:[0-9]+]] = load i43, i43* %x43_s, align 8
++  // CHECK: %[[S0:[a-zA-Z0-9]+]] = sdiv i43 %[[L0]], 7
++  // CHECK: store i43 %[[S0]], i43* %x43_s, align 8
++  // CHECK-NOT: = sdiv i32
++
++  x4_s /= (int4_tt)7;
++  // CHECK: %[[L1:[0-9]+]] = load i4, i4* %x4_s, align 1
++  // CHECK: %[[S1:[a-zA-Z0-9]+]] = sdiv i4 %[[L1]], 7
++  // CHECK: store i4 %[[S1]], i4* %x4_s, align 1
++  // CHECK-NOT: = sdiv i32
++
++  x43_s %= 7;
++  // CHECK: %[[L2:[0-9]+]] = load i43, i43* %x43_s, align 8
++  // CHECK: %[[S2:[a-zA-Z0-9]+]] = srem i43 %[[L2]], 7
++  // CHECK: store i43 %[[S2]], i43* %x43_s, align 8
++  // CHECK-NOT: = srem i32
++
++  x4_s %= (int4_tt)7;
++  // CHECK: %[[L3:[0-9]+]] = load i4, i4* %x4_s, align 1
++  // CHECK: %[[S3:[a-zA-Z0-9]+]] = srem i4 %[[L3]], 7
++  // CHECK: store i4 %[[S3]], i4* %x4_s, align 1
++  // CHECK-NOT: = srem i32
++
++  x43_s >>= 7;
++  // CHECK: %[[L4:[0-9]+]] = load i43, i43* %x43_s, align 8
++  // CHECK: %[[S4:[a-zA-Z0-9]+]] = ashr i43 %[[L4]], 7
++  // CHECK: store i43 %[[S4]], i43* %x43_s, align 8
++  // CHECK-NOT: = ashr i32
++
++  x4_s >>= (int4_tt)7;
++  // CHECK: %[[L5:[0-9]+]] = load i4, i4* %x4_s, align 1
++  // CHECK: %[[S5:[a-zA-Z0-9]+]] = ashr i4 %[[L5]], 7
++  // CHECK: store i4 %[[S5]], i4* %x4_s, align 1
++  // CHECK-NOT: = ashr i32
++
++  x43_u += 2;
++  // CHECK: %[[L6:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[U6:[a-zA-Z0-9]+]] = add i43 %[[L6]], 2
++  // CHECK: store i43 %[[U6]], i43* %x43_u, align 8
++  // CHECK-NOT: = add i32
++
++  x4_u += (uint4_tt)2;
++  // CHECK: %[[L7:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[U7:[a-zA-Z0-9]+]] = add i4 %[[L7]], 2
++  // CHECK: store i4 %[[U7]], i4* %x4_u, align 1
++  // CHECK-NOT: = add i32
++
++  x43_u -= 2;
++  // CHECK: %[[L8:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[U8:[a-zA-Z0-9]+]] = sub i43 %[[L8]], 2
++  // CHECK: store i43 %[[U8]], i43* %x43_u, align 8
++  // CHECK-NOT: = sub i32
++
++  x4_u -= (uint4_tt)2;
++  // CHECK: %[[L9:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[U9:[a-zA-Z0-9]+]] = sub i4 %[[L9]], 2
++  // CHECK: store i4 %[[U9]], i4* %x4_u, align 1
++  // CHECK-NOT: = sub i32
++
++  x43_u *= 2;
++  // CHECK: %[[LA:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[UA:[a-zA-Z0-9]+]] = mul i43 %[[LA]], 2
++  // CHECK: store i43 %[[UA]], i43* %x43_u, align 8
++  // CHECK-NOT: = mul i32
++
++  x4_u *= (uint4_tt)2;
++  // CHECK: %[[LB:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[UB:[a-zA-Z0-9]+]] = mul i4 %[[LB]], 2
++  // CHECK: store i4 %[[UB]], i4* %x4_u, align 1
++  // CHECK-NOT: = mul i32
++
++  x43_u /= 2;
++  // CHECK: %[[LC:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[UC:[a-zA-Z0-9]+]] = udiv i43 %[[LC]], 2
++  // CHECK: store i43 %[[UC]], i43* %x43_u, align 8
++  // CHECK-NOT: = udiv i32
++
++  x4_u /= (uint4_tt)2;
++  // CHECK: %[[LD:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[UD:[a-zA-Z0-9]+]] = udiv i4 %[[LD]], 2
++  // CHECK: store i4 %[[UD]], i4* %x4_u, align 1
++  // CHECK-NOT: = udiv i32
++
++  x43_u %= 2;
++  // CHECK: %[[LE:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[UE:[a-zA-Z0-9]+]] = urem i43 %[[LE]], 2
++  // CHECK: store i43 %[[UE]], i43* %x43_u, align 8
++  // CHECK-NOT: = urem i32
++
++  x4_u %= (uint4_tt)2;
++  // CHECK: %[[LF:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[UF:[a-zA-Z0-9]+]] = urem i4 %[[LF]], 2
++  // CHECK: store i4 %[[UF]], i4* %x4_u, align 1
++  // CHECK-NOT: = urem i32
++
++  x43_u |= 2;
++  // CHECK: %[[LG:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[UG:[a-zA-Z0-9]+]] = or i43 %[[LG]], 2
++  // CHECK: store i43 %[[UG]], i43* %x43_u, align 8
++  // CHECK-NOT: = or i32
++
++  x4_u |= (uint4_tt)2;
++  // CHECK: %[[LH:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[UH:[a-zA-Z0-9]+]] = or i4 %[[LH]], 2
++  // CHECK: store i4 %[[UH]], i4* %x4_u, align 1
++  // CHECK-NOT: = or i32
++
++  x43_u &= 2;
++  // CHECK: %[[LI:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[UI:[a-zA-Z0-9]+]] = and i43 %[[LI]], 2
++  // CHECK: store i43 %[[UI]], i43* %x43_u, align 8
++  // CHECK-NOT: = and i32
++
++  x4_u &= (uint4_tt)2;
++  // CHECK: %[[LJ:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[UJ:[a-zA-Z0-9]+]] = and i4 %[[LJ]], 2
++  // CHECK: store i4 %[[UJ]], i4* %x4_u, align 1
++  // CHECK-NOT: = and i32
++
++  x43_u ^= 2;
++  // CHECK: %[[LK:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[UK:[a-zA-Z0-9]+]] = xor i43 %[[LK]], 2
++  // CHECK: store i43 %[[UK]], i43* %x43_u, align 8
++  // CHECK-NOT: = xor i32
++
++  x4_u ^= (uint4_tt)2;
++  // CHECK: %[[LL:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[UL:[a-zA-Z0-9]+]] = xor i4 %[[LL]], 2
++  // CHECK: store i4 %[[UL]], i4* %x4_u, align 1
++  // CHECK-NOT: = xor i32
++
++  x43_u >>= 2;
++  // CHECK: %[[LM:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[UM:[a-zA-Z0-9]+]] = lshr i43 %[[LM]], 2
++  // CHECK: store i43 %[[UM]], i43* %x43_u, align 8
++  // CHECK-NOT: = lshr i32
++
++  x4_u >>= (uint4_tt)2;
++  // CHECK: %[[LN:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[UN:[a-zA-Z0-9]+]] = lshr i4 %[[LN]], 2
++  // CHECK: store i4 %[[UN]], i4* %x4_u, align 1
++  // CHECK-NOT: = lshr i32
++
++  x43_u <<= 2;
++  // CHECK: %[[LO:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[UO:[a-zA-Z0-9]+]] = shl i43 %[[LO]], 2
++  // CHECK: store i43 %[[UO]], i43* %x43_u, align 8
++  // CHECK-NOT: = shl i32
++
++  x4_u <<= (uint4_tt)2;
++  // CHECK: %[[LP:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[UP:[a-zA-Z0-9]+]] = shl i4 %[[LP]], 2
++  // CHECK: store i4 %[[UP]], i4* %x4_u, align 1
++  // CHECK-NOT: = shl i32
++}
++
++void Casting() {
++  int5_tt x5_s = 0;
++  uint5_tt x5_u = 0;
++  _Bool b = 0;
++  char c = 0;
++  short s = 0;
++  int i = 0;
++  long l = 0;
++
++  c = (char)x5_s;
++  // CHECK: %[[L0:[0-9]+]] = load i5, i5* %x5_s, align 1
++  // CHECK: %[[S0:[a-zA-Z0-9]+]] = sext i5 %[[L0]] to i8
++  // CHECK: store i8 %[[S0]], i8* %c, align 1
++
++  s = (short)x5_s;
++  // CHECK: %[[L1:[0-9]+]] = load i5, i5* %x5_s, align 1
++  // CHECK: %[[S1:[a-zA-Z0-9]+]] = sext i5 %[[L1]] to i16
++  // CHECK: store i16 %[[S1]], i16* %s, align 2
++
++  i = (int)x5_s;
++  // CHECK: %[[L2:[0-9]+]] = load i5, i5* %x5_s, align 1
++  // CHECK: %[[S2:[a-zA-Z0-9]+]] = sext i5 %[[L2]] to i32
++  // CHECK: store i32 %[[S2]], i32* %i, align 4
++
++  l = (long)x5_s;
++  // CHECK: %[[L3:[0-9]+]] = load i5, i5* %x5_s, align 1
++  // CHECK: %[[S3:[a-zA-Z0-9]+]] = sext i5 %[[L3]] to i64
++  // CHECK: store i64 %[[S3]], i64* %l, align 8
++
++  b = (_Bool)x5_u;
++  // CHECK: %[[L5:[0-9]+]] = load i5, i5* %x5_u, align 1
++  // CHECK: %[[U00:[a-zA-Z0-9]+]] = icmp ne i5 %[[L5]], 0
++  // CHECK: %[[U01:[a-zA-Z0-9]+]] = zext i1 %[[U00]] to i8
++  // CHECK: store i8 %[[U01]], i8* %b, align 1
++
++  c = (char)x5_u;
++  // CHECK: %[[L6:[0-9]+]] = load i5, i5* %x5_u, align 1
++  // CHECK: %[[U0:[a-zA-Z0-9]+]] = zext i5 %[[L6]] to i8
++  // CHECK: store i8 %[[U0]], i8* %c, align 1
++
++  s = (short)x5_u;
++  // CHECK: %[[L7:[0-9]+]] = load i5, i5* %x5_u, align 1
++  // CHECK: %[[U1:[a-zA-Z0-9]+]] = zext i5 %[[L7]] to i16
++  // CHECK: store i16 %[[U1]], i16* %s, align 2
++
++  i = (int)x5_u;
++  // CHECK: %[[L8:[0-9]+]] = load i5, i5* %x5_u, align 1
++  // CHECK: %[[U2:[a-zA-Z0-9]+]] = zext i5 %[[L8]] to i32
++  // CHECK: store i32 %[[U2]], i32* %i, align 4
++
++  l = (long)x5_u;
++  // CHECK: %[[L9:[0-9]+]] = load i5, i5* %x5_u, align 1
++  // CHECK: %[[U3:[a-zA-Z0-9]+]] = zext i5 %[[L9]] to i64
++  // CHECK: store i64 %[[U3]], i64* %l, align 8
++}
++
++void Comparisions() {
++  int43_tt x43_s = 0;
++  int4_tt x4_s = 0;
++
++  uint43_tt x43_u = 0;
++  uint4_tt x4_u = 0;
++
++  _Bool b;
++
++  b = (x43_s > 4);
++  // CHECK: %[[L0:[0-9]+]] = load i43, i43* %x43_s, align 8
++  // CHECK: %[[S00:[a-zA-Z0-9]+]] = icmp sgt i43 %[[L0]], 4
++  // CHECK: %[[S01:[a-zA-Z0-9]+]] = zext i1 %[[S00]] to i8
++  // CHECK: store i8 %[[S01]], i8* %b, align 1
++
++  b = (x4_s > (uint4_tt)4);
++  // CHECK: %[[L1:[0-9]+]] = load i4, i4* %x4_s, align 1
++  // CHECK: %[[S10:[a-zA-Z0-9]+]] = icmp ugt i4 %[[L1]], 4
++  // CHECK: %[[S11:[a-zA-Z0-9]+]] = zext i1 %[[S10]] to i8
++  // CHECK: store i8 %[[S11]], i8* %b, align 1
++
++  b = (x43_s < 4);
++  // CHECK: %[[L2:[0-9]+]] = load i43, i43* %x43_s, align 8
++  // CHECK: %[[S20:[a-zA-Z0-9]+]] = icmp slt i43 %[[L2]], 4
++  // CHECK: %[[S21:[a-zA-Z0-9]+]] = zext i1 %[[S20]] to i8
++  // CHECK: store i8 %[[S21]], i8* %b, align 1
++
++  b = (x4_s < (uint4_tt)4);
++  // CHECK: %[[L3:[0-9]+]] = load i4, i4* %x4_s, align 1
++  // CHECK: %[[S30:[a-zA-Z0-9]+]] = icmp ult i4 %[[L3]], 4
++  // CHECK: %[[S31:[a-zA-Z0-9]+]] = zext i1 %[[S30]] to i8
++  // CHECK: store i8 %[[S31]], i8* %b, align 1
++
++  b = (x43_s >= 4);
++  // CHECK: %[[L4:[0-9]+]] = load i43, i43* %x43_s, align 8
++  // CHECK: %[[S40:[a-zA-Z0-9]+]] = icmp sge i43 %[[L4]], 4
++  // CHECK: %[[S41:[a-zA-Z0-9]+]] = zext i1 %[[S40]] to i8
++  // CHECK: store i8 %[[S41]], i8* %b, align 1
++
++  b = (x4_s >= (uint4_tt)4);
++  // CHECK: %[[L5:[0-9]+]] = load i4, i4* %x4_s, align 1
++  // CHECK: %[[S50:[a-zA-Z0-9]+]] = icmp uge i4 %[[L5]], 4
++  // CHECK: %[[S51:[a-zA-Z0-9]+]] = zext i1 %[[S50]] to i8
++  // CHECK: store i8 %[[S51]], i8* %b, align 1
++
++  b = (x43_s <= 4);
++  // CHECK: %[[L6:[0-9]+]] = load i43, i43* %x43_s, align 8
++  // CHECK: %[[S60:[a-zA-Z0-9]+]] = icmp sle i43 %[[L6]], 4
++  // CHECK: %[[S61:[a-zA-Z0-9]+]] = zext i1 %[[S60]] to i8
++  // CHECK: store i8 %[[S61]], i8* %b, align 1
++
++  b = (x4_s <= (uint4_tt)4);
++  // CHECK: %[[L7:[0-9]+]] = load i4, i4* %x4_s, align 1
++  // CHECK: %[[S70:[a-zA-Z0-9]+]] = icmp ule i4 %[[L7]], 4
++  // CHECK: %[[S71:[a-zA-Z0-9]+]] = zext i1 %[[S70]] to i8
++  // CHECK: store i8 %[[S71]], i8* %b, align 1
++
++  b = (x43_u == 4);
++  // CHECK: %[[L8:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[U80:[a-zA-Z0-9]+]] = icmp eq i43 %[[L8]], 4
++  // CHECK: %[[U81:[a-zA-Z0-9]+]] = zext i1 %[[U80]] to i8
++  // CHECK: store i8 %[[U81]], i8* %b, align 1
++
++  b = (x4_u == (uint4_tt)4);
++  // CHECK: %[[L9:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[U90:[a-zA-Z0-9]+]] = icmp eq i4 %[[L9]], 4
++  // CHECK: %[[U91:[a-zA-Z0-9]+]] = zext i1 %[[U90]] to i8
++  // CHECK: store i8 %[[U91]], i8* %b, align 1
++
++  b = (x43_u != 4);
++  // CHECK: %[[LA:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[UA0:[a-zA-Z0-9]+]] = icmp ne i43 %[[LA]], 4
++  // CHECK: %[[UA1:[a-zA-Z0-9]+]] = zext i1 %[[UA0]] to i8
++  // CHECK: store i8 %[[UA1]], i8* %b, align 1
++
++  b = (x4_u != (uint4_tt)4);
++  // CHECK: %[[LB:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[UB0:[a-zA-Z0-9]+]] = icmp ne i4 %[[LB]], 4
++  // CHECK: %[[UB1:[a-zA-Z0-9]+]] = zext i1 %[[UB0]] to i8
++  // CHECK: store i8 %[[UB1]], i8* %b, align 1
++
++  b = (x43_u > 4);
++  // CHECK: %[[LC:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[UC0:[a-zA-Z0-9]+]] = icmp ugt i43 %[[LC]], 4
++  // CHECK: %[[UC1:[a-zA-Z0-9]+]] = zext i1 %[[UC0]] to i8
++  // CHECK: store i8 %[[UC1]], i8* %b, align 1
++
++  b = (x4_u > (uint4_tt)4);
++  // CHECK: %[[LD:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[UD0:[a-zA-Z0-9]+]] = icmp ugt i4 %[[LD]], 4
++  // CHECK: %[[UD1:[a-zA-Z0-9]+]] = zext i1 %[[UD0]] to i8
++  // CHECK: store i8 %[[UD1]], i8* %b, align 1
++
++  b = (x43_u < 4);
++  // CHECK: %[[LE:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[UE0:[a-zA-Z0-9]+]] = icmp ult i43 %[[LE]], 4
++  // CHECK: %[[UE1:[a-zA-Z0-9]+]] = zext i1 %[[UE0]] to i8
++  // CHECK: store i8 %[[UE1]], i8* %b, align 1
++
++  b = (x4_u < (uint4_tt)4);
++  // CHECK: %[[LF:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[UF0:[a-zA-Z0-9]+]] = icmp ult i4 %[[LF]], 4
++  // CHECK: %[[UF1:[a-zA-Z0-9]+]] = zext i1 %[[UF0]] to i8
++  // CHECK: store i8 %[[UF1]], i8* %b, align 1
++
++  b = (x43_u >= 4);
++  // CHECK: %[[LG:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[UG0:[a-zA-Z0-9]+]] = icmp uge i43 %[[LG]], 4
++  // CHECK: %[[UG1:[a-zA-Z0-9]+]] = zext i1 %[[UG0]] to i8
++  // CHECK: store i8 %[[UG1]], i8* %b, align 1
++
++  b = (x4_u >= (uint4_tt)4);
++  // CHECK: %[[LH:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[UH0:[a-zA-Z0-9]+]] = icmp uge i4 %[[LH]], 4
++  // CHECK: %[[UH1:[a-zA-Z0-9]+]] = zext i1 %[[UH0]] to i8
++  // CHECK: store i8 %[[UH1]], i8* %b, align 1
++
++  b = (x43_u <= 4);
++  // CHECK: %[[LI:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[UI0:[a-zA-Z0-9]+]] = icmp ule i43 %[[LI]], 4
++  // CHECK: %[[UI1:[a-zA-Z0-9]+]] = zext i1 %[[UI0]] to i8
++  // CHECK: store i8 %[[UI1]], i8* %b, align 1
++
++  b = (x4_u <= (uint4_tt)4);
++  // CHECK: %[[LJ:[0-9]+]] = load i4, i4* %x4_u, align 1
++  // CHECK: %[[UJ0:[a-zA-Z0-9]+]] = icmp ule i4 %[[LJ]], 4
++  // CHECK: %[[UJ1:[a-zA-Z0-9]+]] = zext i1 %[[UJ0]] to i8
++  // CHECK: store i8 %[[UJ1]], i8* %b, align 1
++}
++
++void PromoRules() {
++  int15_tt x15_s = 0;
++  uint15_tt x15_u = 0;
++
++  int16_tt x16_s = 0;
++  uint16_tt x16_u = 0;
++
++  int17_tt x17_s = 0;
++  uint17_tt x17_u = 0;
++
++  int43_tt x43_s = 0;
++  uint43_tt x43_u = 0;
++
++  short short_var = 0;
++  unsigned short u_short_var = 0;
++
++  long res;
++
++  // 1 ap + 1 base type, same size
++  res = x16_s + short_var;
++  // CHECK: %[[L0:[0-9]+]] = load i16, i16* %x16_s, align 2
++  // CHECK: %[[L1:[0-9]+]] = load i16, i16* %short_var, align 2
++  // CHECK: = add nsw i16 %[[L0]], %[[L1]]
++
++  res = x16_s + u_short_var;
++  // CHECK: %[[L2:[0-9]+]] = load i16, i16* %x16_s, align 2
++  // CHECK: %[[L3:[0-9]+]] = load i16, i16* %u_short_var, align 2
++  // CHECK: = add i16 %[[L2]], %[[L3]]
++
++  res = x16_u + short_var;
++  // CHECK: %[[L4:[0-9]+]] = load i16, i16* %x16_u, align 2
++  // CHECK: %[[L5:[0-9]+]] = load i16, i16* %short_var, align 2
++  // CHECK: = add i16 %[[L4]], %[[L5]]
++
++  res = x16_u + u_short_var;
++  // CHECK: %[[L6:[0-9]+]] = load i16, i16* %x16_u, align 2
++  // CHECK: %[[L7:[0-9]+]] = load i16, i16* %u_short_var, align 2
++  // CHECK: = add i16 %[[L6]], %[[L7]]
++
++  // ap > base type
++  res = x17_s + short_var;
++  // CHECK: %[[L8:[0-9]+]] = load i17, i17* %x17_s, align 4
++  // CHECK: %[[L9:[0-9]+]] = load i16, i16* %short_var, align 2
++  // CHECK: %[[M0:[a-zA-Z0-9]+]] = sext i16 %[[L9]] to i17
++  // CHECK: = add nsw i17 %[[L8]], %[[M0]]
++
++  res = x17_s + u_short_var;
++  // CHECK: %[[L10:[0-9]+]] = load i17, i17* %x17_s, align 4
++  // CHECK: %[[L11:[0-9]+]] = load i16, i16* %u_short_var, align 2
++  // CHECK: %[[M1:[a-zA-Z0-9]+]] = zext i16 %[[L11]] to i17
++  // CHECK: = add nsw i17 %[[L10]], %[[M1]]
++
++  res = x17_u + short_var;
++  // CHECK: %[[L12:[0-9]+]] = load i17, i17* %x17_u, align 4
++  // CHECK: %[[L13:[0-9]+]] = load i16, i16* %short_var, align 2
++  // CHECK: %[[M2:[a-zA-Z0-9]+]] = sext i16 %[[L13]] to i17
++  // CHECK: = add i17 %[[L12]], %[[M2]]
++
++  res = x17_u + u_short_var;
++  // CHECK: %[[L14:[0-9]+]] = load i17, i17* %x17_u, align 4
++  // CHECK: %[[L15:[0-9]+]] = load i16, i16* %u_short_var, align 2
++  // CHECK: %[[M3:[a-zA-Z0-9]+]] = zext i16 %[[L15]] to i17
++  // CHECK: = add i17 %[[L14]], %[[M3]]
++
++  // base type > ap
++  res = x15_s + short_var;
++  // CHECK: %[[L16:[0-9]+]] = load i15, i15* %x15_s, align 2
++  // CHECK: %[[M4:[a-zA-Z0-9]+]] = sext i15 %[[L16]] to i16
++  // CHECK: %[[L17:[0-9]+]] = load i16, i16* %short_var, align 2
++  // CHECK: = add nsw i16 %[[M4]], %[[L17]]
++
++  res = x15_s + u_short_var;
++  // CHECK: %[[L18:[0-9]+]] = load i15, i15* %x15_s, align 2
++  // CHECK: %[[M5:[a-zA-Z0-9]+]] = sext i15 %[[L18]] to i16
++  // CHECK: %[[L19:[0-9]+]] = load i16, i16* %u_short_var, align 2
++  // CHECK: = add i16 %[[M5]], %[[L19]]
++
++  res = x15_u + short_var;
++  // CHECK: %[[L20:[0-9]+]] = load i15, i15* %x15_u, align 2
++  // CHECK: %[[M6:[a-zA-Z0-9]+]] = zext i15 %[[L20]] to i16
++  // CHECK: %[[L21:[0-9]+]] = load i16, i16* %short_var, align 2
++  // CHECK: = add nsw i16 %[[M6]], %[[L21]]
++
++  res = x15_u + u_short_var;
++  // CHECK: %[[L22:[0-9]+]] = load i15, i15* %x15_u, align 2
++  // CHECK: %[[M7:[a-zA-Z0-9]+]] = zext i15 %[[L22]] to i16
++  // CHECK: %[[L23:[0-9]+]] = load i16, i16* %u_short_var, align 2
++  // CHECK: = add i16 %[[M7]], %[[L23]]
++
++  // 2 ap
++  // same size
++  res = x17_u + x17_u;
++  // CHECK: %[[L24:[0-9]+]] = load i17, i17* %x17_u, align 4
++  // CHECK: %[[L25:[0-9]+]] = load i17, i17* %x17_u, align 4
++  // CHECK: = add i17 %[[L24]], %[[L25]]
++
++  res = x17_u + x17_s;
++  // CHECK: %[[L26:[0-9]+]] = load i17, i17* %x17_u, align 4
++  // CHECK: %[[L27:[0-9]+]] = load i17, i17* %x17_s, align 4
++  // CHECK: = add i17 %[[L26]], %[[L27]]
++
++  res = x17_s + x17_s;
++  // CHECK: %[[L28:[0-9]+]] = load i17, i17* %x17_s, align 4
++  // CHECK: %[[L29:[0-9]+]] = load i17, i17* %x17_s, align 4
++  // CHECK: = add nsw i17 %[[L28]], %[[L29]]
++
++  res = x43_u + x43_u;
++  // CHECK: %[[L30:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[L31:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: = add i43 %[[L30]], %[[L31]]
++
++  res = x43_u + x43_s;
++  // CHECK: %[[L32:[0-9]+]] = load i43, i43* %x43_u, align 8
++  // CHECK: %[[L33:[0-9]+]] = load i43, i43* %x43_s, align 8
++  // CHECK: = add i43 %[[L32]], %[[L33]]
++
++  res = x43_s + x43_s;
++  // CHECK: %[[L34:[0-9]+]] = load i43, i43* %x43_s, align 8
++  // CHECK: %[[L35:[0-9]+]] = load i43, i43* %x43_s, align 8
++  // CHECK: = add nsw i43 %[[L34]], %[[L35]]
++
++  // different size
++  res = x17_u + x15_u;
++  // CHECK: %[[L36:[0-9]+]] = load i17, i17* %x17_u, align 4
++  // CHECK: %[[L37:[0-9]+]] = load i15, i15* %x15_u, align 2
++  // CHECK: %[[M8:[a-zA-Z0-9]+]] = zext i15 %[[L37]] to i17
++  // CHECK: = add i17 %[[L36]], %[[M8]]
++
++  res = x17_u + x15_s;
++  // CHECK: %[[L38:[0-9]+]] = load i17, i17* %x17_u, align 4
++  // CHECK: %[[L39:[0-9]+]] = load i15, i15* %x15_s, align 2
++  // CHECK: %[[M9:[a-zA-Z0-9]+]] = sext i15 %[[L39]] to i17
++  // CHECK: = add i17 %[[L38]], %[[M9]]
++
++  res = x17_s + x15_u;
++  // CHECK: %[[L40:[0-9]+]] = load i17, i17* %x17_s, align 4
++  // CHECK: %[[L41:[0-9]+]] = load i15, i15* %x15_u, align 2
++  // CHECK: %[[M10:[a-zA-Z0-9]+]] = zext i15 %[[L41]] to i17
++  // CHECK: = add nsw i17 %[[L40]], %[[M10]]
++
++  res = x17_s + x15_s;
++  // CHECK: %[[L42:[0-9]+]] = load i17, i17* %x17_s, align 4
++  // CHECK: %[[L43:[0-9]+]] = load i15, i15* %x15_s, align 2
++  // CHECK: %[[M11:[a-zA-Z0-9]+]] = sext i15 %[[L43]] to i17
++  // CHECK: = add nsw i17 %[[L42]], %[[M11]]
++}
+Index: test/CodeGenCXX/arb_prec_int.cpp
+===================================================================
+--- /dev/null
++++ test/CodeGenCXX/arb_prec_int.cpp
+@@ -0,0 +1,271 @@
++// RUN: %clang -cc1 %s -triple x86_64-linux-pc -emit-llvm -o - | FileCheck %s -check-prefix LIN
++// RUN: %clang -cc1 %s -triple x86_64-windows-pc -emit-llvm -o - | FileCheck %s -check-prefix WIN
++
++// CHECK: @[[VAR:[a-zA-Z0-9_]+]] = internal constant { i65 } { i65 17 }, align 8
++// CHECK: @[[ARRAY:[a-zA-Za-zA-Z0-9_]+]] = internal constant [3 x i65] [i65 1, i65 2, i65 3], align 16
++
++template <int Bits>
++using ap_uint = __attribute__((__ap_int(Bits))) unsigned;
++
++void NewDelete() {
++  ap_uint<37> *p = new ap_uint<37>;
++  // LIN: = call i8* @_Znwm(i64 8)
++  // WIN: = call i8* @"??2@YAPEAX_K@Z"(i64 8)
++
++  ap_uint<37> *p2 = new ap_uint<37>[10];
++  // LIN: = call i8* @_Znam(i64 80)
++  // WIN: = call i8* @"??_U@YAPEAX_K@Z"(i64 80)
++
++  delete[] p2;
++  // LIN: call void @_ZdaPv(i8* %{{[0-9]+}})
++  // WIN: call void @"??_V@YAXPEAX@Z"(i8* %{{[0-9]+}})
++
++  delete p;
++  // LIN: call void @_ZdlPv(i8* %{{[0-9]+}})
++  // WIN: call void @"??3@YAXPEAX@Z"(i8* %{{[0-9]+}})
++}
++
++typedef int int65_tt __attribute__((__ap_int(65)));
++typedef unsigned int uint65_tt __attribute__((__ap_int(65)));
++bool SignedConvertToBool() {
++  // CHECK: define
++  // CHECK: %[[AP_INT:[a-zA-Z0-9_]+]] = alloca i65
++  // CHECK: %[[B:[a-zA-Z0-9_]+]] = alloca i8
++  // CHECK: %[[FIFTH_BIT:[a-zA-Z0-9_]+]] = alloca i8
++  int65_tt an_ap_int = 10;
++  bool b = an_ap_int;
++  // CHECK: %[[LOAD:[a-zA-Z0-9_]+]] = load i65, i65* %[[AP_INT]]
++  // CHECK: %[[TO_BOOL:[a-zA-Z0-9_]+]] = icmp ne i65 %[[LOAD]], 0
++  // CHECK: %[[FROM_BOOL:[a-zA-Z0-9_]+]] = zext i1 %[[TO_BOOL]] to i8
++  // CHECK: store i8 %[[FROM_BOOL]], i8* %[[B]]
++
++  bool the_5th_bit = (an_ap_int >> 5) & 1;
++
++  // CHECK: %[[LOAD_1:[a-zA-Z0-9_]+]] = load i65, i65* %[[AP_INT]]
++  // CHECK: %[[SHR:[a-zA-Z0-9_]+]] = ashr i65 %[[LOAD_1]]
++  // CHECK: %[[AND:[a-zA-Z0-9_]+]] = and i65 %[[SHR]]
++  // CHECK: %[[TO_BOOL_1:[a-zA-Z0-9_]+]] = icmp ne i65 %[[AND]], 0
++  // CHECK: %[[FROM_BOOL_2:[a-zA-Z0-9_]+]] = zext i1 %[[TO_BOOL_1]] to i8
++  // CHECK: store i8 %[[FROM_BOOL_2]], i8* %[[FIFTH_BIT]]
++
++  return an_ap_int;
++  // CHECK: %[[RET_CONV:[a-zA-Z0-9_]+]] = load i65, i65* %[[AP_INT]]
++  // CHECK: %[[TO_BOOL_3:[a-zA-Z0-9_]+]] = icmp ne i65 %[[RET_CONV]], 0
++  // CHECK: ret i1 %[[TO_BOOL_3]]
++}
++
++bool UnsignedConvertToBool() {
++  // CHECK: define
++  // CHECK: %[[AP_INT:[a-zA-Z0-9_]+]] = alloca i65
++  // CHECK: %[[B:[a-zA-Z0-9_]+]] = alloca i8
++  // CHECK: %[[FIFTH_BIT:[a-zA-Z0-9_]+]] = alloca i8
++  uint65_tt an_ap_uint = 10;
++  bool b = an_ap_uint;
++  // CHECK: %[[LOAD:[a-zA-Z0-9_]+]] = load i65, i65* %[[AP_INT]]
++  // CHECK: %[[TO_BOOL:[a-zA-Z0-9_]+]] = icmp ne i65 %[[LOAD]], 0
++  // CHECK: %[[FROM_BOOL:[a-zA-Z0-9_]+]] = zext i1 %[[TO_BOOL]] to i8
++  // CHECK: store i8 %[[FROM_BOOL]], i8* %[[B]]
++
++  bool the_5th_bit = (an_ap_uint >> 5) & 1;
++
++  // CHECK: %[[LOAD_1:[a-zA-Z0-9_]+]] = load i65, i65* %[[AP_INT]]
++  // CHECK: %[[SHR:[a-zA-Z0-9_]+]] = lshr i65 %[[LOAD_1]]
++  // CHECK: %[[AND:[a-zA-Z0-9_]+]] = and i65 %[[SHR]]
++  // CHECK: %[[TO_BOOL_1:[a-zA-Z0-9_]+]] = icmp ne i65 %[[AND]], 0
++  // CHECK: %[[FROM_BOOL_2:[a-zA-Z0-9_]+]] = zext i1 %[[TO_BOOL_1]] to i8
++  // CHECK: store i8 %[[FROM_BOOL_2]], i8* %[[FIFTH_BIT]]
++
++  return an_ap_uint;
++  // CHECK: %[[RET_CONV:[a-zA-Z0-9_]+]] = load i65, i65* %[[AP_INT]]
++  // CHECK: %[[TO_BOOL_3:[a-zA-Z0-9_]+]] = icmp ne i65 %[[RET_CONV]], 0
++  // CHECK: ret i1 %[[TO_BOOL_3]]
++}
++
++void OtherBoolConverts() {
++  ap_uint<5> s(0);
++  // CHECK: store i5 0, i5* [[S:%.+]]
++  auto t1 = s + true;
++  // CHECK: [[S_VAL1:%.+]] = load i5, i5* [[S]]
++  // CHECK: [[ADD1:%.+]] = add i5 [[S_VAL1]], 1
++  auto t2 = true + s;
++  // CHECK: [[S_VAL2:%.+]] = load i5, i5* [[S]]
++  // CHECK: [[ADD2:%.+]] = add i5 1, [[S_VAL2]]
++  s += true;
++  // CHECK: [[S_VAL3:%.+]] = load i5, i5* [[S]]
++  // CHECK: [[ADD3:%.+]] = add i5 [[S_VAL3]], 1
++  // CHECK: store i5 [[ADD3]], i5* [[S]]
++
++  bool b = true;
++  // CHECK: store i8 1, i8* [[B:%.+]]
++  b += s;
++  // CHECK: [[S_VAL4:%.+]] = load i5, i5* [[S]]
++  // CHECK: [[B_VAL:%.+]] = load i8, i8* [[B]]
++  // CHECK: [[TO_BOOL1:%.+]] = trunc i8 [[B_VAL]] to i1
++  // CHECK: [[CONV1:%.+]] = zext i1 [[TO_BOOL1]] to i5
++  // CHECK: [[ADD4:%.+]] = add i5 [[CONV1]], [[S_VAL4]]
++  // CHECK: [[TO_BOOL2:%.+]] = icmp ne i5 [[ADD4]]
++  // CHECK: [[FROM_BOOL1:%.+]] = zext i1 [[TO_BOOL2]] to i8
++  // CHECK: store i8 [[FROM_BOOL1]], i8* [[B]]
++
++  ap_uint<1> s1(0);
++  // CHECK: store i1 false, i1* [[S1:%.+]]
++  auto t3 = s1 + true;
++  // CHECK: [[S1_VAL1:%.+]] = load i1, i1* [[S1]]
++  // CHECK: [[ADD5:%.+]] = add i1 [[S1_VAL1]], true
++  auto t4 = true + s1;
++  // CHECK: [[S1_VAL2:%.+]] = load i1, i1* [[S1]]
++  // CHECK: [[ADD6:%.+]] = add i1 true, [[S1_VAL2]]
++  s1 += true;
++  // CHECK: [[S1_VAL3:%.+]] = load i1, i1* [[S1]]
++  // CHECK: [[ADD7:%.+]] = add i1 [[S1_VAL3]], true
++  // CHECK: store i1 [[ADD7]], i1* [[S1]]
++
++  bool b1 = true;
++  // CHECK: store i8 1, i8* [[B1:%.+]]
++  b1 += s1;
++  // CHECK: [[S1_VAL4:%.+]] = load i1, i1* [[S1]]
++  // CHECK: [[B1_VAL:%.+]] = load i8, i8* [[B1]]
++  // CHECK: [[TO_BOOL3:%.+]] = trunc i8 [[B1_VAL]] to i1
++  // CHECK: [[ADD8:%.+]] = add i1 [[TO_BOOL3]]
++  // CHECK: [[TO_BOOL4:%.+]] = icmp ne i1 [[ADD8]]
++  // CHECK: [[FROM_BOOL2:%.+]] = zext i1 [[TO_BOOL4]]
++  // CHECK: store i8 [[FROM_BOOL2]], i8* [[B1]]
++}
++
++using ap_uint77 = unsigned int __attribute__((__ap_int(77)));
++using ap_int77 = int __attribute__((__ap_int(77)));
++
++// Constexpr checks:
++constexpr int65_tt an_int = 17;
++
++int65_tt int_usage() {
++  return an_int;
++  //CHECK: ret i65 17
++}
++
++constexpr ap_uint77 u1 = 15;
++constexpr ap_uint77 u2 = 4;
++constexpr ap_uint77 u3 = u1 + u2;
++constexpr ap_uint77 u4 = u1 - u2;
++constexpr ap_uint77 u5 = u1 / u2;
++constexpr ap_uint77 u6 = u1 * u2;
++constexpr ap_uint77 u7 = u1 % u2;
++constexpr ap_uint77 u8 = u1 | u2;
++constexpr ap_uint77 u9 = u1 & u2;
++constexpr ap_uint77 u0 = u1 ^ u2;
++constexpr ap_uint77 ua = ~u1;
++
++constexpr ap_int77 s1 = 15;
++constexpr ap_int77 s2 = 4;
++constexpr ap_int77 s3 = s1 + s2;
++constexpr ap_int77 s4 = s1 - s2;
++constexpr ap_int77 s5 = s1 / s2;
++constexpr ap_int77 s6 = s1 * s2;
++constexpr ap_int77 s7 = s1 % s2;
++constexpr ap_int77 s8 = s1 | s2;
++constexpr ap_int77 s9 = s1 & s2;
++constexpr ap_int77 s0 = s1 ^ s2;
++constexpr ap_int77 sa = ~s1;
++
++ap_uint77 unsigned_usages(int i) {
++  switch (i) {
++  case 1:
++    return u1;
++    // CHECK: store i77 15
++  case 2:
++    return u2;
++    // CHECK: store i77 4
++  case 3:
++    return u3;
++    // CHECK: store i77 19
++  case 4:
++    return u4;
++    // CHECK: store i77 11
++  case 5:
++    return u5;
++    // CHECK: store i77 3
++  case 6:
++    return u6;
++    // CHECK: store i77 60
++  case 7:
++    return u7;
++    // CHECK: store i77 3
++  case 8:
++    return u8;
++    // CHECK: store i77 15
++  case 9:
++    return u9;
++    // CHECK: store i77 4
++  case 0:
++    return u0;
++    // CHECK: store i77 11
++  case 10:
++    return ua;
++    // CHECK: store i77 -16
++  }
++  return 0;
++}
++
++ap_int77 signed_usages(int i) {
++  switch (i) {
++  case 1:
++    return s1;
++    // CHECK: store i77 15
++  case 2:
++    return s2;
++    // CHECK: store i77 4
++  case 3:
++    return s3;
++    // CHECK: store i77 19
++  case 4:
++    return s4;
++    // CHECK: store i77 11
++  case 5:
++    return s5;
++    // CHECK: store i77 3
++  case 6:
++    return s6;
++    // CHECK: store i77 60
++  case 7:
++    return s7;
++    // CHECK: store i77 3
++  case 8:
++    return s8;
++    // CHECK: store i77 15
++  case 9:
++    return s9;
++    // CHECK: store i77 4
++  case 0:
++    return s0;
++    // CHECK: store i77 11
++  case 10:
++    return sa;
++    // CHECK: store i77 -16
++  }
++  return 0;
++}
++
++// test constexpr constructors
++class Base {
++  int65_tt an_int;
++
++public:
++  constexpr Base(int init) : an_int(init) {}
++};
++
++class Derived : public Base {
++public:
++  constexpr Derived(int init) : Base(init) {}
++};
++
++constexpr Derived a_derived = 17;
++Derived derrived_usage() {
++  return a_derived;
++}
++
++// test constexpr array.
++constexpr int65_tt an_array[] = {1, 2, 3};
++
++int65_tt array_usage(int idx) {
++  return an_array[idx];
++}
+Index: test/CodeGenCXX/arb_prec_int_struct_layout.cpp
+===================================================================
+--- /dev/null
++++ test/CodeGenCXX/arb_prec_int_struct_layout.cpp
+@@ -0,0 +1,122 @@
++// RUN: %clang -cc1 -triple x86_64-windows-pc %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,WIN
++// RUN: %clang -cc1 -triple x86_64-linux-pc %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,LIN
++typedef int int33_tt __attribute__((__ap_int(33)));
++typedef int int65_tt __attribute__((__ap_int(65)));
++typedef unsigned int uint1049_tt __attribute__((__ap_int(1049)));
++typedef int int1049_tt __attribute__((__ap_int(1049)));
++typedef int int38_tt __attribute__((__ap_int(38)));
++typedef int int11_tt __attribute__((__ap_int(11)));
++typedef int int3_tt __attribute__((__ap_int(3)));
++
++// CHECK: %struct.s1 = type { i38, i32, i11 }
++// CHECK: %struct.s2 = type { [10 x i38], i32 }
++// CHECK: %struct.s3 = type { [100 x i38] }
++// CHECK: %struct.s4 = type { [10 x i1049] }
++// CHECK: %class.Base33 = type { i33 }
++// WIN: %class.Base33Plus = type { i33, i8 }
++// LIN: %class.Base33Plus = type <{ i33, i8, [7 x i8] }>
++// CHECK: %class.Base65 = type { i65 }
++// WIN: %class.Derived = type { %class.Base33, %class.Base33Plus, %class.Base65 }
++// LIN: %class.Derived = type { %class.Base33, %class.Base33Plus.base, %class.Base65 }
++// LIN: %class.Base33Plus.base = type <{ i33, i8 }>
++
++// CHECK: global %struct.s1 zeroinitializer, align 8
++// CHECK: global %struct.s2 zeroinitializer, align 8
++// CHECK: global %struct.s3 zeroinitializer, align 8
++// CHECK: global %struct.s4 zeroinitializer, align 8
++// CHECK: global [10 x i3] zeroinitializer, align 1
++// CHECK: global [100 x i38] zeroinitializer, align 16
++// CHECK: global [100 x i1049] zeroinitializer, align 16
++// CHECK: global [24 x i3] zeroinitializer, align 16
++
++// CHECK: store i{{.*}} 16, i{{.*}}* %res
++// CHECK-NEXT: store i{{.*}} 88, i{{.*}}* %res
++// CHECK-NEXT: store i{{.*}} 800, i{{.*}}* %res
++// CHECK-NEXT: store i{{.*}} 1360, i{{.*}}* %res
++// CHECK-NEXT: store i{{.*}} 10, i{{.*}}* %res
++// CHECK-NEXT: store i{{.*}} 800, i{{.*}}* %res
++// CHECK-NEXT: store i{{.*}} 13600, i{{.*}}* %res
++// CHECK-NEXT: store i{{.*}} 13600, i{{.*}}* %res
++// CHECK-NEXT: store i{{.*}} 24, i{{.*}}* %res
++class Base33 {
++  int33_tt an_int;
++
++public:
++  Base33(int init) : an_int(init) {}
++};
++class Base33Plus {
++  int33_tt an_int;
++  char c;
++
++public:
++  Base33Plus(int init) : an_int(init), c(0) {}
++};
++
++class Base65 {
++  int65_tt an_int;
++
++public:
++  Base65(int init) : an_int(init) {}
++};
++
++class Derived : public Base33, Base33Plus, Base65 {
++public:
++  Derived(int init) : Base33(init), Base33Plus(init), Base65(init) {}
++};
++
++void foo() {
++  Base33 B33 = 1;
++  Base33Plus BP33 = 2;
++  Base65 BP65 = 3;
++  Derived D = 9;
++}
++
++typedef struct s1 {
++  int38_tt small1;
++  int normal1;
++  int11_tt smaller1;
++} my_struct1; // align 8
++
++typedef struct s2 {
++  int38_tt small2[10];
++  int normal2;
++} my_struct2; // align 8
++
++typedef struct s3 {
++  int38_tt small3[100];
++} my_struct3; // align 8
++
++typedef struct s4 {
++  int1049_tt big4[10];
++} my_struct4; // align 8
++
++typedef int3_tt myarr5[10]; // align 1
++
++typedef int38_tt myarr6[100]; // align 16 due to 'largeArray' concept where global arrays above 128 bits must have a minimum alignment of 128 bits : align 8
++
++typedef uint1049_tt myarr7[100]; // align 16 due to 'largeArray' concept explained above : align 8
++
++my_struct1 global_var1;
++my_struct2 global_var2;
++my_struct3 global_var3;
++my_struct4 global_var4;
++myarr5 global_var5;
++myarr6 global_var6;
++myarr7 global_var7;
++int3_tt myarr8[24]; // align 16 due to 'largeArray' concept explained above : align 1
++
++void bar() {
++  long res = 0;
++  res = sizeof(my_struct1); // 16
++  res = sizeof(my_struct2); // 88
++  res = sizeof(my_struct3); // 800
++  res = sizeof(my_struct4); // (1056 / 8) = 132 bytes to store, with align 8 --> 136 * 10 = 1360
++
++  res = sizeof(myarr5);      // 10
++  res = sizeof(myarr6);      // 64 / 8 * 100 = 800
++  res = sizeof(myarr7);      // (1056 / 8) = 132 bytes to store, with align 8 --> 136 * 100 = 13600
++  res = sizeof(global_var7); // same as above
++  res = sizeof(myarr8);      // 8 / 8 * 24 = 24
++
++  return;
++}
+Index: test/CodeGenOpenCL/arb_prec_int.cl
+===================================================================
+--- /dev/null
++++ test/CodeGenOpenCL/arb_prec_int.cl
+@@ -0,0 +1,86 @@
++// RUN: %clang -cc1 -triple x86_64-linux-pc -O3 -disable-llvm-passes %s -emit-llvm -o - | FileCheck %s
++
++typedef int __attribute__((__ap_int(4))) int4_tt;
++typedef unsigned __attribute__((__ap_int(4))) uint4_tt;
++
++typedef int __attribute__((__ap_int(5))) int5_tt;
++typedef unsigned __attribute__((__ap_int(5))) uint5_tt;
++
++typedef int __attribute__((__ap_int(8))) int8_tt;
++typedef unsigned __attribute__((__ap_int(8))) uint8_tt;
++
++typedef int __attribute__((__ap_int(16))) int16_tt;
++typedef unsigned __attribute__((__ap_int(16))) uint16_tt;
++
++typedef int __attribute__((__ap_int(43))) int43_tt;
++typedef unsigned __attribute__((__ap_int(43))) uint43_tt;
++
++typedef int __attribute__((__ap_int(46))) int46_tt;
++typedef unsigned __attribute__((__ap_int(46))) uint46_tt;
++
++void ConstrainedShiftBehavior(int shift_amount) {
++  uint4_tt x4_u = 0;
++  uint5_tt x5_u = 0;
++  uint43_tt x43_u = 0;
++  uint46_tt x46_u = 0;
++  long res = 0;
++
++  res = x4_u << (uint4_tt)shift_amount; // masking: ap4_u << (shift_amount && 3)
++                                        // CHECK: %[[L0:[0-9]+]] = load i4, i4* %x4_u, align 1
++                                        // CHECK: %[[L1:[0-9]+]] = load i32, i32* %shift_amount.addr, align 4
++                                        // CHECK: %[[T0:[a-zA-Z0-9]+]] = trunc i32 %[[L1]] to i4
++                                        // CHECK: %[[U1:[a-zA-Z0-9]+.[a-zA-Z0-9]+]] = and i4 %[[T0]], 3
++                                        // CHECK: = shl i4 %[[L0]], %[[U1]]
++
++  res = x5_u << (uint5_tt)shift_amount; // mod: ap5_u << (shift_amount urem 5)
++                                        // CHECK: %[[L2:[0-9]+]] = load i5, i5* %x5_u, align 1
++                                        // CHECK: %[[L3:[0-9]+]] = load i32, i32* %shift_amount.addr, align 4
++                                        // CHECK: %[[T1:[a-zA-Z0-9]+]] = trunc i32 %[[L3]] to i5
++                                        // CHECK: %[[U3:[a-zA-Z0-9]+.[a-zA-Z0-9]+]] = urem i5 %[[T1]], 5
++                                        // CHECK: = shl i5 %[[L2]], %[[U3]]
++
++  res = x46_u << 47; // ap46_u << (47 urem 46) or ap43_u << 1
++                     // CHECK: %[[L4:[0-9]+]] = load i46, i46* %x46_u, align 8
++                     // CHECK: = shl i46 %[[L4]], 1
++
++  res = x46_u << -42; // ap46_u << (-42 urem 46) or ap46_u << 8
++                      // CHECK: %[[L5:[0-9]+]] = load i46, i46* %x46_u, align 8
++                      // CHECK: = shl i46 %[[L5]], 8
++
++  res = x46_u << -47; // ap46_u << (-47 urem 46) or ap46_u << 3
++                      // CHECK: %[[L6:[0-9]+]] = load i46, i46* %x46_u, align 8
++                      // CHECK: = shl i46 %[[L6]], 3
++
++  res = x43_u << 47; // ap43_u << (47 urem 43) or ap43_u << 4
++                     // CHECK: %[[L7:[0-9]+]] = load i43, i43* %x43_u, align 8
++                     // CHECK: = shl i43 %[[L7]], 4
++
++  res = x43_u << -42; // ap43_u << (-42 urem 43) or ap43_u << 3
++                      // CHECK: %[[L8:[0-9]+]] = load i43, i43* %x43_u, align 8
++                      // CHECK: = shl i43 %[[L8]], 3
++
++  res = x43_u << -47; // ap43_u << (-47 urem 43) or ap43_u << 41
++                      // CHECK: %[[L9:[0-9]+]] = load i43, i43* %x43_u, align 8
++                      // CHECK: = shl i43 %[[L9]], 41
++
++  uint16_tt g = 10;
++  // CHECK: store i16 10, i16* %[[G:[a-zA-Z0-9]+]]
++
++  g = g >> 16;
++  // CHECK: %[[G_TMP:[a-zA-Z0-9]+]] = load i16, i16* %[[G]]
++  // CHECK: lshr i16 %[[G_TMP]], 0
++
++  uint8_tt h = 10;
++  // CHECK: store i8 10, i8* %[[H:[a-zA-Z0-9]+]]
++
++  h = h >> 9;
++  // CHECK: %[[H_TMP:[a-zA-Z0-9]+]] = load i8, i8* %[[H]]
++  // CHECK: lshr i8 %[[H_TMP]], 1
++
++  uint8_tt j = 10;
++  // CHECK: store i8 10, i8* %[[J:[a-zA-Z0-9]+]]
++
++  j = j << 9;
++  // CHECK: %[[J_TMP:[a-zA-Z0-9]+]] = load i8, i8* %[[J]]
++  // CHECK: shl i8 %[[J_TMP]], 1
++}
+Index: test/Misc/pragma-attribute-supported-attributes-list.test
+===================================================================
+--- test/Misc/pragma-attribute-supported-attributes-list.test
++++ test/Misc/pragma-attribute-supported-attributes-list.test
+@@ -16,6 +16,7 @@
+ // CHECK-NEXT: AlwaysInline (SubjectMatchRule_function)
+ // CHECK-NEXT: Annotate ()
+ // CHECK-NEXT: AnyX86NoCfCheck (SubjectMatchRule_hasType_functionType)
++// CHECK-NEXT: ArbPrecInt (SubjectMatchRule_type_alias)
+ // CHECK-NEXT: ArcWeakrefUnavailable (SubjectMatchRule_objc_interface)
+ // CHECK-NEXT: AssumeAligned (SubjectMatchRule_objc_method, SubjectMatchRule_function)
+ // CHECK-NEXT: Availability ((SubjectMatchRule_record, SubjectMatchRule_enum, SubjectMatchRule_enum_constant, SubjectMatchRule_field, SubjectMatchRule_function, SubjectMatchRule_namespace, SubjectMatchRule_objc_category, SubjectMatchRule_objc_interface, SubjectMatchRule_objc_method, SubjectMatchRule_objc_property, SubjectMatchRule_objc_protocol, SubjectMatchRule_record, SubjectMatchRule_type_alias, SubjectMatchRule_variable))
+Index: test/Sema/arb_prec_int.c
+===================================================================
+--- /dev/null
++++ test/Sema/arb_prec_int.c
+@@ -0,0 +1,46 @@
++// RUN: %clang_cc1 %s -fsyntax-only -verify -Wextra -Wconversion
++
++typedef __attribute__((__ap_int(3))) int int3_tt;
++typedef __attribute__((__ap_int(17))) int int17_tt;
++typedef __attribute__((__ap_int(17))) unsigned uint17_tt;
++
++// expected-error@+1{{invalid __ap_int element type 'float'}}
++typedef float __attribute__((__ap_int(5))) WrongType;
++// expected-error@+1{{invalid __ap_int element type 'short'}}
++typedef short __attribute__((__ap_int(5))) WrongType2;
++// expected-error@+1{{__ap_int attribute requires an integer constant}}
++typedef int __attribute__((__ap_int(5.0))) MustBeConstInt;
++
++// expected-error@+1{{signed __ap_int must have a size of at least 2}}
++typedef int __attribute__((__ap_int(0))) ZeroSize;
++// expected-error@+1{{unsigned __ap_int must have a size of at least 1}}
++typedef unsigned int __attribute__((__ap_int(0))) ZeroSizeUnsigned;
++// expected-error@+1{{signed __ap_int must have a size of at least 2}}
++typedef int __attribute__((__ap_int(1))) SignedOneSize;
++// This is OK.
++typedef unsigned int __attribute__((__ap_int(1))) UnsignedOneSize;
++// expected-error@+1{{signed __ap_int must have a size of at least 2}}
++typedef int __attribute__((__ap_int(-1))) NegSize;
++// expected-error@+1{{unsigned __ap_int must have a size of at least 1}}
++typedef unsigned int __attribute__((__ap_int(-1))) NegSizeUnsigned;
++
++typedef unsigned int __attribute__((__ap_int(1))) uint1_tt;
++typedef int __attribute__((__ap_int(3))) int3_tt;
++typedef unsigned int __attribute__((__ap_int(3))) uint3_tt;
++typedef unsigned __attribute__((__ap_int(4))) uint4_tt;
++
++void func() {
++  int17_tt x17_s = 5;
++  int3_tt x3_s = 999; // expected-warning {{implicit conversion from 'int' to 'int3_tt'}}
++  int17_tt y17_s = x17_s + 17;
++
++  uint17_tt x17_u = 5;
++  uint17_tt y17_u = x17_u + 17;
++
++  // expected-warning@+1{{implicit conversion from 'int' to 'int3_tt' (aka '__ap_int(3) int') changes value from 9 to 1}}
++  int3_tt a = 9;
++  // expected-warning@+1{{implicit conversion changes signedness: 'int3_tt' (aka '__ap_int(3) int') to 'uint3_tt' (aka '__ap_int(3) unsigned int'}}
++  uint3_tt b = a;
++  // expected-warning@+1{{implicit conversion from 'uint3_tt' (aka '__ap_int(3) unsigned int') to 'uint1_tt' (aka '__ap_int(1) unsigned int') changes value from 2 to 0}}
++  uint1_tt c = (uint3_tt)2;
++}
+Index: test/SemaCXX/arb_prec_int.cpp
+===================================================================
+--- /dev/null
++++ test/SemaCXX/arb_prec_int.cpp
+@@ -0,0 +1,71 @@
++// RUN: %clang -cc1 %s -fsyntax-only -verify -pedantic -Wconversion -Wall -Wextra -Wpedantic
++
++template <int Bits>
++using ap_int = __attribute__((__ap_int(Bits))) int;
++
++void inits() {
++  ap_int<33> val33 = 1;
++  // expected-warning@+1{{implicit conversion loses integer precision}}
++  ap_int<17> val17_a = val33;
++  // expected-warning@+1{{implicit conversion loses integer precision}}
++  ap_int<17> val17_b(val33);
++  // expected-error@+2{{non-constant-expression cannot be narrowed from type}}
++  // expected-warning@+1{{implicit conversion loses integer precision}}
++  ap_int<17> val17_c{val33};
++  (void)val33;
++  (void)val17_a;
++  (void)val17_b;
++  (void)val17_c;
++}
++
++struct my_int33 {
++  ap_int<33> val33;
++};
++
++struct my_int17 {
++  ap_int<17> val17;
++  // expected-error@+2{{non-constant-expression cannot be narrowed from type}}
++  // expected-warning@+1{{implicit conversion loses integer precision}}
++  my_int17(my_int33 i) : val17{i.val33} {}
++  // expected-warning@+1{{implicit conversion loses integer precision}}
++  my_int17(my_int33 i, bool) : val17(i.val33) {}
++};
++
++template <int bits>
++using ap_int = int __attribute__((__ap_int(bits)));
++template <unsigned int bits>
++using ap_uint = unsigned int
++    __attribute__((__ap_int(bits)));
++
++bool unknown_b();
++void ternary_thing() {
++  bool cond = unknown_b();
++  ap_uint<6> count = 6;
++  ap_int<33> zero = 0;
++  ap_int<31> zero_1 = 0;
++  int zero_2 = 0;
++
++  count = cond ? count + 1 : zero;   // expected-warning{{implicit conversion loses integer precision}}
++  count = cond ? count + 1 : zero_1; // expected-warning{{implicit conversion loses integer precision}}
++  count = cond ? count + 1 : zero_2; // expected-warning{{implicit conversion loses integer precision}}
++}
++
++void sizeof_test() {
++  ap_int<56> a;
++  ap_int<56> as[2];
++  ap_int<66> a2;
++  ap_int<66> a2s[2];
++
++  static_assert(sizeof(a) == 8, "Round sizeof so that array allocs work");
++  static_assert(sizeof(as) == 16, "Round sizeof so that array allocs work");
++  static_assert(sizeof(a2) == 16, "Round sizeof so that array allocs work");
++  static_assert(sizeof(a2s) == 32, "Round sizeof so that array allocs work");
++}
++
++struct HasConvertOps {
++  operator ap_int<33>();
++};
++
++void convert_test(ap_int<33> a, HasConvertOps o) {
++  a += o;
++}
+Index: tools/libclang/CIndex.cpp
+===================================================================
+--- tools/libclang/CIndex.cpp
++++ tools/libclang/CIndex.cpp
+@@ -1783,6 +1783,8 @@
+ DEFAULT_TYPELOC_IMPL(SubstTemplateTypeParm, Type)
+ DEFAULT_TYPELOC_IMPL(SubstTemplateTypeParmPack, Type)
+ DEFAULT_TYPELOC_IMPL(Auto, Type)
++DEFAULT_TYPELOC_IMPL(ArbPrecInt, Type)
++DEFAULT_TYPELOC_IMPL(DependentSizedArbPrecInt, Type)
+ 
+ bool CursorVisitor::VisitCXXRecordDecl(CXXRecordDecl *D) {
+   // Visit the nested-name-specifier, if present.

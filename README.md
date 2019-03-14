@@ -98,10 +98,17 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
       --- Front-End Operation, AST Consumer, Visit Nodes in AST, Clang, Template Detection
 
 
-**Experiment 11**: (WIP) Hack on Clang to properly map arbitary precision integer ap_int<X> in source code for VivadoHLS into iX in IR generation  (Front-end Operation: CodeGen)
+**Experiment 11**: (Patch-Applied) Hack on Clang to properly map arbitary precision integer ap_int<X> in source code for VivadoHLS into iX in IR generation  (Front-end Operation: CodeGen)
 
       --- CodeGen Operation, AST Consumer, Visit Nodes in AST, Clang
+      --- The original way I implement is too ugly and I apply a patch when Erich Keane share it via maillist clang-cfe.
+      --- The patch, under review: https://reviews.llvm.org/D59105 , is developed by Erich Keane, Compiler Engineer,Intel Corporation. (Thanks Erich!^_^)
 
+**Experiment 12**: (WIP) Based on the IR file, evaluate the resource and timing of the Window/Buffer/Filter in HLS
+
+      --- IR transformation, Timing/Resource Evaluation
+	
+      
 
 
 ***
