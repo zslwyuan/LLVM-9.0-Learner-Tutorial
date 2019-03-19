@@ -103,6 +103,31 @@ double HI_SimpleTimingEvaluation::getInstructionLatency(Instruction *I)
             return 0.0;
     }
 
+    if (LShrOperator *tmpI = dyn_cast<LShrOperator>(I))
+    {   
+        Value *op1 = tmpI->getOperand(1);
+         
+        if (Constant *tmpop = dyn_cast<Constant>(op1))
+            return 0.0;
+    }
+
+    // such operation like trunc/ext will not cost extra timing on FPGA
+    if (ZExtInst *tmpI = dyn_cast<ZExtInst>(I)) 
+    {   
+        return 0.0;
+    }
+
+    if (SExtInst *tmpI = dyn_cast<SExtInst>(I))
+    {   
+        return 0.0;
+    }
+
+    if (TruncInst *tmpI = dyn_cast<TruncInst>(I))
+    {   
+        return 0.0;
+    }
+
+
     if (PHINode *tmpI = dyn_cast<PHINode>(I))
     {   
         int num_Block = tmpI->getNumOperands();
@@ -113,9 +138,11 @@ double HI_SimpleTimingEvaluation::getInstructionLatency(Instruction *I)
                 return 0.0;
         }        
     }
-    // if (CallInst *tmpI = dyn_cast<CallInst>(I))
-    // {
-    //TODO: get the sub-Function latency...
-    // }
+
+    if (CallInst *tmpI = dyn_cast<CallInst>(I))
+    {
+        *Evaluating_log << " Going into subfunction: " << tmpI->getCalledFunction()->getName() <<"\n";
+        return getFunctionLatency(tmpI->getCalledFunction());
+    }
     return 1.0;
 }

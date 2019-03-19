@@ -52,6 +52,7 @@
 #include <set>
 #include <map>
 #include <cxxabi.h>
+#include "llvm/Demangle/Demangle.h"
 using namespace llvm;
 
 class HI_FindFunctions : public ModulePass {
@@ -82,8 +83,14 @@ public:
         
         // try to demangle a c++ name, __cxa_demangle is a very interesting function in <cxxabi.h>
         // it can demangle a function name in IR like _ZN6ap_intILi271EEC2Ei, to a readable name, like ap_int<271>::ap_int(int)
-        std::string ans(abi::__cxa_demangle(functioname.c_str(), NULL, &size, &status));
-        return ans;
+        char *deMGL = abi::__cxa_demangle(functioname.c_str(), NULL, &size, &status);
+        if (status == 0) 
+        {
+            std::string ans(deMGL);
+            return ans;
+        }
+        return "DEMANGLE_FAILURE";
+
     }
     std::set<Function*> Function_Checked;
     std::error_code ErrInfo;

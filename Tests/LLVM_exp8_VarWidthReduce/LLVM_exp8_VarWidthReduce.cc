@@ -16,7 +16,7 @@ int main(int argc, char **argv) {
   // Compile the source code into IR and Parse the input LLVM IR file into a module
   SMDiagnostic Err;
   LLVMContext Context;
-  std::string cmd_str = "clang -O1 -emit-llvm -S "+std::string(argv[1])+" -o top.bc 2>&1";
+  std::string cmd_str = "clang -cc1 -O2  "+std::string(argv[1])+" -emit-llvm -o top.bc 2>&1";
   std::string top_str = std::string(argv[2]);
   print_cmd(cmd_str.c_str());
   bool result = sysexec(cmd_str.c_str());

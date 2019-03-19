@@ -12,7 +12,7 @@
 #include <string>
 #include <ios>
 #include <stdlib.h>
-
+#include <sstream>
 using namespace llvm;
 
 
@@ -22,9 +22,25 @@ bool HI_SimpleTimingEvaluation::runOnFunction(Function &F) // The runOnFunction 
     SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
     LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     LAA = &getAnalysis<LoopAccessLegacyAnalysis>();
-    if (F.getName() == top_function_name)
+    std::string mangled_name = F.getName();
+    std::string demangled_name;
+
+    // demangle the function
+    if (mangled_name.find("_Z")==std::string::npos)
+        demangled_name = mangled_name;
+    else
+        {
+            std::stringstream iss(mangled_name);
+            iss.ignore(1, '_');iss.ignore(1, 'Z');
+            int len; iss >> len; while (len--) {char tc;iss>>tc;demangled_name+=tc;}
+        }
+
+    mangled_name = "find function " + mangled_name + "and its demangled name is : " + demangled_name;
+    print_info(mangled_name.c_str());
+    if (demangled_name == top_function_name)
     {
         *Evaluating_log << "Top Function: "<< F.getName() <<" is found and start to evaluate its latency.\n\n\n";
+         
         topFunctionFound = 1;
         top_function_latency = getFunctionLatency(&F);
         *Evaluating_log << "Done latency evaluation of top function: "<< F.getName() <<" and its latency is "<< top_function_latency << "\n\n\n";

@@ -4,15 +4,18 @@
 // CHECK: @[[VAR:[a-zA-Z0-9_]+]] = internal constant { i65 } { i65 17 }, align 8
 // CHECK: @[[ARRAY:[a-zA-Za-zA-Z0-9_]+]] = internal constant [3 x i65] [i65 1, i65 2, i65 3], align 16
 
+// template <int Bits>
+// using ap_int = __attribute__((__ap_int(Bits))) unsigned;
+
 template <int Bits>
-using ap_uint = __attribute__((__ap_int(Bits))) unsigned;
+using ap_int = __attribute__((__ap_int(Bits))) int;
 
 void NewDelete() {
-  ap_uint<37> *p = new ap_uint<37>;
+  ap_int<37> *p = new ap_int<37>;
   // LIN: = call i8* @_Znwm(i64 8)
   // WIN: = call i8* @"??2@YAPEAX_K@Z"(i64 8)
 
-  ap_uint<37> *p2 = new ap_uint<37>[10];
+  ap_int<37> *p2 = new ap_int<37>[10];
   // LIN: = call i8* @_Znam(i64 80)
   // WIN: = call i8* @"??_U@YAPEAX_K@Z"(i64 80)
 
@@ -59,14 +62,14 @@ bool UnsignedConvertToBool() {
   // CHECK: %[[AP_INT:[a-zA-Z0-9_]+]] = alloca i65
   // CHECK: %[[B:[a-zA-Z0-9_]+]] = alloca i8
   // CHECK: %[[FIFTH_BIT:[a-zA-Z0-9_]+]] = alloca i8
-  uint65_tt an_ap_uint = 10;
-  bool b = an_ap_uint;
+  uint65_tt an_ap_int = 10;
+  bool b = an_ap_int;
   // CHECK: %[[LOAD:[a-zA-Z0-9_]+]] = load i65, i65* %[[AP_INT]]
   // CHECK: %[[TO_BOOL:[a-zA-Z0-9_]+]] = icmp ne i65 %[[LOAD]], 0
   // CHECK: %[[FROM_BOOL:[a-zA-Z0-9_]+]] = zext i1 %[[TO_BOOL]] to i8
   // CHECK: store i8 %[[FROM_BOOL]], i8* %[[B]]
 
-  bool the_5th_bit = (an_ap_uint >> 5) & 1;
+  bool the_5th_bit = (an_ap_int >> 5) & 1;
 
   // CHECK: %[[LOAD_1:[a-zA-Z0-9_]+]] = load i65, i65* %[[AP_INT]]
   // CHECK: %[[SHR:[a-zA-Z0-9_]+]] = lshr i65 %[[LOAD_1]]
@@ -75,14 +78,14 @@ bool UnsignedConvertToBool() {
   // CHECK: %[[FROM_BOOL_2:[a-zA-Z0-9_]+]] = zext i1 %[[TO_BOOL_1]] to i8
   // CHECK: store i8 %[[FROM_BOOL_2]], i8* %[[FIFTH_BIT]]
 
-  return an_ap_uint;
+  return an_ap_int;
   // CHECK: %[[RET_CONV:[a-zA-Z0-9_]+]] = load i65, i65* %[[AP_INT]]
   // CHECK: %[[TO_BOOL_3:[a-zA-Z0-9_]+]] = icmp ne i65 %[[RET_CONV]], 0
   // CHECK: ret i1 %[[TO_BOOL_3]]
 }
 
 void OtherBoolConverts() {
-  ap_uint<5> s(0);
+  ap_int<5> s(0);
   // CHECK: store i5 0, i5* [[S:%.+]]
   auto t1 = s + true;
   // CHECK: [[S_VAL1:%.+]] = load i5, i5* [[S]]
@@ -107,7 +110,7 @@ void OtherBoolConverts() {
   // CHECK: [[FROM_BOOL1:%.+]] = zext i1 [[TO_BOOL2]] to i8
   // CHECK: store i8 [[FROM_BOOL1]], i8* [[B]]
 
-  ap_uint<1> s1(0);
+  ap_int<2> s1(0);
   // CHECK: store i1 false, i1* [[S1:%.+]]
   auto t3 = s1 + true;
   // CHECK: [[S1_VAL1:%.+]] = load i1, i1* [[S1]]
@@ -132,7 +135,7 @@ void OtherBoolConverts() {
   // CHECK: store i8 [[FROM_BOOL2]], i8* [[B1]]
 }
 
-using ap_uint77 = unsigned int __attribute__((__ap_int(77)));
+//using ap_int77 = unsigned int __attribute__((__ap_int(77)));
 using ap_int77 = int __attribute__((__ap_int(77)));
 
 // Constexpr checks:
@@ -143,17 +146,17 @@ int65_tt int_usage() {
   //CHECK: ret i65 17
 }
 
-constexpr ap_uint77 u1 = 15;
-constexpr ap_uint77 u2 = 4;
-constexpr ap_uint77 u3 = u1 + u2;
-constexpr ap_uint77 u4 = u1 - u2;
-constexpr ap_uint77 u5 = u1 / u2;
-constexpr ap_uint77 u6 = u1 * u2;
-constexpr ap_uint77 u7 = u1 % u2;
-constexpr ap_uint77 u8 = u1 | u2;
-constexpr ap_uint77 u9 = u1 & u2;
-constexpr ap_uint77 u0 = u1 ^ u2;
-constexpr ap_uint77 ua = ~u1;
+constexpr ap_int77 u1 = 15;
+constexpr ap_int77 u2 = 4;
+constexpr ap_int77 u3 = u1 + u2;
+constexpr ap_int77 u4 = u1 - u2;
+constexpr ap_int77 u5 = u1 / u2;
+constexpr ap_int77 u6 = u1 * u2;
+constexpr ap_int77 u7 = u1 % u2;
+constexpr ap_int77 u8 = u1 | u2;
+constexpr ap_int77 u9 = u1 & u2;
+constexpr ap_int77 u0 = u1 ^ u2;
+constexpr ap_int77 ua = ~u1;
 
 constexpr ap_int77 s1 = 15;
 constexpr ap_int77 s2 = 4;
@@ -167,7 +170,7 @@ constexpr ap_int77 s9 = s1 & s2;
 constexpr ap_int77 s0 = s1 ^ s2;
 constexpr ap_int77 sa = ~s1;
 
-ap_uint77 unsigned_usages(int i) {
+ap_int77 unsigned_usages(int i) {
   switch (i) {
   case 1:
     return u1;

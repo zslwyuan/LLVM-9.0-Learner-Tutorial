@@ -80,21 +80,21 @@ entry:
 ; Function Attrs: noinline nounwind optnone
 define zeroext i1 @_Z21UnsignedConvertToBoolv() #0 {
 entry:
-  %an_ap_uint = alloca i65, align 8
+  %an_ap_int = alloca i65, align 8
   %b = alloca i8, align 1
   %the_5th_bit = alloca i8, align 1
-  store i65 10, i65* %an_ap_uint, align 8
-  %0 = load i65, i65* %an_ap_uint, align 8
+  store i65 10, i65* %an_ap_int, align 8
+  %0 = load i65, i65* %an_ap_int, align 8
   %tobool = icmp ne i65 %0, 0
   %frombool = zext i1 %tobool to i8
   store i8 %frombool, i8* %b, align 1
-  %1 = load i65, i65* %an_ap_uint, align 8
+  %1 = load i65, i65* %an_ap_int, align 8
   %shr = lshr i65 %1, 5
   %and = and i65 %shr, 1
   %tobool1 = icmp ne i65 %and, 0
   %frombool2 = zext i1 %tobool1 to i8
   store i8 %frombool2, i8* %the_5th_bit, align 1
-  %2 = load i65, i65* %an_ap_uint, align 8
+  %2 = load i65, i65* %an_ap_int, align 8
   %tobool3 = icmp ne i65 %2, 0
   ret i1 %tobool3
 }
@@ -106,47 +106,48 @@ entry:
   %t1 = alloca i5, align 1
   %t2 = alloca i5, align 1
   %b = alloca i8, align 1
-  %s1 = alloca i1, align 1
-  %t3 = alloca i1, align 1
-  %t4 = alloca i1, align 1
+  %s1 = alloca i2, align 1
+  %t3 = alloca i2, align 1
+  %t4 = alloca i2, align 1
   %b1 = alloca i8, align 1
   store i5 0, i5* %s, align 1
   %0 = load i5, i5* %s, align 1
-  %add = add i5 %0, 1
+  %add = add nsw i5 %0, 1
   store i5 %add, i5* %t1, align 1
   %1 = load i5, i5* %s, align 1
-  %add1 = add i5 1, %1
+  %add1 = add nsw i5 1, %1
   store i5 %add1, i5* %t2, align 1
   %2 = load i5, i5* %s, align 1
-  %add2 = add i5 %2, 1
+  %add2 = add nsw i5 %2, 1
   store i5 %add2, i5* %s, align 1
   store i8 1, i8* %b, align 1
   %3 = load i5, i5* %s, align 1
   %4 = load i8, i8* %b, align 1
   %tobool = trunc i8 %4 to i1
   %conv = zext i1 %tobool to i5
-  %add3 = add i5 %conv, %3
+  %add3 = add nsw i5 %conv, %3
   %tobool4 = icmp ne i5 %add3, 0
   %frombool = zext i1 %tobool4 to i8
   store i8 %frombool, i8* %b, align 1
-  store i1 false, i1* %s1, align 1
-  %5 = load i1, i1* %s1, align 1
-  %add5 = add i1 %5, true
-  store i1 %add5, i1* %t3, align 1
-  %6 = load i1, i1* %s1, align 1
-  %add6 = add i1 true, %6
-  store i1 %add6, i1* %t4, align 1
-  %7 = load i1, i1* %s1, align 1
-  %add7 = add i1 %7, true
-  store i1 %add7, i1* %s1, align 1
+  store i2 0, i2* %s1, align 1
+  %5 = load i2, i2* %s1, align 1
+  %add5 = add nsw i2 %5, 1
+  store i2 %add5, i2* %t3, align 1
+  %6 = load i2, i2* %s1, align 1
+  %add6 = add nsw i2 1, %6
+  store i2 %add6, i2* %t4, align 1
+  %7 = load i2, i2* %s1, align 1
+  %add7 = add nsw i2 %7, 1
+  store i2 %add7, i2* %s1, align 1
   store i8 1, i8* %b1, align 1
-  %8 = load i1, i1* %s1, align 1
+  %8 = load i2, i2* %s1, align 1
   %9 = load i8, i8* %b1, align 1
   %tobool8 = trunc i8 %9 to i1
-  %add9 = add i1 %tobool8, %8
-  %tobool10 = icmp ne i1 %add9, false
-  %frombool11 = zext i1 %tobool10 to i8
-  store i8 %frombool11, i8* %b1, align 1
+  %conv9 = zext i1 %tobool8 to i2
+  %add10 = add nsw i2 %conv9, %8
+  %tobool11 = icmp ne i2 %add10, 0
+  %frombool12 = zext i1 %tobool11 to i8
+  store i8 %frombool12, i8* %b1, align 1
   ret void
 }
 
