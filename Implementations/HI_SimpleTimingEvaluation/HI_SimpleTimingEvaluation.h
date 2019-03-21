@@ -49,13 +49,11 @@ using namespace llvm;
 
 
 // Pass for simple evluation of the latency of the top function, without considering HLS directives
-class HI_SimpleTimingEvaluation : public FunctionPass {
+class HI_SimpleTimingEvaluation : public ModulePass {
 public:
 
     // Pass for simple evluation of the latency of the top function, without considering HLS directives
-    HI_SimpleTimingEvaluation(const char* evaluating_log_name, const char* top_function,
-            std::map<Loop*, std::vector<BasicBlock*>*> *L2Bs,
-            std::map<BasicBlock*, std::vector<Loop*>*> *B2Ls) : FunctionPass(ID) 
+    HI_SimpleTimingEvaluation(const char* evaluating_log_name, const char* top_function) : ModulePass(ID) 
     {
         BlockEvaluated.clear();
         LoopEvaluated.clear();
@@ -64,11 +62,17 @@ public:
         Loop_Counter = 0;
         Evaluating_log = new raw_fd_ostream(evaluating_log_name, ErrInfo, sys::fs::F_None);
         top_function_name = std::string(top_function);
-        Loop2Blocks = L2Bs;
-        Block2Loops = B2Ls;
     } // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
     ~HI_SimpleTimingEvaluation()
     {
+        for (auto ele : Loop2Blocks) 
+        {
+            delete ele.second;
+        }
+        for (auto ele : Block2Loops) 
+        {
+            delete ele.second;
+        }
         Evaluating_log->flush(); delete Evaluating_log;
     }
 
@@ -102,7 +106,7 @@ public:
     }
 
     void getAnalysisUsage(AnalysisUsage &AU) const;
-    virtual bool runOnFunction(Function &F); 
+    virtual bool runOnModule(Module &M); 
 
     // check whether the block is in some loops
     bool isInLoop(BasicBlock *BB); 
@@ -153,8 +157,8 @@ public:
     std::string top_function_name;
 
     // record the relations between loops and blocks
-    std::map<Loop*, std::vector<BasicBlock*>*> *Loop2Blocks;
-    std::map<BasicBlock*, std::vector<Loop*>*> *Block2Loops;
+    std::map<Loop*, std::vector<BasicBlock*>*> Loop2Blocks;
+    std::map<BasicBlock*, std::vector<Loop*>*> Block2Loops;
 
     // record the list of outer loops for functions
     std::map<Function*, std::vector<Loop*> > Function2OuterLoops;
@@ -200,6 +204,12 @@ public:
 
     // get the latency of a specific instruction
     double getInstructionLatency(Instruction *I);
+
+    // check whether all the sub-function are evaluated
+    bool CheckDependencyFesilility(Function &F);
+
+    // get the relationship between loops and blocks
+    void getLoopBlockMap(Function* F);
 
     // some LLVM analysises could be involved
     ScalarEvolution *SE;

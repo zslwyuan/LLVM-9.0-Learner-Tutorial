@@ -35,7 +35,7 @@ bool HI_LoopInFormationCollect::runOnLoop(Loop *L, LPPassManager &) // The runOn
  //   else 
   //  return false;
 
-    *Loop_out << "L_ID" <<Loop_id[L]<<"--getSmallConstantMaxTripCount="<<SE->getSmallConstantMaxTripCount(L)<<"\n"; //estimate the trip count of the loop
+    *Loop_out << "L_ID" <<Loop_id[L]<<"--getSmallConstantMaxTripCount="<<SE->getSmallConstantMaxTripCount(L)<<"--depth="<<L->getLoopDepth()<<"\n"; //estimate the trip count of the loop
     // *Loop_out << "L_ID" <<Loop_id[L]<<"--getLoopEstimatedTripCount="<<getLoopEstimatedTripCount(L)<<"\n";
     *Loop_out << "-----------Loop content---------------\n";
     *Loop_out << *L;
@@ -86,6 +86,8 @@ bool HI_LoopInFormationCollect::runOnLoop(Loop *L, LPPassManager &) // The runOn
         *Loop_out << "\n";
     }
     *Loop_out << "\n\n\n";
+    printMaps();
+    Loop_out->flush();
     return false;
 }
 

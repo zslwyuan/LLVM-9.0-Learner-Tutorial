@@ -18,7 +18,7 @@ using namespace llvm;
 
 bool HI_SimpleTimingEvaluation::isInLoop(BasicBlock *BB)
 {
-    return (Block2Loops->find(BB)!=Block2Loops->end());
+    return (Block2Loops.find(BB)!=Block2Loops.end());
 }
 
 /*
@@ -26,7 +26,7 @@ bool HI_SimpleTimingEvaluation::isInLoop(BasicBlock *BB)
 */
 Loop* HI_SimpleTimingEvaluation::getOuterLoopOfBlock(BasicBlock* B)
 {
-    for (auto tmp_Loop: *(*Block2Loops)[B]) // find the most outer loop
+    for (auto tmp_Loop: *Block2Loops[B]) // find the most outer loop
     {
         if (tmp_Loop->getLoopDepth() == 1)
         {
@@ -35,6 +35,57 @@ Loop* HI_SimpleTimingEvaluation::getOuterLoopOfBlock(BasicBlock* B)
     }    
     assert(false && "a loop shoud be found but actually not");
 }
+
+
+void HI_SimpleTimingEvaluation::getLoopBlockMap(Function* F)
+{
+     *Evaluating_log << "    getLoopBlockMap for Function : " << F->getName() << " \n ";
+    for (auto ele : Loop2Blocks) 
+    {
+        delete ele.second;
+    }
+    for (auto ele : Block2Loops) 
+    {
+        delete ele.second;
+    }
+    Loop2Blocks.clear();
+    Block2Loops.clear();
+    for(LoopInfo::iterator i=LI->begin(),e=LI->end();i!=e;++i)
+    {
+        Loop* L = *i;
+        *Evaluating_log << "--------- Loop: " << L->getName() <<" contains:\n ";
+        for (auto BinL : L->getBlocks())
+        {
+            *Evaluating_log << "------------- Block: " << BinL->getName() <<" \n";
+            std::vector<BasicBlock*> *tmp_vec_block;
+            std::vector<Loop*> *tmp_vec_loop;
+            
+            if (Block2Loops.find(BinL) == Block2Loops.end())
+            {
+                tmp_vec_loop = new std::vector<Loop*>;
+                Block2Loops[BinL] = tmp_vec_loop;
+            }
+            else
+            {
+                tmp_vec_loop = Block2Loops[BinL];
+            }
+            if (Loop2Blocks.find(L) == Loop2Blocks.end())
+            {
+                tmp_vec_block = new std::vector<BasicBlock*>;
+                Loop2Blocks[L] = tmp_vec_block;
+            }
+            else
+            {
+                tmp_vec_block = Loop2Blocks[L];
+            }
+            tmp_vec_block->push_back(BinL);
+            tmp_vec_loop->push_back(L);
+        }
+    }
+
+}
+
+
 
 /*
     find the inner unevaluated loop, 

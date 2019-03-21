@@ -170,7 +170,7 @@ int main(int argc, char **argv) {
   print_info("Enable HI_LoopDependenceAnalysis Pass");
   PM.add(hi_loopdependenceanalysis); 
   
-  auto hi_simpletimingevaluation = new HI_SimpleTimingEvaluation("HI_SimpleTimingEvaluation",top_str.c_str(),&hi_loopinformationcollect->Loop2Blocks,&hi_loopinformationcollect->Block2Loops);
+  auto hi_simpletimingevaluation = new HI_SimpleTimingEvaluation("HI_SimpleTimingEvaluation",top_str.c_str());
   print_info("Enable HI_SimpleTimingEvaluation Pass");
   PM.add(hi_simpletimingevaluation); 
 

@@ -20,6 +20,9 @@ using namespace llvm;
 */
 double HI_SimpleTimingEvaluation::getFunctionLatency(Function *F) 
 {
+    if (FunctionLatency.find(F)!=FunctionLatency.end())
+        return FunctionLatency[F];
+
     *Evaluating_log << "Evaluating the latency of Function " << F->getName() <<":\n";
     BasicBlock *Func_Entry = &F->getEntryBlock(); //get the entry of the function
     *Evaluating_log << "-- its entry is: " << Func_Entry->getName() <<"\n";
@@ -85,7 +88,7 @@ void HI_SimpleTimingEvaluation::getFunctionLatency_traverseFromEntryToExiting(do
     if (isInLoop(curBlock)) 
     {
         // (3a) -- If it is a block in loops, regard the loop as intergration and update the critical path if necessary (max(ori_CP, lastStateCP + LoopLatency)).
-        Loop* tmp_OuterLoop = getOuterLoopOfBlock(curBlock);
+        Loop* tmp_OuterLoop = getOuterLoopOfBlock(curBlock); 
         *Evaluating_log << "---- Block: " << curBlock->getName() <<" is in Outer Loop : "<< tmp_OuterLoop->getName() <<" ";        
 
         if (Function2OuterLoops.find(F) == Function2OuterLoops.end())

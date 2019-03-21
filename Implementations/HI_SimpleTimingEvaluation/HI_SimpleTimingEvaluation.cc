@@ -16,36 +16,76 @@
 using namespace llvm;
 
 
-bool HI_SimpleTimingEvaluation::runOnFunction(Function &F) // The runOnFunction declaration will overide the virtual one in ModulePass, which will be executed for each Function.
+bool HI_SimpleTimingEvaluation::runOnModule(Module &M) // The runOnFunction declaration will overide the virtual one in ModulePass, which will be executed for each Function.
 {
-
-    SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-    LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-    LAA = &getAnalysis<LoopAccessLegacyAnalysis>();
-    std::string mangled_name = F.getName();
-    std::string demangled_name;
-
-    // demangle the function
-    if (mangled_name.find("_Z")==std::string::npos)
-        demangled_name = mangled_name;
-    else
-        {
-            std::stringstream iss(mangled_name);
-            iss.ignore(1, '_');iss.ignore(1, 'Z');
-            int len; iss >> len; while (len--) {char tc;iss>>tc;demangled_name+=tc;}
-        }
-
-    mangled_name = "find function " + mangled_name + "and its demangled name is : " + demangled_name;
-    print_info(mangled_name.c_str());
-    if (demangled_name == top_function_name)
+    bool all_processed = 0;
+    while (!all_processed)
     {
-        *Evaluating_log << "Top Function: "<< F.getName() <<" is found and start to evaluate its latency.\n\n\n";
-         
-        topFunctionFound = 1;
-        top_function_latency = getFunctionLatency(&F);
-        *Evaluating_log << "Done latency evaluation of top function: "<< F.getName() <<" and its latency is "<< top_function_latency << "\n\n\n";
+        all_processed = 1;
+        for (auto &F : M)
+        {
+            if (FunctionLatency.find(&F) != FunctionLatency.end())
+            {
+                continue;
+            }
+            else
+            {
+                all_processed = 0;
+                if (CheckDependencyFesilility(F))
+                {
+                    SE = &getAnalysis<ScalarEvolutionWrapperPass>(F).getSE();
+                    LI = &getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+                    LAA = &getAnalysis<LoopAccessLegacyAnalysis>(F);
+                    getLoopBlockMap(&F);
+                    getFunctionLatency(&F);
+                }
+            }
+            
+        }
     }
+
+    for (auto &F : M)
+    {
+
+        std::string mangled_name = F.getName();
+        std::string demangled_name;
+
+        // demangle the function
+        if (mangled_name.find("_Z")==std::string::npos)
+            demangled_name = mangled_name;
+        else
+            {
+                std::stringstream iss(mangled_name);
+                iss.ignore(1, '_');iss.ignore(1, 'Z');
+                int len; iss >> len; while (len--) {char tc;iss>>tc;demangled_name+=tc;}
+            }
+
+        mangled_name = "find function " + mangled_name + "and its demangled name is : " + demangled_name;
+        print_info(mangled_name.c_str());
+        if (demangled_name == top_function_name)
+        {
+            *Evaluating_log << "Top Function: "<< F.getName() <<" is found";
+            topFunctionFound = 1;
+            top_function_latency = getFunctionLatency(&F);
+            *Evaluating_log << "Done latency evaluation of top function: "<< F.getName() <<" and its latency is "<< top_function_latency << "\n\n\n";
+        }
+    }
+
     return false;
+}
+
+bool HI_SimpleTimingEvaluation::CheckDependencyFesilility(Function &F)
+{
+    for (auto &B : F)
+        for (auto &I : B)
+            if (CallInst *CI = dyn_cast<CallInst>(&I))
+            {
+                if (FunctionLatency.find(CI->getCalledFunction()) == FunctionLatency.end())
+                {
+                    return false;
+                }
+            }
+    return true;
 }
 
 char HI_SimpleTimingEvaluation::ID = 0;  // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.

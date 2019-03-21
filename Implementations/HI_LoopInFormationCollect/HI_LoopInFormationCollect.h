@@ -47,9 +47,9 @@ public:
       //  this->getAsPMDataManager();
         Loop_Counter = 0;
         Loop_out = new raw_fd_ostream(loopfile, ErrInfo, sys::fs::F_None);
-        Loop2Blocks.clear();
-        Block2Loops.clear();
-        Loop_id.clear();
+        // Loop2Blocks.clear();
+        // Block2Loops.clear();
+        // Loop_id.clear();
     } // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
     ~HI_LoopInFormationCollect()
     {
@@ -109,7 +109,7 @@ public:
     virtual bool doFinalization()
     {
         // print out the content in maps
-        printMaps();
+        // printMaps();
         return false;
     }
     void getAnalysisUsage(AnalysisUsage &AU) const;
