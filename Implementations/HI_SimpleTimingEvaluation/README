@@ -1,4 +1,4 @@
-HI_SimpleTimingEvaluation pass is tested by LLVM_exp5_LoopSimpleAnalysis
+HI_SimpleTimingEvaluation pass is tested by LLVM_exp5_SimpleTimingEvaluation
 
 The pass traverses the top_function, including the blocks he subfunctions and loops to get the total latency, according to the CFG (predecessor-successor)
 Detailed explanation can be found in the source code's comments.

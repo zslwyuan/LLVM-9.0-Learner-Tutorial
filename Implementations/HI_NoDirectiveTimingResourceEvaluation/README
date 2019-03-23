@@ -1,0 +1,6 @@
+HI_NoDirectiveTimingResourceEvaluation pass is tested by LLVM_expxxxxx
+
+Compared to HI_SimpleTimingEvaluation, HI_NoDirectiveTimingResourceEvaluation will access the database to get the accurate information 
+of the instruction, including timing and resource, to achieve accurate timing evaluation.
+
+However, in this pass, the HLS directives will still not work, which will be enabled in the next step.
