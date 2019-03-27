@@ -77,7 +77,7 @@ void HI_NoDirectiveTimingResourceEvaluation::Load_Instruction_Info()
             info_file_name+=instructionNames[i];
             info_file_name+="/";
             info_file_name+=instructionNames[i];
-            info_file_name+="_data";
+            // info_file_name+="_data";
             std::ifstream info_file(info_file_name.c_str());
 
             std::string  tmp_s;  
