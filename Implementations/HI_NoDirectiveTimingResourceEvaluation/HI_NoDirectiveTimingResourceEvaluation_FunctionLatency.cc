@@ -18,7 +18,7 @@ using namespace llvm;
 /*
     find the longest path in the function as its latency
 */
-double HI_NoDirectiveTimingResourceEvaluation::getFunctionLatency(Function *F) 
+HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::getFunctionLatency(Function *F) 
 {
     if (FunctionLatency.find(F)!=FunctionLatency.end())
         return FunctionLatency[F];
@@ -28,12 +28,14 @@ double HI_NoDirectiveTimingResourceEvaluation::getFunctionLatency(Function *F)
     *Evaluating_log << "-- its entry is: " << Func_Entry->getName() <<"\n";
     
     // (2) traverse the block in loop by DFS to find the longest path
-    double max_critial_path_in_F = 0;
+    timingBase max_critial_path_in_F(0,0,1,clock_period);
+    timingBase origin_path_in_F(0,0,1,clock_period);
+
     tmp_BlockCriticalPath_inFunc.clear(); // record the block level critical path in the loop
     tmp_LoopCriticalPath_inFunc.clear(); // record the critical path to the end of sub-loops in the loop
 
     Func_BlockVisited.clear();
-    getFunctionLatency_traverseFromEntryToExiting(0.0, F, Func_Entry);
+    getFunctionLatency_traverseFromEntryToExiting(origin_path_in_F, F, Func_Entry);
         
     for (auto tmp_it : tmp_BlockCriticalPath_inFunc)
         if (tmp_it.second > max_critial_path_in_F)
@@ -76,7 +78,7 @@ double HI_NoDirectiveTimingResourceEvaluation::getFunctionLatency(Function *F)
          -- find the successors of the block and continue the DFS
     (4) Release the block from visited flag, as a step of typical DFS
 */
-void HI_NoDirectiveTimingResourceEvaluation::getFunctionLatency_traverseFromEntryToExiting(double tmp_critical_path, Function *F, BasicBlock* curBlock)
+void HI_NoDirectiveTimingResourceEvaluation::getFunctionLatency_traverseFromEntryToExiting(HI_NoDirectiveTimingResourceEvaluation::timingBase tmp_critical_path, Function *F, BasicBlock* curBlock)
 {
 
     // (1) Mark the block visited, as a step of typical DFS
@@ -97,8 +99,8 @@ void HI_NoDirectiveTimingResourceEvaluation::getFunctionLatency_traverseFromEntr
             Function2OuterLoops[F] = tmp_vec_loop;
         }
 
-        double latency_Loop = getOuterLoopLatency(tmp_OuterLoop); // treat the entire loop as a block node and get the latency
-        double try_critical_path = tmp_critical_path + latency_Loop;  // first, get the critical path to the end of loop
+        timingBase latency_Loop = getOuterLoopLatency(tmp_OuterLoop); // treat the entire loop as a block node and get the latency
+        timingBase try_critical_path = tmp_critical_path + latency_Loop;  // first, get the critical path to the end of loop
         
         *Evaluating_log << " LoopLatency =  " << latency_Loop <<" ";        
         *Evaluating_log << " NewCP =  " << try_critical_path <<" ";
@@ -142,8 +144,8 @@ void HI_NoDirectiveTimingResourceEvaluation::getFunctionLatency_traverseFromEntr
     {
         //     (3b) -- If it is a block out of loops, evaluate the block latency and update the critical path if necessary (max(ori_CP, lastStateCP + BlockLatency)).         
         *Evaluating_log << "---- Block: " << curBlock->getName() <<" is NOT in any Outer Loop ";
-        double latency_CurBlock = BlockLatencyEvaluation(curBlock); // first, get the latency of the current block
-        double try_critical_path = tmp_critical_path + latency_CurBlock;
+        timingBase latency_CurBlock = BlockLatencyEvaluation(curBlock); // first, get the latency of the current block
+        timingBase try_critical_path = tmp_critical_path + latency_CurBlock;
         *Evaluating_log << "---- latencyBlock =  " << latency_CurBlock <<" ";
         *Evaluating_log << " NewCP =  " << try_critical_path <<" ";
         bool checkFlag = false;

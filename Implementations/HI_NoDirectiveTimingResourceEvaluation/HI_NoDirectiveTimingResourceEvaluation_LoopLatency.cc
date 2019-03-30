@@ -155,7 +155,7 @@ Loop* HI_NoDirectiveTimingResourceEvaluation::getInnerUnevaluatedLoop(Loop* oute
     (3) get the total latency by TripCount * IterationLatency
     (4) mark the blocks in loop with the loop latency, so later processing can regard this loop as an integration
 */
-double HI_NoDirectiveTimingResourceEvaluation::getOuterLoopLatency(Loop* outerL)
+HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::getOuterLoopLatency(Loop* outerL)
 {
     *Evaluating_log << "\n Evaluating Outer Loop Latency for Loop " << outerL->getName() <<":\n";
     if (LoopLatency.find(outerL) != LoopLatency.end())
@@ -164,9 +164,9 @@ double HI_NoDirectiveTimingResourceEvaluation::getOuterLoopLatency(Loop* outerL)
         return LoopLatency[outerL];
     }
     Loop *cur_Loop;
-    double outerL_latency = -1;
-    double tmp_total_latency;
-
+    timingBase outerL_latency (-1,-1,1,clock_period);
+    timingBase tmp_total_latency(0,0,1,clock_period);
+    timingBase origin_latency(0,0,1,clock_period);
     // (1) iteratively handle the most inner loop
     cur_Loop = getInnerUnevaluatedLoop(outerL);
     while (cur_Loop!=NULL) 
@@ -189,12 +189,12 @@ double HI_NoDirectiveTimingResourceEvaluation::getOuterLoopLatency(Loop* outerL)
 
         
         // (2) traverse the block in loop by DFS to find the longest path
-        double max_critial_path_in_curLoop = 0;
+        timingBase max_critial_path_in_curLoop(0,0,1,clock_period);
         tmp_BlockCriticalPath_inLoop.clear(); // record the block level critical path in the loop
         tmp_SubLoop_CriticalPath.clear(); // record the critical path to the end of sub-loops in the loop
 
         BlockVisited.clear();
-        LoopLatencyEvaluation_traversFromHeaderToExitingBlocks(0, cur_Loop, tmp_LoopHeader);
+        LoopLatencyEvaluation_traversFromHeaderToExitingBlocks(origin_latency, cur_Loop, tmp_LoopHeader);
         BlockCriticalPath_inLoop[cur_Loop] = tmp_BlockCriticalPath_inLoop;
        
         for (auto tmp_it : tmp_BlockCriticalPath_inLoop)
@@ -207,7 +207,7 @@ double HI_NoDirectiveTimingResourceEvaluation::getOuterLoopLatency(Loop* outerL)
         // (3) get the total latency by TripCount * IterationLatency
         tmp_total_latency = SE->getSmallConstantMaxTripCount(cur_Loop) * max_critial_path_in_curLoop;
         if (cur_Loop->getLoopPreheader())
-            tmp_total_latency += BlockLatencyEvaluation(cur_Loop->getLoopPreheader());
+            tmp_total_latency = tmp_total_latency + BlockLatencyEvaluation(cur_Loop->getLoopPreheader());
         
         // (4) mark the blocks in loop with the loop latency, so later processing can regard this loop as an integration
         BlockVisited.clear();
@@ -223,7 +223,7 @@ double HI_NoDirectiveTimingResourceEvaluation::getOuterLoopLatency(Loop* outerL)
     }
     outerL_latency = tmp_total_latency; // finally, we will get the latency of outer loop in the last iteration
     *Evaluating_log << "Done evaluation outer Loop Latency for Loop " << outerL->getName() << " and its latency is " << outerL_latency <<" cycles.\n\n\n";
-    assert(outerL_latency > -0.5 && "The latency for a loop should be not be negative");
+    assert(outerL_latency.latency > -0.5 && "The latency for a loop should be not be negative");
     return outerL_latency;
 }
 
@@ -238,7 +238,7 @@ double HI_NoDirectiveTimingResourceEvaluation::getOuterLoopLatency(Loop* outerL)
     (4) Release the block from visited flag, as a step of typical DFS
 
 */
-void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyEvaluation_traversFromHeaderToExitingBlocks(double tmp_critical_path, Loop* L, BasicBlock *curBlock)
+void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyEvaluation_traversFromHeaderToExitingBlocks(HI_NoDirectiveTimingResourceEvaluation::timingBase tmp_critical_path, Loop* L, BasicBlock *curBlock)
 {
 
     // (1) Mark the block visited, as a step of typical DFS
@@ -253,7 +253,7 @@ void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyEvaluation_traversFromHe
         Loop* tmp_SubLoop = Block2EvaluatedLoop[curBlock];
         *Evaluating_log << " which is evluated in Loop " << tmp_SubLoop->getName() <<" ";
         *Evaluating_log << " LoopLatency =  " << LoopLatency[tmp_SubLoop] <<" ";
-        double try_critical_path = tmp_critical_path + LoopLatency[tmp_SubLoop];  // first, get the critical path to the end of sub-loop
+        timingBase try_critical_path = tmp_critical_path + LoopLatency[tmp_SubLoop];  // first, get the critical path to the end of sub-loop
         *Evaluating_log << " NewCP =  " << try_critical_path <<" ";
         bool checkFlag = false;         
        
@@ -294,8 +294,8 @@ void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyEvaluation_traversFromHe
     {
         //     (3b) -- If it is a block out of sub-loops, evaluate the block latency and update the critical path if necessary (max(ori_CP, lastStateCP + BlockLatency)).         
         *Evaluating_log << " which is  not evaluated in Loop " << " ";
-        double latency_CurBlock = BlockLatencyEvaluation(curBlock); // first, get the latency of the current block
-        double try_critical_path = tmp_critical_path + latency_CurBlock;
+        timingBase latency_CurBlock = BlockLatencyEvaluation(curBlock); // first, get the latency of the current block
+        timingBase try_critical_path = tmp_critical_path + latency_CurBlock;
         *Evaluating_log << "---- latencyBlock =  " << latency_CurBlock <<" ";
         *Evaluating_log << " NewCP =  " << try_critical_path <<" ";
         bool checkFlag = false;
@@ -331,11 +331,10 @@ void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyEvaluation_traversFromHe
     BlockVisited.erase(curBlock);
 }
 
-
 /*
     Simply mark all the blocks in the loop with the totoal_latency by DFS-traverse
 */
-void HI_NoDirectiveTimingResourceEvaluation::MarkBlock_traversFromHeaderToExitingBlocks(double total_latency, Loop* L, BasicBlock *curBlock)
+void HI_NoDirectiveTimingResourceEvaluation::MarkBlock_traversFromHeaderToExitingBlocks(HI_NoDirectiveTimingResourceEvaluation::timingBase total_latency, Loop* L, BasicBlock *curBlock)
 {
     BlockVisited.insert(curBlock);
     Block2EvaluatedLoop[curBlock] = L;

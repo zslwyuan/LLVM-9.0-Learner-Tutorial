@@ -49,7 +49,12 @@
 #include  <fstream>
 #include <ios>
 #include <stdlib.h>
+#include <iostream>
+#include <string>
+#include <cctype>
+#include <algorithm>
 #include <sstream>
+#include "ClockInfo.h"
 using namespace llvm;
 
 
@@ -68,6 +73,8 @@ public:
         config_file = new std::ifstream(config_file_name);
         Evaluating_log = new raw_fd_ostream(evaluating_log_name, ErrInfo, sys::fs::F_None);
         top_function_name = std::string(top_function);
+        Parse_Config();
+        Load_Instruction_Info();
     } // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
     ~HI_NoDirectiveTimingResourceEvaluation()
     {
@@ -107,12 +114,11 @@ public:
         tmp_SubLoop_CriticalPath.clear();
         InstructionCriticalPath_inBlock.clear();
 
-        Parse_Config();
-        Load_Instruction_Info();
-
         return false;
         
     }
+
+    class timingBase;
 
     // set the dependence of Passes
     void getAnalysisUsage(AnalysisUsage &AU) const;
@@ -129,7 +135,7 @@ public:
     bool isInLoop(BasicBlock *BB); 
 
     // evaluatate the latency of a outer loop, which could be a nested one
-    double getOuterLoopLatency(Loop *outerL); 
+    timingBase getOuterLoopLatency(Loop *outerL); 
 
     // get the most outer loop which contains the block, treat the loop as a node for the evaluation of latency
     Loop* getOuterLoopOfBlock(BasicBlock* B);
@@ -138,24 +144,22 @@ public:
     Loop* getInnerUnevaluatedLoop(Loop* outerL);
 
     // evaluate a loop in which all the children loops have been evauluated
-    double getLoopLatency_InnerChecked(Loop *L); 
+    timingBase getLoopLatency_InnerChecked(Loop *L); 
     
     static char ID;
 
     int Loop_Counter;
 
-    double top_function_latency = 0.0;
-
     std::map<Loop*, int> Loop_id;
 
     // the latency of each loop
-    std::map<Loop*, double> LoopLatency;
+    std::map<Loop*, timingBase> LoopLatency;
 
     // the latency of each block
-    std::map<BasicBlock*, double> BlockLatency;
+    std::map<BasicBlock*, timingBase> BlockLatency;
 
     // the latency of each function
-    std::map<Function*, double> FunctionLatency;
+    std::map<Function*, timingBase> FunctionLatency;
 
     // record whether the component is evaluated
     std::set<BasicBlock*> BlockEvaluated;
@@ -185,43 +189,43 @@ public:
     std::map<BasicBlock*, Loop*> Block2EvaluatedLoop;
 
     // record the critical path from the loop header to the end of the specific block
-    std::map<Loop*, std::map<BasicBlock*, double> > BlockCriticalPath_inLoop;
+    std::map<Loop*, std::map<BasicBlock*, timingBase> > BlockCriticalPath_inLoop;
 
     // record the critical path to the end of block in the function
-    std::map<BasicBlock*, double> tmp_BlockCriticalPath_inFunc;
+    std::map<BasicBlock*, timingBase> tmp_BlockCriticalPath_inFunc;
 
     // record the critical path to the end of loops in the function
-    std::map<Loop*, double> tmp_LoopCriticalPath_inFunc;
+    std::map<Loop*, timingBase> tmp_LoopCriticalPath_inFunc;
 
     // record the critical path to the end of sub-loops in the loop
-    std::map<BasicBlock*, double> tmp_BlockCriticalPath_inLoop;
+    std::map<BasicBlock*, timingBase> tmp_BlockCriticalPath_inLoop;
 
     // record the critical path from the outter loop header to the end of the specific sub-loop
-    std::map<Loop*, double> tmp_SubLoop_CriticalPath;
+    std::map<Loop*, timingBase> tmp_SubLoop_CriticalPath;
 
     // record the critical path from the block entry to the end of the specific instruction
-    std::map<BasicBlock*, std::map<Instruction*, double> > InstructionCriticalPath_inBlock;
+    std::map<BasicBlock*, std::map<Instruction*, timingBase> > InstructionCriticalPath_inBlock;
 
     // get the function latency
-    double getFunctionLatency(Function* F);
+    timingBase getFunctionLatency(Function* F);
 
     // get the function critical path by traversing the blocks based on DFS
-    void getFunctionLatency_traverseFromEntryToExiting(double tmp_critical_path, Function *F, BasicBlock* curBlock);
+    void getFunctionLatency_traverseFromEntryToExiting(timingBase tmp_critical_path, Function *F, BasicBlock* curBlock);
 
     // get the loop latency by traversing from the header to the exiting blocks
-    void LoopLatencyEvaluation_traversFromHeaderToExitingBlocks(double tmp_critical_path,  Loop* L, BasicBlock *curBlock);
+    void LoopLatencyEvaluation_traversFromHeaderToExitingBlocks(timingBase tmp_critical_path,  Loop* L, BasicBlock *curBlock);
 
     // mark the block in loop with latency by traversing from the header to the exiting blocks
-    void MarkBlock_traversFromHeaderToExitingBlocks(double total_latency, Loop* L, BasicBlock *curBlock);
+    void MarkBlock_traversFromHeaderToExitingBlocks(timingBase total_latency, Loop* L, BasicBlock *curBlock);
 
     // evaluate the block latency by traversing the instructions
-    double BlockLatencyEvaluation(BasicBlock *B);
+    timingBase BlockLatencyEvaluation(BasicBlock *B);
 
     // check whether the instruction is in the block
     bool BlockContain(BasicBlock *B, Instruction *I);
 
     // get the latency of a specific instruction
-    double getInstructionLatency(Instruction *I);
+    timingBase getInstructionLatency(Instruction *I);
 
     // check whether all the sub-function are evaluated
     bool CheckDependencyFesilility(Function &F);
@@ -236,9 +240,13 @@ public:
 
     bool topFunctionFound = 0;
     
-    float clock_freq = 10.0;
+    float clock_period = 10.0;
 
-    std::string clock_freq_str = "10.0";
+    double top_function_latency;
+
+    std::string clock_period_str = "10.0";
+
+    std::string HLS_lib_path = "";
 
     class inst_timing_resource_info
     {
@@ -266,19 +274,131 @@ public:
             II=input.II;
             core_name=input.core_name;
         }
+
+        inst_timing_resource_info(const inst_timing_resource_info &input)
+        {
+            FF=input.FF;
+            DSP=input.DSP; 
+            LUT=input.LUT;
+            Lat=input.Lat;
+            delay=input.delay;
+            II=input.II;
+            core_name=input.core_name;
+        }
+
+        inst_timing_resource_info()
+        {
+            FF=0;
+            DSP=0; 
+            LUT=0;
+            Lat=0;
+            delay=0;
+            II=0;
+            core_name="";
+        }
+
+        void print()
+        {
+            llvm::errs() << " DSP=" << DSP << " FF=" << FF << " LUT=" << LUT << " Lat=" << Lat << " delay=" << delay << " II=" << II << "\n";  
+        }
+
     };
+
+    class timingBase
+    {
+        public:
+            timingBase( int l,double t, int i, double p)
+            {
+                latency = l;
+                timing = t;
+                clock_period = p;
+                II = i;
+            }
+            int latency;
+            int II;
+            double timing;    
+            double clock_period;
+
+            timingBase &operator=(timingBase input)
+            {
+                latency=input.latency;
+                II=input.II;
+                timing=input.timing;
+                clock_period=input.clock_period;
+            }
+
+            timingBase(const timingBase& input)
+            {
+                latency=input.latency;
+                II=input.II;
+                timing=input.timing;
+                clock_period=input.clock_period;
+            }
+
+    };
+
+    friend timingBase operator+(timingBase lhs, timingBase rhs)
+    {
+        assert(lhs.clock_period == rhs.clock_period);
+        lhs.latency = lhs.latency + rhs.latency;
+        lhs.timing = lhs.timing + rhs.timing;
+        if (lhs.timing > lhs.clock_period*7/8)
+        {
+            lhs.timing = rhs.timing;
+            lhs.latency++;
+        }
+        return lhs;
+    }
+
+    friend bool operator>(timingBase lhs, timingBase rhs)
+    {
+        assert(lhs.clock_period == rhs.clock_period);
+        return (((lhs.latency>rhs.latency))||(lhs.latency == rhs.latency && lhs.timing > rhs.timing));
+    }
+
+    friend timingBase operator*(timingBase lhs, int rhs)
+    {
+        if (lhs.timing>0.0001)
+        {
+            lhs.latency++;
+            lhs.timing=0;
+        }
+        lhs.latency*=rhs;
+        return lhs;
+    }
+
+    friend timingBase operator*(int rhs,timingBase lhs)
+    {
+        if (lhs.timing>0.0001)
+        {
+            lhs.latency++;
+            lhs.timing=0;
+        }
+        lhs.latency*=rhs;
+        return lhs;
+    }
+
+    friend raw_ostream& operator<< (raw_ostream& stream, const timingBase& tb)
+    {
+        stream << " [latency=" << tb.latency << ", timing="<<tb.timing<<"] ";
+        return stream;
+    }
 
     typedef std::map<int,std::map<int, std::map<std::string,inst_timing_resource_info>>> Info_type_list;
 
     std::map<std::string,Info_type_list> BiOp_Info_name2list_map;
 
-    int get_N_DSP(std::string opcode, int operand_bitwid , int res_bitwidth, std::string freq);
-    int get_N_FF(std::string opcode, int operand_bitwid , int res_bitwidth, std::string freq);
-    int get_N_LUT(std::string opcode, int operand_bitwid , int res_bitwidth, std::string freq);
-    int get_N_Lat(std::string opcode, int operand_bitwid , int res_bitwidth, std::string freq);
-    double get_N_Delay(std::string opcode, int operand_bitwid , int res_bitwidth, std::string freq);
-    bool checkInfoAvailability(std::string opcode, int operand_bitwid , int res_bitwidth, std::string freq);
+    inst_timing_resource_info get_inst_info(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
 
+    timingBase get_inst_info_result(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
+
+    // int get_N_DSP(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
+    // int get_N_FF(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
+    // int get_N_LUT(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
+    // int get_N_Lat(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
+    // double get_N_Delay(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
+    bool checkInfoAvailability(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
+    inst_timing_resource_info checkInfo_HigherFreq(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
 };
 
 #endif

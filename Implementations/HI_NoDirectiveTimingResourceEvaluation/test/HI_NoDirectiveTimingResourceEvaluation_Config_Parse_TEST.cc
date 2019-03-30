@@ -1,14 +1,14 @@
-#include "HI_NoDirectiveTimingResourceEvaluation.h"
+#include "HI_NoDirectiveTimingResourceEvaluation_TEST.h"
 #include "HI_InstructionFiles.h"
 
-
-using namespace llvm;
+#include <assert.h>
 
 typedef std::uint64_t hash_t;  
     
 constexpr hash_t prime = 0x100000001B3ull;  
 constexpr hash_t basis = 0xCBF29CE484222325ull;  
-    
+
+
 hash_t hash_(char const* str)  
 {  
     hash_t ret{basis};  
@@ -43,7 +43,7 @@ constexpr hash_t hash_compile_time(char const* str, hash_t last_value = basis)
 }  
 
 // Pass for simple evluation of the latency of the top function, without considering HLS directives
-void HI_NoDirectiveTimingResourceEvaluation::Parse_Config()
+void HI_NoDirectiveTimingResourceEvaluation_TEST::Parse_Config()
 {
     std::string  tmp_s;  
     while ( getline(*config_file,tmp_s) )
@@ -68,10 +68,11 @@ void HI_NoDirectiveTimingResourceEvaluation::Parse_Config()
                 break;
         }
     }
+    std::cout << "HLS_lib_path=" << HLS_lib_path << "\n";
     assert(HLS_lib_path!="" && "The HLS Lib is necessary in the configuration file!\n");
 }
 
-void HI_NoDirectiveTimingResourceEvaluation::Load_Instruction_Info()
+void HI_NoDirectiveTimingResourceEvaluation_TEST::Load_Instruction_Info()
 {
     int i;
     for (i = 0; i<instructionInfoNum; i++)
@@ -108,7 +109,7 @@ void HI_NoDirectiveTimingResourceEvaluation::Load_Instruction_Info()
                         continue; // ignore those unused information
                 }
                 
-                inst_timing_resource_info tmp_info;
+                inst_timing_resource_info tmp_info; 
 
                 int oprand_bitwidth = std::stoi(data_ele[0]);
                 int res_bitwid = std::stoi(data_ele[2]);
@@ -131,19 +132,7 @@ void HI_NoDirectiveTimingResourceEvaluation::Load_Instruction_Info()
     }
 }
 
-
-HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::get_inst_info_result(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
-{
-    timingBase result(0,0,1,clock_period);
-    inst_timing_resource_info info = get_inst_info(opcode,operand_bitwid,res_bitwidth,clock_period_str);
-    result.latency = info.Lat;
-    result.timing = info.delay;
-    result.II = info.II;
-    return result; 
-}
-
-
-HI_NoDirectiveTimingResourceEvaluation::inst_timing_resource_info HI_NoDirectiveTimingResourceEvaluation::get_inst_info(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+HI_NoDirectiveTimingResourceEvaluation_TEST::inst_timing_resource_info HI_NoDirectiveTimingResourceEvaluation_TEST::get_inst_info(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
 {
     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period];
@@ -169,12 +158,51 @@ HI_NoDirectiveTimingResourceEvaluation::inst_timing_resource_info HI_NoDirective
         
     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period];
 
-    llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
+    std::cout << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
     assert(false && "no such information in the database\n");
 }
 
+// int HI_NoDirectiveTimingResourceEvaluation_TEST::get_N_FF(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// {
+//     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
+//         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].FF;
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
+//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].FF;
+    
+// }
 
-bool HI_NoDirectiveTimingResourceEvaluation::checkInfoAvailability(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+
+// int HI_NoDirectiveTimingResourceEvaluation_TEST::get_N_LUT(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// {
+//     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
+//         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].LUT;
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
+//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].LUT;
+    
+// }
+
+
+// int HI_NoDirectiveTimingResourceEvaluation_TEST::get_N_Lat(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// {
+//     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
+//         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].Lat;
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
+//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].Lat;
+    
+// }
+
+
+// double HI_NoDirectiveTimingResourceEvaluation_TEST::get_N_Delay(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// {
+//     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
+//         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].delay;
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
+//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].delay;
+    
+// }
+
+
+bool HI_NoDirectiveTimingResourceEvaluation_TEST::checkInfoAvailability(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
 {
     if (BiOp_Info_name2list_map.find(opcode)!=BiOp_Info_name2list_map.end())
     {
@@ -188,29 +216,29 @@ bool HI_NoDirectiveTimingResourceEvaluation::checkInfoAvailability(std::string o
                 }
                 else
                 {
-                    // llvm::errs() << "not in BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth]\n";
+                    // std::cout << "not in BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth]\n";
                 }
             }
             else
             {
-                // llvm::errs() << "not in BiOp_Info_name2list_map[opcode][operand_bitwid]\n";
+                // std::cout << "not in BiOp_Info_name2list_map[opcode][operand_bitwid]\n";
             }
         }
         else
         {
-            // llvm::errs() << "not in BiOp_Info_name2list_map[opcode]\n";
+            // std::cout << "not in BiOp_Info_name2list_map[opcode]\n";
         }
         
     }
     else
     {
-        // llvm::errs() << "not in BiOp_Info_name2list_map\n";
+        // std::cout << "not in BiOp_Info_name2list_map\n";
     }  
 
     return false;
 }
 
-HI_NoDirectiveTimingResourceEvaluation::inst_timing_resource_info HI_NoDirectiveTimingResourceEvaluation::checkInfo_HigherFreq(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+HI_NoDirectiveTimingResourceEvaluation_TEST::inst_timing_resource_info HI_NoDirectiveTimingResourceEvaluation_TEST::checkInfo_HigherFreq(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
 {
     int i;
     for (i = clockNum - 1; i >= 0; i--)
@@ -223,63 +251,6 @@ HI_NoDirectiveTimingResourceEvaluation::inst_timing_resource_info HI_NoDirective
         if (checkInfoAvailability(opcode, operand_bitwid, res_bitwidth, clockStrs[i]))
             return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][clockStrs[i]];
     }
-    llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
+    std::cout << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
     assert(false && "no such information in the database\n");
 }
-
-
-
-
-
-// int HI_NoDirectiveTimingResourceEvaluation::get_N_DSP(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
-// {
-//     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
-//         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].DSP;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].DSP;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
-// }
-
-// int HI_NoDirectiveTimingResourceEvaluation::get_N_FF(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
-// {
-//     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
-//         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].FF;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].FF;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
-// }
-
-
-// int HI_NoDirectiveTimingResourceEvaluation::get_N_LUT(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
-// {
-//     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
-//         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].LUT;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].LUT;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
-// }
-
-
-// int HI_NoDirectiveTimingResourceEvaluation::get_N_Lat(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
-// {
-//     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
-//         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].Lat;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].Lat;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
-// }
-
-
-// double HI_NoDirectiveTimingResourceEvaluation::get_N_Delay(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
-// {
-//     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
-//         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].delay;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].delay;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
-// }
