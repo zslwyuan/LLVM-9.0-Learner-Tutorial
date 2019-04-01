@@ -73,9 +73,14 @@ public:
         config_file = new std::ifstream(config_file_name);
         Evaluating_log = new raw_fd_ostream(evaluating_log_name, ErrInfo, sys::fs::F_None);
         top_function_name = std::string(top_function);
+
+        // get the configureation from the file, e.g. clock period
         Parse_Config();
+
+        // load the HLS database of timing and resource
         Load_Instruction_Info();
-    } // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
+    }
+    
     ~HI_NoDirectiveTimingResourceEvaluation()
     {
         for (auto ele : Loop2Blocks) 

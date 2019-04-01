@@ -104,9 +104,14 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
       --- The original way I implement is too ugly and I applied the patch which Erich Keane shared via maillist clang-cfe.
       --- The patch, under review: https://reviews.llvm.org/D59105 , is developed by Erich Keane, Compiler Engineer, Intel Corporation. (Thanks Erich!^_^)
 
-**Experiment 12**: (WIP) Based on the IR file, evaluate the resource and timing of the Window/Buffer/Filter in HLS 
+**Experiment 12**: (WIP) Based on the library collected from VivadoHLS synthesis result, a Pass for more accurate evaluation of timing and resource is implemented. (Analysis Pass) **[PASS CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations/HI_NoDirectiveTimingResourceEvaluation)** 
 
-      --- IR transformation, Timing/Resource Evaluation
+      --- HLS Timing/Resource Library for most instructions, Timing/Resource Evaluation, Operation Chaining for DSP Utilization
+	
+
+**Experiment 13**: (WIP) Based on the IR file, evaluate the resource and timing of the Window/Buffer/Filter in HLS 
+
+      --- IR transformation, Timing/Resource Evaluation for special structures on FPGA
 	
       
 
