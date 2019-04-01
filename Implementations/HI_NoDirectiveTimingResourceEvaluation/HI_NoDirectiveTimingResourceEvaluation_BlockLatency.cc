@@ -43,7 +43,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     {
         Instruction* I = &rI;
         timingBase tmp_I_latency = getInstructionLatency(I);
-        cur_InstructionCriticalPath[I] = origin_path+tmp_I_latency;
+        cur_InstructionCriticalPath[I] = origin_path + tmp_I_latency;
 
         // (2) check the CP to the instruction's predecessors and find the maximum one to update its CP
         for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp)// update the critical path to I by checking its predecessors' critical path
@@ -54,8 +54,17 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
                 // may be located behind the instruction itself (not in cur_InstructionCriticalPath yet) in some loop structures 
                 if (BlockContain(B, I_Pred) && cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end()) 
                 {
-                    if ( cur_InstructionCriticalPath[I_Pred] + tmp_I_latency > cur_InstructionCriticalPath[I] ) //update the critical path
-                        cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] + tmp_I_latency;
+                    if (canChainOrNot(I_Pred,I))
+                    {
+                        if ( cur_InstructionCriticalPath[I_Pred]  > cur_InstructionCriticalPath[I] ) //addition chained with multiplication
+                            cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] ;
+                    }
+                    else
+                    {
+                        if ( cur_InstructionCriticalPath[I_Pred] + tmp_I_latency > cur_InstructionCriticalPath[I] ) //update the critical path
+                            cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] + tmp_I_latency;
+                    }
+
                 }                 
             }           
         }

@@ -248,6 +248,7 @@ public:
 
     std::string HLS_lib_path = "";
 
+    // A unit class to store the information of timing and resource for instruction
     class inst_timing_resource_info
     {
         public:
@@ -304,6 +305,7 @@ public:
 
     };
 
+    // A unit class to record the timing and latency for a(n) instruction/block/function/loop 
     class timingBase
     {
         public:
@@ -396,22 +398,48 @@ public:
         return stream;
     }
 
+    // For each type of instruction, there will be a list to store a series of information corresponding to different parameters
     typedef std::map<int,std::map<int, std::map<std::string,inst_timing_resource_info>>> Info_type_list;
 
+    // A map from opcode to the information list of timing and resource
     std::map<std::string,Info_type_list> BiOp_Info_name2list_map;
 
+    // get the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period
     inst_timing_resource_info get_inst_info(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
 
+    // Organize the information into timingBase after getting the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
     timingBase get_inst_info_result(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
+
 
     // int get_N_DSP(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
     // int get_N_FF(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
     // int get_N_LUT(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
     // int get_N_Lat(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
     // double get_N_Delay(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
+
+
+    // check whether a specific information is in the database
     bool checkInfoAvailability(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
+
+    // check whether we can infer the information by increasing the clock frequency
     bool checkFreqProblem(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
+
+    // if the information is not found in database, we may infer the information by increasing the clock frequency
     inst_timing_resource_info checkInfo_HigherFreq(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
+
+    // Trace back to get the bitwidth of an operand, bypassing truct/zext/sext
+    int getOriginalBitwidth(Value *Val);
+
+    // Trace forward to get the number of users, bypassing truct/zext/sext
+    int getActualUsersNum(Instruction *I, int dep);
+
+    // check whether the two operations can be chained
+    bool canChainOrNot(Instruction *PredI,Instruction *I);
+
+    // check whether the two operations can be chained into a MAC operation
+    bool isMACpossible(Instruction *PredI,Instruction *I);
+
+
 };
 
 #endif

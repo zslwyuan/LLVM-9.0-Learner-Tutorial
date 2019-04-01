@@ -5,8 +5,8 @@ using namespace polly;
 
 
 int main(int argc, char **argv) {
-  if (argc < 3) {
-    errs() << "Usage: " << argv[0] << " <C/C++ file> <Top_Function_Name>\n";
+  if (argc < 4) {
+    errs() << "Usage: " << argv[0] << " <C/C++ file> <Top_Function_Name> <Config_File_Path>\n";
     return 1;
   }
 
@@ -95,6 +95,9 @@ int main(int argc, char **argv) {
   OS1.flush();
 
 
+  auto hi_duplicateinstrm1 = new HI_DuplicateInstRm("rmInsts");
+  PM.add(hi_duplicateinstrm1);
+  print_info("Enable HI_DuplicateInstRm Pass");
 
 
   // PM.add(createStraightLineStrengthReducePass());

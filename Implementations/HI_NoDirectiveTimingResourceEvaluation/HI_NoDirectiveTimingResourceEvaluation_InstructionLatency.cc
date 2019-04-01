@@ -24,7 +24,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     timingBase result(0,0,1,clock_period);
 
     ////////////////////////////// Cast Operations /////////////////////////
-    if (PtrToIntInst *PTI = dyn_cast<PtrToIntInst>(I))
+    if (PtrToIntInst *PTI = dyn_cast<PtrToIntInst>(I)) // such operation like trunc/ext will not cost extra timing on FPGA
     {   
         return result;
     }
@@ -99,7 +99,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     {   
         Value *op1 = ASHRI->getOperand(1);
          
-        if (Constant *tmpop = dyn_cast<Constant>(op1))
+        if (Constant *tmpop = dyn_cast<Constant>(op1)) 
             return result;
         else
         {
@@ -109,6 +109,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     }
     else if (BinaryOperator *BinO = dyn_cast<BinaryOperator>(I))
     {
+        // for binary operator, we need to consider whether it is a operator for integer or floating-point value
         std::string opcodeInput;
         int oprandBitWidth;
         int resBitWidth;
@@ -124,6 +125,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
         {
             oprandBitWidth = -1;
             resBitWidth = -1;
+            // for floating operator, we need to consider whether it is a operator for float value or double value
             if (BinO->getType()->isDoubleTy() && opcode_str[0]=='f')            
                 opcode_str[0]='d';            
         }
@@ -220,4 +222,81 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
 
     result.latency = 1;
     return result;
+}
+
+// check whether the two operations can be chained
+bool HI_NoDirectiveTimingResourceEvaluation::canChainOrNot(Instruction *PredI,Instruction *I)
+{
+    if (isMACpossible(PredI,I))
+        return true;
+    return false;
+}
+
+// check whether the two operations can be chained into MAC operation
+bool HI_NoDirectiveTimingResourceEvaluation::isMACpossible(Instruction *PredI,Instruction *I)
+{
+    if (I->getOpcode()==Instruction::Add)
+    {
+        if (PredI->getOpcode()==Instruction::Mul)
+        {
+            Value *op0 = (PredI->getOperand(0));
+            Value *op1 = (PredI->getOperand(1));
+            if (op0 && op1 && getActualUsersNum(PredI,0)<2)
+            {
+                return (getOriginalBitwidth(op0)<=18) && (getOriginalBitwidth(op1)<=18) && (I->getType()->getIntegerBitWidth()<=48);
+            }
+        }
+        else if (PredI->getOpcode()==Instruction::Trunc ||  PredI->getOpcode()==Instruction::SExt || PredI->getOpcode()==Instruction::ZExt)
+        {
+            Instruction *Pred_Pred_I = dyn_cast<Instruction>(PredI->getOperand(0));
+            if (Pred_Pred_I)
+            {
+                if (Pred_Pred_I->getOpcode()==Instruction::Mul)
+                {
+                    Value *op0 = (Pred_Pred_I->getOperand(0));
+                    Value *op1 = (Pred_Pred_I->getOperand(1));
+                    if (op0 && op1 && getActualUsersNum(Pred_Pred_I,0)<2)
+                    {
+                        return (getOriginalBitwidth(op0)<=18) && (getOriginalBitwidth(op1)<=18) && (I->getType()->getIntegerBitWidth()<=48);
+                    }
+                }
+            }
+        }
+    }    
+    return false;
+}
+
+// Trace back to get the bitwidth of an operand, bypassing truct/zext/sext
+int HI_NoDirectiveTimingResourceEvaluation::getOriginalBitwidth(Value *Val)
+{
+    if (Instruction *I = dyn_cast<Instruction>(Val))
+    {
+        if (I->getOpcode()==Instruction::Trunc ||  I->getOpcode()==Instruction::SExt || I->getOpcode()==Instruction::ZExt)
+            return getOriginalBitwidth((I->getOperand(0)));
+        else 
+            return I->getType()->getIntegerBitWidth();
+    }
+
+    else 
+        return Val->getType()->getIntegerBitWidth();
+}
+
+// Trace forward to get the bitwidth of an operand, bypassing truct/zext/sext
+int HI_NoDirectiveTimingResourceEvaluation::getActualUsersNum(Instruction *I, int dep)
+{
+    std::string cur_opcode = I->getOpcodeName();
+    if (dep==0 || I->getOpcode()==Instruction::Trunc ||  I->getOpcode()==Instruction::SExt || I->getOpcode()==Instruction::ZExt)
+    {
+        int num=0;
+        for (auto it=I->use_begin(),ie=I->use_end();it!=ie;++it)
+        {
+            User* tmp_user = it->getUser();
+            if (Instruction *tmpI = dyn_cast<Instruction>(tmp_user))
+                num += getActualUsersNum(tmpI,dep+1);
+        }
+    }
+    else 
+    {
+        return 1;
+    }        
 }

@@ -16,10 +16,16 @@
 using namespace llvm;
 
 
-bool HI_GEP_OffsetCombine::runOnFunction(Function &F) {
+bool HI_GEP_OffsetCombine::runOnFunction(Function &F) 
+{
+    if (F.getName().find("llvm.")!=std::string::npos)
+    {
+        return false;             
+    }
+
     const DataLayout &DL = F.getParent()->getDataLayout();
-  //  if (skipFunction(F))
-   //     return false;
+    //  if (skipFunction(F))
+    //     return false;
 
     if (DisableSeparateConstOffsetFromGEP)
         return false;
@@ -34,18 +40,19 @@ bool HI_GEP_OffsetCombine::runOnFunction(Function &F) {
         for (Instruction &I : B) 
         if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(&I))
         {
-          Changed |= 1;//splitGEP(GEP);
+            Changed |= 1;//splitGEP(GEP);
         }
     // No need to split GEP ConstantExprs because all its indices are constant
     // already.
     }
-  return Changed;
+    return Changed;
 }
 
 char HI_GEP_OffsetCombine::ID = 0;  // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
 
 // introduce the dependence of Pass
-void HI_GEP_OffsetCombine::getAnalysisUsage(AnalysisUsage &AU) const {
+void HI_GEP_OffsetCombine::getAnalysisUsage(AnalysisUsage &AU) const 
+{
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();

@@ -24,12 +24,18 @@ bool HI_SimpleTimingEvaluation::runOnModule(Module &M) // The runOnFunction decl
         all_processed = 1;
         for (auto &F : M)
         {
+
             if (FunctionLatency.find(&F) != FunctionLatency.end())
             {
                 continue;
             }
             else
             {
+                if (F.getName().find("llvm.")!=std::string::npos)
+                {
+                    FunctionLatency[&F] = 0;       
+                    continue;             
+                }
                 all_processed = 0;
                 if (CheckDependencyFesilility(F))
                 {

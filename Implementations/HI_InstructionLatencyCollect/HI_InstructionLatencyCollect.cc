@@ -18,7 +18,10 @@ using namespace llvm;
 
 bool HI_InstructionLatencyCollect::runOnFunction(Function &F) // The runOnFunction declaration will overide the virtual one in ModulePass, which will be executed for each Function.
 {
-
+    if (F.getName().find("llvm.")!=std::string::npos)
+    {
+        return false;             
+    }
     SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
     LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     LAA = &getAnalysis<LoopAccessLegacyAnalysis>();
