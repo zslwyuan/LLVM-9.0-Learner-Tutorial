@@ -26,6 +26,10 @@ using namespace llvm;
 */
 bool HI_VarWidthReduce::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
 {
+    if (F.getName().find("llvm.")!=std::string::npos)
+    {
+        return false;
+    }
     const DataLayout &DL = F.getParent()->getDataLayout();
     SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
     

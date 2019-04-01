@@ -224,7 +224,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     outerL_latency = tmp_total_latency; // finally, we will get the latency of outer loop in the last iteration
     *Evaluating_log << "Done evaluation outer Loop Latency for Loop " << outerL->getName() << " and its latency is " << outerL_latency <<" cycles.\n\n\n";
     assert(outerL_latency.latency > -0.5 && "The latency for a loop should be not be negative");
-    return outerL_latency;
+    return outerL_latency*1;
 }
 
 /*

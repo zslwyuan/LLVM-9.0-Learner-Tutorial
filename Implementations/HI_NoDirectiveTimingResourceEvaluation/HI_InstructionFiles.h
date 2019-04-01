@@ -2,7 +2,7 @@
 #define _HI_InstructionFiles
 
 #include <string>
-const int instructionInfoNum = 25; // should refer to Instruction_list.h
+const int instructionInfoNum = 31; // should refer to Instruction_list.h
 
 extern std::string instructionNames[100];
 

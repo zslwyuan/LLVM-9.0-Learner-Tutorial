@@ -147,7 +147,7 @@ HI_NoDirectiveTimingResourceEvaluation::inst_timing_resource_info HI_NoDirective
 {
     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period];
-    if (operand_bitwid%2)
+    if (!checkFreqProblem(opcode, operand_bitwid , res_bitwidth, period) && (operand_bitwid%2))
     {   
         inst_timing_resource_info info_A = get_inst_info(opcode, operand_bitwid+1 , res_bitwidth+1, period);
         inst_timing_resource_info info_B = get_inst_info(opcode, operand_bitwid-1,  res_bitwidth-1, period);
@@ -210,13 +210,52 @@ bool HI_NoDirectiveTimingResourceEvaluation::checkInfoAvailability(std::string o
     return false;
 }
 
+bool HI_NoDirectiveTimingResourceEvaluation::checkFreqProblem(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+{
+    if (BiOp_Info_name2list_map.find(opcode)!=BiOp_Info_name2list_map.end())
+    {
+        if (BiOp_Info_name2list_map[opcode].find(operand_bitwid)!=BiOp_Info_name2list_map[opcode].end())
+        {
+            if (BiOp_Info_name2list_map[opcode][operand_bitwid].find(res_bitwidth)!=BiOp_Info_name2list_map[opcode][operand_bitwid].end())
+            {
+                return true;
+            }
+            else
+            {
+                // llvm::errs() << "not in BiOp_Info_name2list_map[opcode][operand_bitwid]\n";
+            }
+        }
+        else
+        {
+            // llvm::errs() << "not in BiOp_Info_name2list_map[opcode]\n";
+        }
+        
+    }
+    else
+    {
+        // llvm::errs() << "not in BiOp_Info_name2list_map\n";
+    }  
+
+    return false;
+}
+
 HI_NoDirectiveTimingResourceEvaluation::inst_timing_resource_info HI_NoDirectiveTimingResourceEvaluation::checkInfo_HigherFreq(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
 {
     int i;
+    
     for (i = clockNum - 1; i >= 0; i--)
-        if (clockStrs[i] == period)
+        if (std::stof(clockStrs[i]) == std::stof(period))
+        {
+            if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, clockStrs[i]))
+            {
+                BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][clockStrs[i]];
+                return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][clockStrs[i]];
+            }
             break;
+        }
     i--;
+    if (i<0)
+        llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
     assert(i >= 0 && "The clock should be found.\n" );
     for (; i >= 0 ; i--)
     {

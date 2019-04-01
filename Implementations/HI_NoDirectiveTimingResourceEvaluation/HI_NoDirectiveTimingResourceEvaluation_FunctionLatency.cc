@@ -21,12 +21,15 @@ using namespace llvm;
 HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::getFunctionLatency(Function *F) 
 {
     if (FunctionLatency.find(F)!=FunctionLatency.end())
-        return FunctionLatency[F];
+        return FunctionLatency[F]*1;
 
     *Evaluating_log << "Evaluating the latency of Function " << F->getName() <<":\n";
     BasicBlock *Func_Entry = &F->getEntryBlock(); //get the entry of the function
     *Evaluating_log << "-- its entry is: " << Func_Entry->getName() <<"\n";
     
+
+    // F->getA
+
     // (2) traverse the block in loop by DFS to find the longest path
     timingBase max_critial_path_in_F(0,0,1,clock_period);
     timingBase origin_path_in_F(0,0,1,clock_period);
@@ -63,7 +66,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
             *Evaluating_log << " Block:" << B_it.getName() << "(lat=" << BlockLatency[&B_it] << ") ";
     }
     *Evaluating_log << "\n\n\n\n";
-    return max_critial_path_in_F;
+    return max_critial_path_in_F*1;
 
 }
 

@@ -242,7 +242,7 @@ public:
     
     float clock_period = 10.0;
 
-    double top_function_latency;
+    int top_function_latency;
 
     std::string clock_period_str = "10.0";
 
@@ -334,12 +334,24 @@ public:
                 timing=input.timing;
                 clock_period=input.clock_period;
             }
-
+            timingBase()
+            {
+                latency=0;
+                II=0;
+                timing=0;
+                clock_period=0;
+            }
     };
 
     friend timingBase operator+(timingBase lhs, timingBase rhs)
     {
         assert(lhs.clock_period == rhs.clock_period);
+        if (rhs.latency<0)
+        {
+            lhs.timing = rhs.timing;
+            lhs.latency++;
+            return lhs;
+        }
         lhs.latency = lhs.latency + rhs.latency;
         lhs.timing = lhs.timing + rhs.timing;
         if (lhs.timing > lhs.clock_period*7/8)
@@ -398,6 +410,7 @@ public:
     // int get_N_Lat(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
     // double get_N_Delay(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
     bool checkInfoAvailability(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
+    bool checkFreqProblem(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
     inst_timing_resource_info checkInfo_HigherFreq(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
 };
 

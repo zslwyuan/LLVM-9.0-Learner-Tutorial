@@ -23,19 +23,27 @@ bool HI_NoDirectiveTimingResourceEvaluation::runOnModule(Module &M) // The runOn
     {
         all_processed = 1;
         for (auto &F : M)
-        {
+        {   
+            *Evaluating_log << "CHECKING FUNCTION "<< F.getName() <<"\n";
+            Evaluating_log->flush();
             if (FunctionLatency.find(&F) != FunctionLatency.end())
             {
                 continue;
             }
             else
-            {
+            {                
+                if (F.getName().find("llvm.")!=std::string::npos)
+                {
+                    timingBase tmp(0,0,1,clock_period);
+                    FunctionLatency[&F] = tmp;       
+                    continue;             
+                }
                 all_processed = 0;
                 if (CheckDependencyFesilility(F))
                 {
-                    SE = &getAnalysis<ScalarEvolutionWrapperPass>(F).getSE();
-                    LI = &getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
                     LAA = &getAnalysis<LoopAccessLegacyAnalysis>(F);
+                    LI = &getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+                    SE = &getAnalysis<ScalarEvolutionWrapperPass>(F).getSE();  
                     getLoopBlockMap(&F);
                     getFunctionLatency(&F);
                 }
@@ -66,7 +74,7 @@ bool HI_NoDirectiveTimingResourceEvaluation::runOnModule(Module &M) // The runOn
         {
             *Evaluating_log << "Top Function: "<< F.getName() <<" is found";
             topFunctionFound = 1;
-            top_function_latency = getFunctionLatency(&F);
+            top_function_latency = getFunctionLatency(&F).latency;
             *Evaluating_log << "Done latency evaluation of top function: "<< F.getName() <<" and its latency is "<< top_function_latency << "\n\n\n";
         }
     }
@@ -82,7 +90,13 @@ bool HI_NoDirectiveTimingResourceEvaluation::CheckDependencyFesilility(Function 
             {
                 if (FunctionLatency.find(CI->getCalledFunction()) == FunctionLatency.end())
                 {
-                    return false;
+                    if (CI->getCalledFunction()->getName().find("llvm.")!=std::string::npos)
+                    {
+                        timingBase tmp(0,0,1,clock_period);
+                        FunctionLatency[CI->getCalledFunction()] = tmp;                    
+                    }
+                    else
+                        return false;
                 }
             }
     return true;
@@ -94,7 +108,7 @@ char HI_NoDirectiveTimingResourceEvaluation::ID = 0;  // the ID for pass should 
 void HI_NoDirectiveTimingResourceEvaluation::getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
     AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<ScalarEvolutionWrapperPass>();
+    AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
     
     // AU.addRequired<ScalarEvolutionWrapperPass>();
     // AU.addRequired<LoopInfoWrapperPass>();
