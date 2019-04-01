@@ -206,6 +206,11 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
         result = get_inst_info_result("ret",-1,-1,clock_period_str);
         return result;
     }
+    else if (SelectInst *SeI = dyn_cast<SelectInst>(I))
+    {
+        result.timing=1.0;
+        return result;
+    }
     else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(I))
     {
         result = get_inst_info_result("getelementptr",-1,-1,clock_period_str);
