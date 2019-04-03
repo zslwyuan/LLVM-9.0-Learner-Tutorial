@@ -74,6 +74,9 @@ int main(int argc, char **argv) {
   PM1.add(hi_duplicateinstrm);
   print_info("Enable HI_DuplicateInstRm Pass");
 
+  auto loopstrengthreducepass = createLoopStrengthReducePass();
+  PM1.add(loopstrengthreducepass);
+  print_info("Enable LoopStrengthReducePass Pass");
 
   // auto lazyvalueinfowrapperpass = new LazyValueInfoWrapperPass();
   // PM.add(lazyvalueinfowrapperpass);
@@ -86,9 +89,7 @@ int main(int argc, char **argv) {
   // PM.add(createCorrelatedValuePropagationPass());
   // print_info("Enable CorrelatedValuePropagation Pass");
   
-  auto loopstrengthreducepass = createLoopStrengthReducePass();
-  PM1.add(loopstrengthreducepass);
-  print_info("Enable LoopStrengthReducePass Pass");
+
 
   PM1.run(*Mod);
 
