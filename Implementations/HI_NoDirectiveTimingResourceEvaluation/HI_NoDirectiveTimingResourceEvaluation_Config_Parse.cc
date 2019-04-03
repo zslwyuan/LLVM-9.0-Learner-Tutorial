@@ -1,6 +1,9 @@
 #include "HI_NoDirectiveTimingResourceEvaluation.h"
 #include "HI_InstructionFiles.h"
-
+#include <sys/stat.h>
+#include <unistd.h>
+#include <string>
+#include <fstream>
 
 using namespace llvm;
 
@@ -9,6 +12,11 @@ typedef std::uint64_t hash_t;
 constexpr hash_t prime = 0x100000001B3ull;  
 constexpr hash_t basis = 0xCBF29CE484222325ull;  
     
+inline bool exists_test (const std::string& name) {
+  struct stat buffer;   
+  return (stat (name.c_str(), &buffer) == 0); 
+}
+
 hash_t hash_(char const* str)  
 {  
     hash_t ret{basis};  
@@ -86,6 +94,11 @@ void HI_NoDirectiveTimingResourceEvaluation::Load_Instruction_Info()
             // info_file_name+="_data";
             std::ifstream info_file(info_file_name.c_str());
 
+            if (!exists_test(info_file_name))
+            {
+                llvm::errs() << "The HLS info file ["+info_file_name+"] does not exist.\n";
+                assert(false && "check the HLS information library path.\n");
+            }
             std::string  tmp_s;  
             while ( getline(info_file,tmp_s) )
             {

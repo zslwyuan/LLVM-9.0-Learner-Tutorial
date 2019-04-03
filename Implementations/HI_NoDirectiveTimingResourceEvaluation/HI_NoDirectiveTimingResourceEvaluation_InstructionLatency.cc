@@ -189,7 +189,8 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
             if (tmpB == PHI->getParent())
                 return result;
         }        
-        result.latency = 1;
+        result.latency = 0;
+        result.timing = 0.99;
         return result;
     }
     else if (CallInst *CI = dyn_cast<CallInst>(I))

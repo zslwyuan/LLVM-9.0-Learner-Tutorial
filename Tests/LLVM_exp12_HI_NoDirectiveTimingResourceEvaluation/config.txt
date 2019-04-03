@@ -1,2 +1,2 @@
 clock = 10.0
-HLS_lib_path = /home/tingyuan/Dropbox/LLVM-Learner-Note/HLS_Data_Lib/
+HLS_lib_path = ../../../HLS_Data_Lib/

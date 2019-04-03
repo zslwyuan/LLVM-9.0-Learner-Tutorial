@@ -107,6 +107,7 @@ void HI_DependenceList::checkInstructionDependence(Instruction *I)
     
 
     *Dependence_out << "  I" << Instruction_id[I] <<  ": "  << *I << "--> " ;
+
     for (User *U : (I)->users()) // find the users of the instruction and insert them into map
     {        
         if (Instruction *Suc_Inst = dyn_cast<Instruction>(U)) 
@@ -132,5 +133,53 @@ void HI_DependenceList::checkInstructionDependence(Instruction *I)
             tmp_vec_id_1->push_back(Instruction_id[I]);
         }
     }
-    *Dependence_out << "\n";
+    *Dependence_out << "\n\n";
+    for (int i = 0; i<I->getNumOperands(); ++i)
+    {
+        *Dependence_out << "        op#" << i << ": " << *I->getOperand(i) ;
+        if (Argument *arg = dyn_cast<Argument>(I->getOperand(i)))
+        {            
+            *Dependence_out << " is a function argument of function (" << arg->getParent()->getName() << ").";
+        }
+        else
+        {
+            if (Instruction *InstTmp = dyn_cast<Instruction>(I->getOperand(i)))
+            {
+                *Dependence_out << " is an instruction.";
+            }
+            else
+            {
+                if (Constant *constVal = dyn_cast<Constant>(I->getOperand(i)))
+                {
+                    *Dependence_out << " is a constant.";
+                }
+                else
+                {
+                    *Dependence_out << " is a value with unknown type.";
+                }
+            }
+            
+        }
+        *Dependence_out<< " (type=";
+        I->getOperand(i)->getType()->print(*Dependence_out);
+        *Dependence_out <<" is ";
+        if (I->getOperand(i)->getType()->isArrayTy())
+        {
+            *Dependence_out <<" array type)\n";
+        }
+        else
+        {
+            if (I->getOperand(i)->getType()->isPointerTy())
+            {
+                *Dependence_out <<" pointerTy type of type ";
+                PointerType *tmp_PtrType = dyn_cast<PointerType>(I->getOperand(i)->getType());
+                tmp_PtrType->getElementType()->print(*Dependence_out);
+                *Dependence_out <<" )\n";
+                //tmp_PtrType->gettype
+            }
+        }
+        
+        *Dependence_out <<".\n";
+        
+    }
 }

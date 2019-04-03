@@ -63,7 +63,6 @@ int main(int argc, char **argv) {
   PM1.add(createTargetTransformInfoWrapperPass(TargetIRAnalysis()));
   print_info("Enable TargetIRAnalysis Pass");
 
-
   auto hi_separateconstoffsetfromgep = new HI_SeparateConstOffsetFromGEP("HI_SeparateConstOffsetFromGEP",true);
   PM1.add(hi_separateconstoffsetfromgep);
   print_info("Enable HI_SeparateConstOffsetFromGEP Pass");
@@ -86,6 +85,10 @@ int main(int argc, char **argv) {
 
   // PM.add(createCorrelatedValuePropagationPass());
   // print_info("Enable CorrelatedValuePropagation Pass");
+  
+  auto loopstrengthreducepass = createLoopStrengthReducePass();
+  PM1.add(loopstrengthreducepass);
+  print_info("Enable LoopStrengthReducePass Pass");
 
   PM1.run(*Mod);
 

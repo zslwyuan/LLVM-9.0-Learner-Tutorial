@@ -174,7 +174,7 @@ public:
     std::set<Instruction*> InstructionEvaluated;
     std::set<BasicBlock*> BlockVisited;
     std::set<BasicBlock*> Func_BlockVisited;
-
+    std::set<Value*> ValueVisited;
     // record the information of the processing
     raw_ostream *Evaluating_log;
     std::error_code ErrInfo;
@@ -211,6 +211,15 @@ public:
     // record the critical path from the block entry to the end of the specific instruction
     std::map<BasicBlock*, std::map<Instruction*, timingBase> > InstructionCriticalPath_inBlock;
 
+    // demangle the name of functions
+    std::string demangeFunctionName(std::string mangled_name);
+
+    // get the latency of functions in the module
+    void getLatencyOfFunctions(Module &M);
+
+    // get the latency of TopFunction Latency
+    void getTopFunctionLatency(Module &M);
+
     // get the function latency
     timingBase getFunctionLatency(Function* F);
 
@@ -238,6 +247,9 @@ public:
     // get the relationship between loops and blocks
     void getLoopBlockMap(Function* F);
 
+    // Trace Memory Declaration in Module
+    void TraceMemoryDeclarationinModule(Module &M);
+
     // some LLVM analysises could be involved
     ScalarEvolution *SE;
     LoopInfo *LI;
@@ -252,6 +264,8 @@ public:
     std::string clock_period_str = "10.0";
 
     std::string HLS_lib_path = "";
+
+//////////////////// Declaration related to timing of instructions ////////////////////  
 
     // A unit class to store the information of timing and resource for instruction
     class inst_timing_resource_info
@@ -353,11 +367,26 @@ public:
     friend timingBase operator+(timingBase lhs, timingBase rhs)
     {
         assert(lhs.clock_period == rhs.clock_period);
-        if (rhs.latency<0)
+        if (rhs.latency==-1) // for operation like br/ret
         {
             lhs.timing = rhs.timing;
             lhs.latency++;
             return lhs;
+        }
+        if (rhs.latency==-2) // for operation like store
+        {
+            if (lhs.clock_period-lhs.timing<3.25)
+            {
+                lhs.timing = rhs.timing;
+                lhs.latency++;
+                return lhs;
+            }
+            else
+            {
+                lhs.timing = rhs.timing;
+                lhs.latency+=2;
+                return lhs;
+            }      
         }
         lhs.latency = lhs.latency + rhs.latency;
         lhs.timing = lhs.timing + rhs.timing;
@@ -444,7 +473,16 @@ public:
     // check whether the two operations can be chained into a MAC operation
     bool isMACpossible(Instruction *PredI,Instruction *I);
 
+//////////////////// Declaration related to Memory Access Tracing ////////////////////  
+ 
+    std::map<Instruction*,std::vector<Value*>> Access2TargetMap;
+    std::map<Value*, std::map<BasicBlock*,std::vector<int>>> accessInBlock2Latency;
 
+    void TraceMemoryDeclarationin(Function *F, bool isTopFunction);
+    void TraceAccessForTarget(Value *cur_node,Value *ori_node);
+
+    void scheduleBRAMAccess(Value *target, BasicBlock *cur_block,  int cur_latency, double timing);
+    bool checkBRAMAvailabilty(Value *target, BasicBlock *cur_block, int cur_latency);
 };
 
 #endif
