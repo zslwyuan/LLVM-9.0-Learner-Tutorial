@@ -238,7 +238,7 @@ bool HI_VarWidthReduce::InsturctionUpdate_WidthCast(Function *F)
                         }
                         else
                         {
-                            *VarWidthChangeLog << "and it is not a binary operator.(bypass)\n";
+                            *VarWidthChangeLog << "and it is not a operator which HI_VarWidthReduce can be applied.(bypass)\n";
                         }                        
                     }
                 }

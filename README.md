@@ -108,9 +108,9 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 
       --- HLS Timing/Resource Library for most instructions, Timing/Resource Evaluation, Operation Chaining for DSP Utilization
 	
-**Experiment 12(a)**: (WIP) use LCA push instructions back to dominant ancestor to improve parallelism and reduce redundant instructions. (Transformation Pass) 
+**Experiment 12(a)**: Based on DominatorTree push instructions back to dominant ancestor to improve parallelism and reduce redundant instructions. (Transformation Pass) **[PASS CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations/HI_IntstructionMoveBackward)** 
 
-      --- LCA algorithm, parallelism, redudant instruction removal
+      --- DominatorTree algorithm, parallelism, redudant instruction removal
 
 **Experiment 14**: (WIP) Based on the IR file, evaluate the resource and timing of the Window/Buffer/Filter in HLS 
 
