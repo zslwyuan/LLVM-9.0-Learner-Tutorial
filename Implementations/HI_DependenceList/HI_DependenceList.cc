@@ -18,6 +18,20 @@ using namespace llvm;
 
 bool HI_DependenceList::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
 {
+    *Dependence_out << "\n\n\n\n\n Printing Dominator Graph:\n";
+    auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    for (auto node = GraphTraits<DominatorTree *>::nodes_begin(DT); node != GraphTraits<DominatorTree *>::nodes_end(DT); ++node) 
+    {
+        BasicBlock *BB = node->getBlock();
+        
+        if (node->getIDom())
+        {
+            BasicBlock *PreBB = node->getIDom()->getBlock();
+            *Dependence_out << "Block: [" << PreBB->getName() <<"] dominates Block: [" << BB->getName() <<"].\n";
+        }            
+    }
+    *Dependence_out << "\n\n=================\n\n\n Printed Dominator Graph:\n";
+    
     if (Function_id.find(&F)==Function_id.end())  // traverse functions and assign function ID
     {
         Function_id[&F] = ++Function_Counter;
@@ -53,6 +67,7 @@ char HI_DependenceList::ID = 0;  // the ID for pass should be initialized but th
 
 void HI_DependenceList::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
+  AU.addRequired<DominatorTreeWrapperPass>();
 }
 
 void HI_DependenceList::checkSuccessorsOfBlock(BasicBlock *B)

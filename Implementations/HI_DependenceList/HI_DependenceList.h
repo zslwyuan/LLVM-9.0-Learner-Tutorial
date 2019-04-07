@@ -19,6 +19,31 @@
 #include <set>
 #include <vector>
 #include <sstream>
+#include "llvm/Pass.h"
+#include "llvm/IR/Function.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/GraphWriter.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/LoopPass.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IRReader/IRReader.h"
+#include <bits/stl_map.h>
+#include "llvm/ADT/Statistic.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/PassAnalysisSupport.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/LoopAccessAnalysis.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Transforms/Utils/LoopVersioning.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 
 using namespace llvm;
 
