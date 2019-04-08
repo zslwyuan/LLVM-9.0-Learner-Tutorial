@@ -1,8 +1,9 @@
 HI_NoDirectiveTimingResourceEvaluation pass is tested by LLVM_exp12_HI_NoDirectiveTimingResourceEvaluation
 
-Compared to HI_SimpleTimingEvaluation, HI_NoDirectiveTimingResourceEvaluation will access 
+Compared to HI\_SimpleTimingEvaluation, HI\_NoDirectiveTimingResourceEvaluation will access 
 the database to get the accurate information of the instruction, including timing and 
-resource, to achieve accurate timing evaluation.
+resource, to achieve accurate timing evaluation. For detailed implementation, there are 
+abundant comments in the source code for your referrence.
 
 However, in this pass, the HLS directives will still not work, which will be enabled in 
 the next step.
@@ -15,4 +16,5 @@ Related operators are overloaded, e.g. +, * and >, for the caluation of critical
 the latency of loop/block/function. For each instruction, HI_NoDirectiveTimingResourceEvaluation 
 will inquiry the map variables to get the result of timing and resource.
 
-Besides, the chaining of operations for DSP utilization is considered.
+Besides, the chaining of operations for DSP utilization is considered. More, the scheduling of 
+BRAM is also implemented, where I assume each BRAM have dual ports.
