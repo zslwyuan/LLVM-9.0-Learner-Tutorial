@@ -15,4 +15,10 @@ void print_status(const char *tmp);
 void print_error(const char *tmp);
 void print_warning(const char *tmp);
 
+void print_cmd(std::string tmp_string);
+void print_info(std::string tmp_string);
+void print_status(std::string tmp_string);
+void print_error(std::string tmp_string);
+void print_warning(std::string tmp_string);
+
 #endif

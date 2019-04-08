@@ -103,6 +103,9 @@ public:
         LoopLatency.clear();
         BlockLatency.clear();
         FunctionLatency.clear();
+        LoopResource.clear();
+        BlockResource.clear();
+        FunctionResource.clear();
         BlockEvaluated.clear();
         Func_BlockEvaluated.clear();
         LoopEvaluated.clear();
@@ -125,6 +128,7 @@ public:
     }
 
     class timingBase;
+    class resourceBase;
 
     // set the dependence of Passes
     void getAnalysisUsage(AnalysisUsage &AU) const;
@@ -140,8 +144,8 @@ public:
     // check whether the block is in some loops
     bool isInLoop(BasicBlock *BB); 
 
-    // evaluatate the latency of a outer loop, which could be a nested one
-    timingBase getOuterLoopLatency(Loop *outerL); 
+    // evaluatate the latency of a outer loop, which could be a nested one,  and return the timing information
+    timingBase analyzeOuterLoop(Loop *outerL);  
 
     // get the most outer loop which contains the block, treat the loop as a node for the evaluation of latency
     Loop* getOuterLoopOfBlock(BasicBlock* B);
@@ -149,8 +153,8 @@ public:
     // find the inner unevaluated loop for processing
     Loop* getInnerUnevaluatedLoop(Loop* outerL);
 
-    // evaluate a loop in which all the children loops have been evauluated
-    timingBase getLoopLatency_InnerChecked(Loop *L); 
+    // evaluate a loop in which all the children loops have been evauluated and return the timing information
+    timingBase analyzeLoop_InnerChecked(Loop *L); 
     
     static char ID;
 
@@ -159,13 +163,22 @@ public:
     std::map<Loop*, int> Loop_id;
 
     // the latency of each loop
-    std::map<Loop*, timingBase> LoopLatency;
+    std::map<std::string, timingBase> LoopLatency;
 
     // the latency of each block
     std::map<BasicBlock*, timingBase> BlockLatency;
 
     // the latency of each function
     std::map<Function*, timingBase> FunctionLatency;
+
+    // the resource of each loop
+    std::map<std::string, resourceBase> LoopResource;
+
+    // the resource of each block
+    std::map<BasicBlock*, resourceBase> BlockResource;
+
+    // the resource of each function
+    std::map<Function*, resourceBase> FunctionResource;
 
     // record whether the component is evaluated
     std::set<BasicBlock*> BlockEvaluated;
@@ -220,32 +233,38 @@ public:
     // demangle the name of functions
     std::string demangeFunctionName(std::string mangled_name);
 
-    // get the latency of functions in the module
-    void getLatencyOfFunctions(Module &M);
+    // get the latency of functions in the module  and compute the resource cost
+    void AnalyzeFunctions(Module &M);
 
     // get the latency of TopFunction Latency
     void getTopFunctionLatency(Module &M);
+ 
+    // get the function latency  and compute the resource cost
+    timingBase analyzeFunction(Function* F);
 
-    // get the function latency
-    timingBase getFunctionLatency(Function* F);
+    // return the resource cost of the function
+    resourceBase getFunctionResource(Function* F);
 
-    // get the function critical path by traversing the blocks based on DFS
-    void getFunctionLatency_traverseFromEntryToExiting(timingBase tmp_critical_path, Function *F, BasicBlock* curBlock);
+    // get the function critical path by traversing the blocks based on DFS and compute the resource cost
+    void analyzeFunction_traverseFromEntryToExiting(timingBase tmp_critical_path, Function *F, BasicBlock* curBlock);
 
-    // get the loop latency by traversing from the header to the exiting blocks
-    void LoopLatencyEvaluation_traversFromHeaderToExitingBlocks(timingBase tmp_critical_path,  Loop* L, BasicBlock *curBlock);
+    // get the loop latency by traversing from the header to the exiting blocks and evluation resource
+    void LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(timingBase tmp_critical_path,  Loop* L, BasicBlock *curBlock);
 
     // mark the block in loop with latency by traversing from the header to the exiting blocks
     void MarkBlock_traversFromHeaderToExitingBlocks(timingBase total_latency, Loop* L, BasicBlock *curBlock);
 
-    // evaluate the block latency by traversing the instructions
-    timingBase BlockLatencyEvaluation(BasicBlock *B);
+    // evaluate the block latency and resource by traversing the instructions
+    timingBase BlockLatencyResourceEvaluation(BasicBlock *B);
 
     // check whether the instruction is in the block
     bool BlockContain(BasicBlock *B, Instruction *I);
 
     // get the latency of a specific instruction
     timingBase getInstructionLatency(Instruction *I);
+
+    // get the resource cost of a specific instruction
+    resourceBase getInstructionResource(Instruction *I);
 
     // check whether all the sub-function are evaluated
     bool CheckDependencyFesilility(Function &F);
@@ -271,7 +290,7 @@ public:
 
     std::string HLS_lib_path = "";
 
-//////////////////// Declaration related to timing of instructions ////////////////////  
+//////////////////// Declaration related to timing and resource of instructions ////////////////////  
 
     // A unit class to store the information of timing and resource for instruction
     class inst_timing_resource_info
@@ -438,6 +457,77 @@ public:
         return stream;
     }
 
+
+    // A unit class to record the FPGA resource for a(n) instruction/block/function/loop 
+    class resourceBase
+    {
+        public:
+            resourceBase( int D, int F, int L, double C)
+            {
+                DSP = D;
+                FF = F;
+                LUT = L;
+                clock_period = C;
+            }
+            int DSP,FF,LUT;
+            double clock_period;
+
+            resourceBase &operator=(resourceBase input)
+            {
+                DSP = input.DSP;
+                FF = input.FF;
+                LUT = input.LUT;
+                clock_period = input.clock_period;
+            }
+
+            resourceBase(const resourceBase& input)
+            {
+                DSP=input.DSP;
+                FF=input.FF;
+                LUT=input.LUT;
+                clock_period = input.clock_period;
+            }
+
+            resourceBase()
+            {
+                DSP = -1;
+                FF = -1;
+                LUT = -1;
+                clock_period = -1;
+            }
+    };
+
+    friend resourceBase operator+(resourceBase lhs, resourceBase rhs)
+    {
+        assert(lhs.clock_period == rhs.clock_period);
+        lhs.DSP = lhs.DSP + rhs.DSP;
+        lhs.FF = lhs.FF + rhs.FF;
+        lhs.LUT = lhs.LUT + rhs.LUT;
+        return lhs;
+    }
+
+    friend resourceBase operator*(resourceBase lhs, int rhs)
+    {
+        lhs.DSP = lhs.DSP * rhs;
+        lhs.FF = lhs.FF * rhs;
+        lhs.LUT = lhs.LUT * rhs;
+        return lhs;
+    }
+
+    friend resourceBase operator*(int rhs , resourceBase lhs)
+    {
+        lhs.DSP = lhs.DSP * rhs;
+        lhs.FF = lhs.FF * rhs;
+        lhs.LUT = lhs.LUT * rhs;
+        return lhs;
+    }
+
+    friend raw_ostream& operator<< (raw_ostream& stream, const resourceBase& rb)
+    {
+        stream << " [DSP=" << rb.DSP << ", FF="<<rb.FF << ", LUT="<<rb.LUT <<"] ";
+        return stream;
+    }
+
     // For each type of instruction, there will be a list to store a series of information corresponding to different parameters
     typedef std::map<int,std::map<int, std::map<std::string,inst_timing_resource_info>>> Info_type_list;
 
@@ -448,8 +538,10 @@ public:
     inst_timing_resource_info get_inst_info(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
 
     // Organize the information into timingBase after getting the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
-    timingBase get_inst_info_result(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
+    timingBase get_inst_TimingInfo_result(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
 
+    // Organize the information into resourceBase after getting the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
+    resourceBase get_inst_ResourceInfo_result(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
 
     // int get_N_DSP(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
     // int get_N_FF(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);

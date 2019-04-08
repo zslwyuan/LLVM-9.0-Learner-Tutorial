@@ -20,7 +20,7 @@ bool HI_NoDirectiveTimingResourceEvaluation::runOnModule(Module &M) // The runOn
 {    
     TraceMemoryDeclarationinModule(M);
 
-    getLatencyOfFunctions(M);
+    AnalyzeFunctions(M);
 
     getTopFunctionLatency(M);
 
@@ -87,7 +87,7 @@ std::string HI_NoDirectiveTimingResourceEvaluation::demangeFunctionName(std::str
     return demangled_name;
 }
 
-void HI_NoDirectiveTimingResourceEvaluation::getLatencyOfFunctions(Module &M)
+void HI_NoDirectiveTimingResourceEvaluation::AnalyzeFunctions(Module &M)
 {
     bool all_processed = 0;
     while (!all_processed)
@@ -116,7 +116,7 @@ void HI_NoDirectiveTimingResourceEvaluation::getLatencyOfFunctions(Module &M)
                     LI = &getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
                     SE = &getAnalysis<ScalarEvolutionWrapperPass>(F).getSE();  
                     getLoopBlockMap(&F);
-                    getFunctionLatency(&F);
+                    analyzeFunction(&F);
                 }
             }
             
@@ -137,8 +137,11 @@ void HI_NoDirectiveTimingResourceEvaluation::getTopFunctionLatency(Module &M)
         {
             *Evaluating_log << "Top Function: "<< F.getName() <<" is found";
             topFunctionFound = 1;
-            top_function_latency = getFunctionLatency(&F).latency;
+            top_function_latency = analyzeFunction(&F).latency;
             *Evaluating_log << "Done latency evaluation of top function: "<< F.getName() <<" and its latency is "<< top_function_latency << "\n\n\n";
+            std::string printOut("");
+            printOut = "Done latency evaluation of top function: [" + demangled_name + "] and its latency is " + std::to_string(top_function_latency);
+            print_info(printOut);
         }
     }
 }

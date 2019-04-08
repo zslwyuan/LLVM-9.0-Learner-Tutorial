@@ -145,7 +145,7 @@ void HI_NoDirectiveTimingResourceEvaluation::Load_Instruction_Info()
 }
 
 
-HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::get_inst_info_result(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::get_inst_TimingInfo_result(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
 {
     timingBase result(0,0,1,clock_period);
     inst_timing_resource_info info = get_inst_info(opcode,operand_bitwid,res_bitwidth,clock_period_str);
@@ -155,6 +155,15 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     return result; 
 }
 
+HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::get_inst_ResourceInfo_result(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+{
+    resourceBase result(0,0,0,clock_period);
+    inst_timing_resource_info info = get_inst_info(opcode,operand_bitwid,res_bitwidth,clock_period_str);
+    result.DSP = info.DSP;
+    result.FF = info.FF;
+    result.LUT = info.LUT;
+    return result; 
+}
 
 HI_NoDirectiveTimingResourceEvaluation::inst_timing_resource_info HI_NoDirectiveTimingResourceEvaluation::get_inst_info(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
 {

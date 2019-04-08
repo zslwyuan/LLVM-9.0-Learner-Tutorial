@@ -21,7 +21,7 @@ using namespace llvm;
     (2) check the CP to the instruction's predecessors and find the maximum one to update its CP
     (3) get the maximum CP among instructions and take it as the CP of block
 */
-HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::BlockLatencyEvaluation(BasicBlock *B)
+HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::BlockLatencyResourceEvaluation(BasicBlock *B)
 {
     *Evaluating_log << "---- Evaluating Block Latency for Block: " << B->getName() <<":\n";
 
@@ -37,6 +37,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     // iterate the instructions in the block
     timingBase max_critical_path(0,0,1,clock_period);
     timingBase origin_path(0,0,1,clock_period);
+    resourceBase resourceAccmulator(0,0,0,clock_period);
     
     // (1) iterate the instructions in the block
     if (B->getInstList().size()>1) // ignore block with only branch instruction
@@ -68,6 +69,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
             }
             else
             {
+                bool Chained = 0;
                 // for other instructions, we find the latest-finished operand
                 for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp)// update the critical path to I by checking its predecessors' critical path
                 {
@@ -82,6 +84,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
                                 // TODO: may need to rethink the machanism carefully
                                 if ( cur_InstructionCriticalPath[I_Pred]  > cur_InstructionCriticalPath[I] ) //addition chained with multiplication
                                     cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] ;
+                                Chained = 1;
                             }
                             else
                             {
@@ -92,13 +95,17 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
                         }                 
                     }           
                 }
+
+                // accmulate the cost of resource
+                if (!Chained)
+                    resourceAccmulator = resourceAccmulator + getInstructionResource(I);
             }
             
 
 
             // (3) get the maximum CP among instructions and take it as the CP of block
             if (cur_InstructionCriticalPath[I] > max_critical_path) max_critical_path = cur_InstructionCriticalPath[I];
-            *Evaluating_log << "--------- Evaluated Instruction critical path for Instruction: <<" << *I <<">> and its CP is :"<< cur_InstructionCriticalPath[I] <<"\n";
+            *Evaluating_log << "--------- Evaluated Instruction critical path for Instruction: <<" << *I <<">> and its CP is :"<< cur_InstructionCriticalPath[I] << " the resource cost is: " << getInstructionResource(I) <<"\n";
             Evaluating_log->flush();
         }
     }
@@ -106,7 +113,8 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     InstructionCriticalPath_inBlock[B] = cur_InstructionCriticalPath;
 
     BlockLatency[B] = max_critical_path;
-    *Evaluating_log << "---- Done evaluation of Block Latency for Block: " << B->getName() <<" and the latency is "<< BlockLatency[B] <<"\n";
+    BlockResource[B] = resourceAccmulator;
+    *Evaluating_log << "---- Done evaluation of Block Latency for Block: " << B->getName() <<" and the latency is "<< BlockLatency[B] << " and the cost of resource is : " << resourceAccmulator <<"\n";
     BlockEvaluated.insert(B);
     return max_critical_path*1;
 }

@@ -155,13 +155,13 @@ Loop* HI_NoDirectiveTimingResourceEvaluation::getInnerUnevaluatedLoop(Loop* oute
     (3) get the total latency by TripCount * IterationLatency
     (4) mark the blocks in loop with the loop latency, so later processing can regard this loop as an integration
 */
-HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::getOuterLoopLatency(Loop* outerL)
+HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::analyzeOuterLoop(Loop* outerL)
 {
     *Evaluating_log << "\n Evaluating Outer Loop Latency for Loop " << outerL->getName() <<":\n";
-    if (LoopLatency.find(outerL) != LoopLatency.end())
+    if (LoopLatency.find(outerL->getName()) != LoopLatency.end())
     {
-        *Evaluating_log << "Done evaluation outer Loop Latency for Loop " << outerL->getName() << " and its latency is " << LoopLatency[outerL] <<" cycles.\n\n\n";
-        return LoopLatency[outerL];
+        *Evaluating_log << "Done evaluation outer Loop Latency for Loop " << outerL->getName() << " and its latency is " << LoopLatency[outerL->getName()] <<" cycles.\n\n\n";
+        return LoopLatency[outerL->getName()];
     }
     Loop *cur_Loop;
     timingBase outerL_latency (-1,-1,1,clock_period);
@@ -194,7 +194,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
         tmp_SubLoop_CriticalPath.clear(); // record the critical path to the end of sub-loops in the loop
 
         BlockVisited.clear();
-        LoopLatencyEvaluation_traversFromHeaderToExitingBlocks(origin_latency, cur_Loop, tmp_LoopHeader);
+        LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(origin_latency, cur_Loop, tmp_LoopHeader);
         BlockCriticalPath_inLoop[cur_Loop] = tmp_BlockCriticalPath_inLoop;
        
         for (auto tmp_it : tmp_BlockCriticalPath_inLoop)
@@ -206,13 +206,17 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
         
         // (3) get the total latency by TripCount * IterationLatency
         tmp_total_latency = SE->getSmallConstantMaxTripCount(cur_Loop) * max_critial_path_in_curLoop;
-        if (cur_Loop->getLoopPreheader())
-            tmp_total_latency = tmp_total_latency + BlockLatencyEvaluation(cur_Loop->getLoopPreheader());
-        
-        // (4) mark the blocks in loop with the loop latency, so later processing can regard this loop as an integration
+
+        // COMMENT because preheader is not in the loop enity and if the prehearder is calculated, it is actually duplicated calculation.
+        // but just need to add one cycle, as it seems that in VivadoHLS, Loops are regarded as function and the "call" will take one cycle
+        // if (cur_Loop->getLoopPreheader())
+        //     tmp_total_latency = tmp_total_latency + BlockLatencyResourceEvaluation(cur_Loop->getLoopPreheader());
+        tmp_total_latency = tmp_total_latency + timingBase(1,0,1,clock_period);
+
+        // (4) mark the blocks in loop with the loop latency, so later processing can regard this loop as an integration    
         BlockVisited.clear();
         MarkBlock_traversFromHeaderToExitingBlocks(tmp_total_latency, cur_Loop, tmp_LoopHeader);
-        LoopLatency[cur_Loop] = tmp_total_latency;
+        LoopLatency[cur_Loop->getName()] = tmp_total_latency;
         LoopEvaluated.insert(cur_Loop);
         
         *Evaluating_log << "Trip Count for Loop " << cur_Loop->getName() << " is " << SE->getSmallConstantMaxTripCount(cur_Loop) <<"\n";
@@ -238,7 +242,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     (4) Release the block from visited flag, as a step of typical DFS
 
 */
-void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyEvaluation_traversFromHeaderToExitingBlocks(HI_NoDirectiveTimingResourceEvaluation::timingBase tmp_critical_path, Loop* L, BasicBlock *curBlock)
+void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(HI_NoDirectiveTimingResourceEvaluation::timingBase tmp_critical_path, Loop* L, BasicBlock *curBlock)
 {
 
     // (1) Mark the block visited, as a step of typical DFS
@@ -252,8 +256,8 @@ void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyEvaluation_traversFromHe
         // (3a) -- If it is a block in sub-loops, regard the loop as intergration and update the critical path if necessary (max(ori_CP, lastStateCP + LoopLatency)).
         Loop* tmp_SubLoop = Block2EvaluatedLoop[curBlock];
         *Evaluating_log << " which is evluated in Loop " << tmp_SubLoop->getName() <<" ";
-        *Evaluating_log << " LoopLatency =  " << LoopLatency[tmp_SubLoop] <<" ";
-        timingBase try_critical_path = tmp_critical_path + LoopLatency[tmp_SubLoop];  // first, get the critical path to the end of sub-loop
+        *Evaluating_log << " LoopLatency =  " << LoopLatency[tmp_SubLoop->getName()] <<" ";
+        timingBase try_critical_path = tmp_critical_path + LoopLatency[tmp_SubLoop->getName()];  // first, get the critical path to the end of sub-loop
         *Evaluating_log << " NewCP =  " << try_critical_path <<" ";
         bool checkFlag = false;         
        
@@ -282,7 +286,7 @@ void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyEvaluation_traversFromHe
                     if (L->contains(B) && BlockVisited.find(B) == BlockVisited.end())
                     {
                         *Evaluating_log << "---- continue to traverser to Block: " << B->getName() <<" ";
-                        LoopLatencyEvaluation_traversFromHeaderToExitingBlocks(try_critical_path,L,B);
+                        LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(try_critical_path,L,B);
                     }
                 }
             }
@@ -294,7 +298,7 @@ void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyEvaluation_traversFromHe
     {
         //     (3b) -- If it is a block out of sub-loops, evaluate the block latency and update the critical path if necessary (max(ori_CP, lastStateCP + BlockLatency)).         
         *Evaluating_log << " which is  not evaluated in Loop " << " ";
-        timingBase latency_CurBlock = BlockLatencyEvaluation(curBlock); // first, get the latency of the current block
+        timingBase latency_CurBlock = BlockLatencyResourceEvaluation(curBlock); // first, get the latency of the current block
         timingBase try_critical_path = tmp_critical_path + latency_CurBlock;
         *Evaluating_log << "---- latencyBlock =  " << latency_CurBlock <<" ";
         *Evaluating_log << " NewCP =  " << try_critical_path <<" ";
@@ -322,7 +326,7 @@ void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyEvaluation_traversFromHe
                 if (L->contains(B) && BlockVisited.find(B) == BlockVisited.end())
                 {                 
                     *Evaluating_log << "---- continue to traverser to Block: " << B->getName() <<" ";
-                    LoopLatencyEvaluation_traversFromHeaderToExitingBlocks(try_critical_path,L,B);
+                    LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(try_critical_path,L,B);
                 }
             }
         }

@@ -206,8 +206,12 @@ double HI_SimpleTimingEvaluation::getOuterLoopLatency(Loop* outerL)
         
         // (3) get the total latency by TripCount * IterationLatency
         tmp_total_latency = SE->getSmallConstantMaxTripCount(cur_Loop) * max_critial_path_in_curLoop;
-        if (cur_Loop->getLoopPreheader())
-            tmp_total_latency += BlockLatencyEvaluation(cur_Loop->getLoopPreheader());
+
+        // COMMENT because preheader is not in the loop enity and if the prehearder is calculated, it is actually duplicated calculation.
+        // but just need to add one cycle, as it seems that in VivadoHLS, Loops are regarded as function and the "call" will take one cycle
+        // if (cur_Loop->getLoopPreheader())
+        //     tmp_total_latency += BlockLatencyEvaluation(cur_Loop->getLoopPreheader());
+        tmp_total_latency += 1;
         
         // (4) mark the blocks in loop with the loop latency, so later processing can regard this loop as an integration
         BlockVisited.clear();
