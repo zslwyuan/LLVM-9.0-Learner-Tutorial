@@ -33,12 +33,13 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     // (2) traverse the block in loop by DFS to find the longest path
     timingBase max_critial_path_in_F(0,0,1,clock_period);
     timingBase origin_path_in_F(0,0,1,clock_period);
+    resourceBase resourceAccumulator(0,0,0,clock_period);
 
     tmp_BlockCriticalPath_inFunc.clear(); // record the block level critical path in the loop
     tmp_LoopCriticalPath_inFunc.clear(); // record the critical path to the end of sub-loops in the loop
 
     Func_BlockVisited.clear();
-    analyzeFunction_traverseFromEntryToExiting(origin_path_in_F, F, Func_Entry);
+    analyzeFunction_traverseFromEntryToExiting(origin_path_in_F, F, Func_Entry, resourceAccumulator);
         
     for (auto tmp_it : tmp_BlockCriticalPath_inFunc)
         if (tmp_it.second > max_critial_path_in_F)
@@ -50,10 +51,11 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     // (4) mark the blocks in loop with the loop latency, so later processing can regard this loop as an integration
     Func_BlockVisited.clear();
     FunctionLatency[F] = max_critial_path_in_F;
+    FunctionResource[F] = resourceAccumulator;
     FunctionEvaluated.insert(F);
     
     
-    *Evaluating_log << "\n\n\nDone evaluation Function Latency for Function " << F->getName() << " and its latency is " << max_critial_path_in_F <<" cycles.\n";
+    *Evaluating_log << "\n\n\nDone evaluation Function Latency for Function " << F->getName() << " and its latency is " << max_critial_path_in_F <<" cycles and its resource cost is: " << resourceAccumulator << ".\n";
     *Evaluating_log << "---- Function " << F->getName() << " includes "<<Function2OuterLoops[F].size()<<" following most outer loop(s):\n-------";
     for (auto tmpL : Function2OuterLoops[F])
     {
@@ -81,7 +83,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
          -- find the successors of the block and continue the DFS
     (4) Release the block from visited flag, as a step of typical DFS
 */
-void HI_NoDirectiveTimingResourceEvaluation::analyzeFunction_traverseFromEntryToExiting(HI_NoDirectiveTimingResourceEvaluation::timingBase tmp_critical_path, Function *F, BasicBlock* curBlock)
+void HI_NoDirectiveTimingResourceEvaluation::analyzeFunction_traverseFromEntryToExiting(HI_NoDirectiveTimingResourceEvaluation::timingBase tmp_critical_path, Function *F, BasicBlock* curBlock, HI_NoDirectiveTimingResourceEvaluation::resourceBase &resourceAccumulator)
 {
 
     // (1) Mark the block visited, as a step of typical DFS
@@ -109,7 +111,11 @@ void HI_NoDirectiveTimingResourceEvaluation::analyzeFunction_traverseFromEntryTo
         *Evaluating_log << " NewCP =  " << try_critical_path <<" ";
         bool checkFlag = false;     
         
-        if (tmp_LoopCriticalPath_inFunc.find(tmp_OuterLoop) == tmp_LoopCriticalPath_inFunc.end() )   checkFlag = true;
+        if (tmp_LoopCriticalPath_inFunc.find(tmp_OuterLoop) == tmp_LoopCriticalPath_inFunc.end() ) 
+        {
+            resourceAccumulator = resourceAccumulator + LoopResource[tmp_OuterLoop->getName()] ;
+            checkFlag = true;
+        }
         else if (try_critical_path > tmp_LoopCriticalPath_inFunc[tmp_OuterLoop]) checkFlag = true;  
 
         if (checkFlag)
@@ -135,7 +141,7 @@ void HI_NoDirectiveTimingResourceEvaluation::analyzeFunction_traverseFromEntryTo
                     if (F == B->getParent() && Func_BlockVisited.find(B) == Func_BlockVisited.end())
                     {
                         *Evaluating_log << "---- continue to traverser to Block: " << B->getName() <<"\n";
-                        analyzeFunction_traverseFromEntryToExiting(try_critical_path, F, B);
+                        analyzeFunction_traverseFromEntryToExiting(try_critical_path, F, B, resourceAccumulator);
                     }
                 }
             }
@@ -153,7 +159,11 @@ void HI_NoDirectiveTimingResourceEvaluation::analyzeFunction_traverseFromEntryTo
         *Evaluating_log << " NewCP =  " << try_critical_path <<" ";
         bool checkFlag = false;
         
-        if (tmp_BlockCriticalPath_inFunc.find(curBlock) == tmp_BlockCriticalPath_inFunc.end() )   checkFlag = true;
+        if (tmp_BlockCriticalPath_inFunc.find(curBlock) == tmp_BlockCriticalPath_inFunc.end() )  
+        {
+            resourceAccumulator = resourceAccumulator + BlockResource[curBlock] ; 
+            checkFlag = true;
+        }
         else if (try_critical_path > tmp_BlockCriticalPath_inFunc[curBlock]) checkFlag = true;
         
         if (checkFlag) // update the block-level critical path
@@ -175,7 +185,7 @@ void HI_NoDirectiveTimingResourceEvaluation::analyzeFunction_traverseFromEntryTo
                 if (F == B->getParent() && Func_BlockVisited.find(B) == Func_BlockVisited.end())
                 {                 
                     *Evaluating_log << "---- continue to traverser to Block: " << B->getName() <<" ";
-                    analyzeFunction_traverseFromEntryToExiting(try_critical_path, F, B);
+                    analyzeFunction_traverseFromEntryToExiting(try_critical_path, F, B, resourceAccumulator);
                 }
             }
         }

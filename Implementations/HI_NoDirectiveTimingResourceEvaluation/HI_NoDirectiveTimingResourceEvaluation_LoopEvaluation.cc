@@ -244,7 +244,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     (4) Release the block from visited flag, as a step of typical DFS
 
 */
-void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(HI_NoDirectiveTimingResourceEvaluation::timingBase tmp_critical_path, Loop* L, BasicBlock *curBlock, resourceBase &resourceAccumulator)
+void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(HI_NoDirectiveTimingResourceEvaluation::timingBase tmp_critical_path, Loop* L, BasicBlock *curBlock, HI_NoDirectiveTimingResourceEvaluation::resourceBase &resourceAccumulator)
 {
 
     // (1) Mark the block visited, as a step of typical DFS

@@ -246,7 +246,7 @@ public:
     resourceBase getFunctionResource(Function* F);
 
     // get the function critical path by traversing the blocks based on DFS and compute the resource cost
-    void analyzeFunction_traverseFromEntryToExiting(timingBase tmp_critical_path, Function *F, BasicBlock* curBlock);
+    void analyzeFunction_traverseFromEntryToExiting(timingBase tmp_critical_path, Function *F, BasicBlock* curBlock, resourceBase &resourceAccumulator);
 
     // get the loop latency by traversing from the header to the exiting blocks and evluation resource
     void LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(timingBase tmp_critical_path,  Loop* L, BasicBlock *curBlock, resourceBase &resourceAccumulator);

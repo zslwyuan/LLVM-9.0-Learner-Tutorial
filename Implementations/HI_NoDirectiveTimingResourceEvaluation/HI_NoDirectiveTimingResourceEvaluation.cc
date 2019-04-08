@@ -140,7 +140,9 @@ void HI_NoDirectiveTimingResourceEvaluation::getTopFunctionLatency(Module &M)
             top_function_latency = analyzeFunction(&F).latency;
             *Evaluating_log << "Done latency evaluation of top function: "<< F.getName() <<" and its latency is "<< top_function_latency << "\n\n\n";
             std::string printOut("");
-            printOut = "Done latency evaluation of top function: [" + demangled_name + "] and its latency is " + std::to_string(top_function_latency);
+
+            // print out the information of top function in terminal
+            printOut = "Done latency evaluation of top function: [" + demangled_name + "] and its latency is " + std::to_string(top_function_latency) + " and its resource cost is [DSP=" + std::to_string(FunctionResource[&F].DSP) + ", FF=" + std::to_string(FunctionResource[&F].FF) + ", LUT=" + std::to_string(FunctionResource[&F].LUT) + "]";
             print_info(printOut);
         }
     }
