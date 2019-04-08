@@ -63,7 +63,7 @@ class HI_NoDirectiveTimingResourceEvaluation : public ModulePass {
 public:
 
     // Pass for simple evluation of the latency of the top function, without considering HLS directives
-    HI_NoDirectiveTimingResourceEvaluation(const char* config_file_name, const char* evaluating_log_name, const char* top_function) : ModulePass(ID) 
+    HI_NoDirectiveTimingResourceEvaluation(const char* config_file_name, const char* evaluating_log_name, const char* BRAM_log_name, const char* top_function) : ModulePass(ID) 
     {
         BlockEvaluated.clear();
         LoopEvaluated.clear();
@@ -72,6 +72,7 @@ public:
         Loop_Counter = 0;
         config_file = new std::ifstream(config_file_name);
         Evaluating_log = new raw_fd_ostream(evaluating_log_name, ErrInfo, sys::fs::F_None);
+        BRAM_log = new raw_fd_ostream(BRAM_log_name, ErrInfo, sys::fs::F_None);
         top_function_name = std::string(top_function);
 
         // get the configureation from the file, e.g. clock period
@@ -175,8 +176,13 @@ public:
     std::set<BasicBlock*> BlockVisited;
     std::set<BasicBlock*> Func_BlockVisited;
     std::set<Value*> ValueVisited;
+
     // record the information of the processing
     raw_ostream *Evaluating_log;
+    
+    // record the information of the BRAMs and related accesses to BRAMs
+    raw_ostream *BRAM_log;
+
     std::error_code ErrInfo;
     std::ifstream *config_file;
 
@@ -373,9 +379,9 @@ public:
             lhs.latency++;
             return lhs;
         }
-        if (rhs.latency==-2) // for operation like store
+        if (rhs.latency==-2) // for operation like load
         {
-            if (lhs.clock_period-lhs.timing<3.25)
+            if (lhs.clock_period-lhs.timing>3.25)
             {
                 lhs.timing = rhs.timing;
                 lhs.latency++;
@@ -476,13 +482,15 @@ public:
 //////////////////// Declaration related to Memory Access Tracing ////////////////////  
  
     std::map<Instruction*,std::vector<Value*>> Access2TargetMap;
-    std::map<Value*, std::map<BasicBlock*,std::vector<int>>> accessInBlock2Latency;
-
-    void TraceMemoryDeclarationin(Function *F, bool isTopFunction);
+    std::map<Value*, std::map<BasicBlock*,std::vector<int>>> target2LastAccessCycleInBlock;
+    std::map<std::pair<Instruction*,Value*>,timingBase> scheduledAccess_timing;
+    void findMemoryDeclarationin(Function *F, bool isTopFunction);
     void TraceAccessForTarget(Value *cur_node,Value *ori_node);
 
-    void scheduleBRAMAccess(Value *target, BasicBlock *cur_block,  int cur_latency, double timing);
-    bool checkBRAMAvailabilty(Value *target, BasicBlock *cur_block, int cur_latency);
+    timingBase scheduleBRAMAccess(Instruction *access, BasicBlock *cur_block,  timingBase cur_Timing);
+    timingBase handleBRAMAccessFor(Instruction *access, Value *target, BasicBlock *cur_block,  timingBase cur_Timing);
+    bool checkBRAMAvailabilty(Value *target, std::string StoreOrLoad, BasicBlock *cur_block, timingBase cur_Timing);
+    void insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int cur_latency);
 };
 
 #endif

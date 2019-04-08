@@ -48,28 +48,53 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
             cur_InstructionCriticalPath[I] = origin_path + tmp_I_latency;
 
             // (2) check the CP to the instruction's predecessors and find the maximum one to update its CP
-            for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp)// update the critical path to I by checking its predecessors' critical path
+            //     but Store/Load operation should be scheduled specially due to the limited number of BRAM ports
+            if ( I->getOpcode()==Instruction::Load || I->getOpcode()==Instruction::Store )
             {
-                if (auto I_Pred = dyn_cast<Instruction>(I_tmp))
+                *Evaluating_log << "------- A Memory Access Instruction: " << *I <<" is found, do the scheduling for it\n";
+                timingBase tmp_path(0,0,1,clock_period); // get the CP to the address
+                if (auto Address_I = dyn_cast<Instruction>(I->getOperand(0)))
                 {
-                    // ensure that the predecessor is in the block and before I, considering some predecessors 
-                    // may be located behind the instruction itself (not in cur_InstructionCriticalPath yet) in some loop structures 
-                    if (BlockContain(B, I_Pred) && cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end()) 
+                    if (BlockContain(B, Address_I) && cur_InstructionCriticalPath.find(Address_I) != cur_InstructionCriticalPath.end()) 
                     {
-                        if (canChainOrNot(I_Pred,I))
-                        {
-                            if ( cur_InstructionCriticalPath[I_Pred]  > cur_InstructionCriticalPath[I] ) //addition chained with multiplication
-                                cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] ;
-                        }
-                        else
-                        {
-                            if ( cur_InstructionCriticalPath[I_Pred] + tmp_I_latency > cur_InstructionCriticalPath[I] ) //update the critical path
-                                cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] + tmp_I_latency;
-                        }
-
+                        tmp_path = cur_InstructionCriticalPath[Address_I];         
                     }                 
                 }           
+                else
+                {
+                    assert(false && "For Store/Load instruction, the analysis should not arrive this branch.\n");
+                }
+                cur_InstructionCriticalPath[I] = scheduleBRAMAccess(I, B, tmp_path);                
             }
+            else
+            {
+                // for other instructions, we find the latest-finished operand
+                for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp)// update the critical path to I by checking its predecessors' critical path
+                {
+                    if (auto I_Pred = dyn_cast<Instruction>(I_tmp))
+                    {
+                        // ensure that the predecessor is in the block and before I, considering some predecessors 
+                        // may be located behind the instruction itself (not in cur_InstructionCriticalPath yet) in some loop structures 
+                        if (BlockContain(B, I_Pred) && cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end()) 
+                        {
+                            if (canChainOrNot(I_Pred,I))
+                            {
+                                // TODO: may need to rethink the machanism carefully
+                                if ( cur_InstructionCriticalPath[I_Pred]  > cur_InstructionCriticalPath[I] ) //addition chained with multiplication
+                                    cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] ;
+                            }
+                            else
+                            {
+                                if ( cur_InstructionCriticalPath[I_Pred] + tmp_I_latency > cur_InstructionCriticalPath[I] ) //update the critical path
+                                    cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] + tmp_I_latency;        
+                            }
+
+                        }                 
+                    }           
+                }
+            }
+            
+
 
             // (3) get the maximum CP among instructions and take it as the CP of block
             if (cur_InstructionCriticalPath[I] > max_critical_path) max_critical_path = cur_InstructionCriticalPath[I];

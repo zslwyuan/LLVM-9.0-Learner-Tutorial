@@ -190,7 +190,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
                 return result;
         }        
         result.latency = 0;
-        result.timing = 0.99;
+        result.timing = 0.1;
         return result;
     }
     else if (CallInst *CI = dyn_cast<CallInst>(I))

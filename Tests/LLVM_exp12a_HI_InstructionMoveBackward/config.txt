@@ -1,2 +1,2 @@
-clock = 10.0
+clock = 10
 HLS_lib_path = ../../../HLS_Data_Lib/

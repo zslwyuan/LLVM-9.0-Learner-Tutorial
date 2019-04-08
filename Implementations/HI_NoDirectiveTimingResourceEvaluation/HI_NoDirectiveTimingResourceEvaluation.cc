@@ -150,6 +150,6 @@ void HI_NoDirectiveTimingResourceEvaluation::TraceMemoryDeclarationinModule(Modu
         std::string mangled_name = F.getName();
         std::string demangled_name;
         demangled_name = demangeFunctionName(mangled_name);
-        TraceMemoryDeclarationin(&F, demangled_name == top_function_name);        
+        findMemoryDeclarationin(&F, demangled_name == top_function_name);        
     }
 }

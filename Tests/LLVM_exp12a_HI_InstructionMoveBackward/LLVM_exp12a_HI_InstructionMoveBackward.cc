@@ -74,9 +74,9 @@ int main(int argc, char **argv) {
   PM1.add(hi_duplicateinstrm);
   print_info("Enable HI_DuplicateInstRm Pass");
 
-  auto loopstrengthreducepass = createLoopStrengthReducePass();
-  PM1.add(loopstrengthreducepass);
-  print_info("Enable LoopStrengthReducePass Pass");
+  // auto loopstrengthreducepass = createLoopStrengthReducePass();
+  // PM1.add(loopstrengthreducepass);
+  // print_info("Enable LoopStrengthReducePass Pass");
 
   // auto lazyvalueinfowrapperpass = new LazyValueInfoWrapperPass();
   // PM.add(lazyvalueinfowrapperpass);
@@ -190,7 +190,7 @@ int main(int argc, char **argv) {
   // print_info("Enable HI_SimpleTimingEvaluation Pass");
   // PM.add(hi_simpletimingevaluation); 
 
-  auto hi_nodirectivetimingresourceevaluation = new HI_NoDirectiveTimingResourceEvaluation(configFile_str.c_str(),"HI_NoDirectiveTimingResourceEvaluation",top_str.c_str());
+  auto hi_nodirectivetimingresourceevaluation = new HI_NoDirectiveTimingResourceEvaluation(configFile_str.c_str(),"HI_NoDirectiveTimingResourceEvaluation","BRAM_info",top_str.c_str());
   print_info("Enable HI_NoDirectiveTimingResourceEvaluation Pass");
   PM.add(hi_nodirectivetimingresourceevaluation); 
 
