@@ -47,9 +47,10 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
             Instruction* I = &rI;
             timingBase tmp_I_latency = getInstructionLatency(I);
             cur_InstructionCriticalPath[I] = origin_path + tmp_I_latency;
+            bool Chained = 0;
 
             // (2) check the CP to the instruction's predecessors and find the maximum one to update its CP
-            //     but Store/Load operation should be scheduled specially due to the limited number of BRAM ports
+            //     but Store/Load operation should be scheduled specially due to the limited number of BRAM ports            
             if ( I->getOpcode()==Instruction::Load || I->getOpcode()==Instruction::Store )
             {
                 *Evaluating_log << "------- A Memory Access Instruction: " << *I <<" is found, do the scheduling for it\n";
@@ -69,7 +70,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
             }
             else
             {
-                bool Chained = 0;
+                
                 // for other instructions, we find the latest-finished operand
                 for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp)// update the critical path to I by checking its predecessors' critical path
                 {
@@ -82,12 +83,14 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
                             if (canChainOrNot(I_Pred,I))
                             {
                                 // TODO: may need to rethink the machanism carefully
+                                // *Evaluating_log << "        --------- Evaluated Instruction critical path for Instruction: <<" << *I << " which can be chained.\n";
                                 if ( cur_InstructionCriticalPath[I_Pred]  > cur_InstructionCriticalPath[I] ) //addition chained with multiplication
                                     cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] ;
                                 Chained = 1;
                             }
                             else
                             {
+                                // *Evaluating_log << "        --------- Evaluated Instruction critical path for Instruction: <<" << *I << " which cannot be chained.\n";
                                 if ( cur_InstructionCriticalPath[I_Pred] + tmp_I_latency > cur_InstructionCriticalPath[I] ) //update the critical path
                                     cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] + tmp_I_latency;        
                             }
@@ -105,7 +108,13 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
 
             // (3) get the maximum CP among instructions and take it as the CP of block
             if (cur_InstructionCriticalPath[I] > max_critical_path) max_critical_path = cur_InstructionCriticalPath[I];
-            *Evaluating_log << "--------- Evaluated Instruction critical path for Instruction: <<" << *I <<">> and its CP is :"<< cur_InstructionCriticalPath[I] << " the resource cost is: " << getInstructionResource(I) <<"\n";
+            *Evaluating_log << "--------- Evaluated Instruction critical path for Instruction: <<" << *I <<">> and its CP is :"<< cur_InstructionCriticalPath[I] << " the resource cost is: " << (Chained?(resourceBase(0,0,0,clock_period)):(getInstructionResource(I)) );
+            if (Chained)
+                *Evaluating_log << "(Chained))";
+            else            
+                *Evaluating_log << "(Not Chained)";            
+            
+            *Evaluating_log << "\n";
             Evaluating_log->flush();
         }
     }

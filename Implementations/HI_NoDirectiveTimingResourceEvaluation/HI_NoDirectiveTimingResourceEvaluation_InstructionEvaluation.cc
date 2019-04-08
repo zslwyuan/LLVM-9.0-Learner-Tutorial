@@ -227,8 +227,12 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
 // check whether the two operations can be chained
 bool HI_NoDirectiveTimingResourceEvaluation::canChainOrNot(Instruction *PredI,Instruction *I)
 {
+    // *Evaluating_log << "        --------- checking Instruction canChainOrNot: <<" << *I << "\n";
     if (isMACpossible(PredI,I))
+    {
+        // *Evaluating_log << "        --------- checking Instruction " << *I << " can be chained as MAC\n";
         return true;
+    }
     return false;
 }
 
@@ -241,8 +245,11 @@ bool HI_NoDirectiveTimingResourceEvaluation::isMACpossible(Instruction *PredI,In
         {
             Value *op0 = (PredI->getOperand(0));
             Value *op1 = (PredI->getOperand(1));
+            // *Evaluating_log << "        --------- checking Instruction " << *I << " for being chained as MAC, getActualUsersNum=" << getActualUsersNum(PredI,0) << "\n";
+
             if (op0 && op1 && getActualUsersNum(PredI,0)<2)
             {
+                // *Evaluating_log << "        --------- checking Instruction " << *I << " for being chained as MAC, op0BW=" << getOriginalBitwidth(op0) << "op1BW=" << getOriginalBitwidth(op1) << "IBW=" << I->getType()->getIntegerBitWidth() << "\n";
                 return (getOriginalBitwidth(op0)<=18) && (getOriginalBitwidth(op1)<=18) && (I->getType()->getIntegerBitWidth()<=48);
             }
         }
@@ -285,6 +292,7 @@ int HI_NoDirectiveTimingResourceEvaluation::getOriginalBitwidth(Value *Val)
 int HI_NoDirectiveTimingResourceEvaluation::getActualUsersNum(Instruction *I, int dep)
 {
     std::string cur_opcode = I->getOpcodeName();
+    // *Evaluating_log << "        --------- getActualUsersNum tracing " << *I << " at dep=" << dep << ".\n";
     if (dep==0 || I->getOpcode()==Instruction::Trunc ||  I->getOpcode()==Instruction::SExt || I->getOpcode()==Instruction::ZExt)
     {
         int num=0;
@@ -294,6 +302,7 @@ int HI_NoDirectiveTimingResourceEvaluation::getActualUsersNum(Instruction *I, in
             if (Instruction *tmpI = dyn_cast<Instruction>(tmp_user))
                 num += getActualUsersNum(tmpI,dep+1);
         }
+        return num;
     }
     else 
     {

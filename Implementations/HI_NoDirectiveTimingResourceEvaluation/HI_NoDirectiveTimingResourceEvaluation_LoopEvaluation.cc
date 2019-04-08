@@ -190,11 +190,12 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
         
         // (2) traverse the block in loop by DFS to find the longest path
         timingBase max_critial_path_in_curLoop(0,0,1,clock_period);
+        resourceBase resourceAccumulator(0,0,0,clock_period);
         tmp_BlockCriticalPath_inLoop.clear(); // record the block level critical path in the loop
         tmp_SubLoop_CriticalPath.clear(); // record the critical path to the end of sub-loops in the loop
 
         BlockVisited.clear();
-        LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(origin_latency, cur_Loop, tmp_LoopHeader);
+        LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(origin_latency, cur_Loop, tmp_LoopHeader, resourceAccumulator);
         BlockCriticalPath_inLoop[cur_Loop] = tmp_BlockCriticalPath_inLoop;
        
         for (auto tmp_it : tmp_BlockCriticalPath_inLoop)
@@ -217,16 +218,17 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
         BlockVisited.clear();
         MarkBlock_traversFromHeaderToExitingBlocks(tmp_total_latency, cur_Loop, tmp_LoopHeader);
         LoopLatency[cur_Loop->getName()] = tmp_total_latency;
+        LoopResource[cur_Loop->getName()] = resourceAccumulator;
         LoopEvaluated.insert(cur_Loop);
         
         *Evaluating_log << "Trip Count for Loop " << cur_Loop->getName() << " is " << SE->getSmallConstantMaxTripCount(cur_Loop) <<"\n";
-        *Evaluating_log << "Done evaluation Loop Latency for Loop " << cur_Loop->getName() << " and its latency is " << tmp_total_latency <<" cycles.\n\n\n";
+        *Evaluating_log << "Done evaluation Loop Latency for Loop " << cur_Loop->getName() << " and its latency is " << tmp_total_latency <<" cycles and its resource cost is: " << LoopResource[cur_Loop->getName()] << ".\n\n\n";
 
         // (1) iteratively handle the most inner loop
         cur_Loop = getInnerUnevaluatedLoop(outerL);
     }
     outerL_latency = tmp_total_latency; // finally, we will get the latency of outer loop in the last iteration
-    *Evaluating_log << "Done evaluation outer Loop Latency for Loop " << outerL->getName() << " and its latency is " << outerL_latency <<" cycles.\n\n\n";
+    *Evaluating_log << "Done evaluation outer Loop Latency for Loop " << outerL->getName() << " and its latency is " << outerL_latency <<" cycles and its resource cost is: " << LoopResource[outerL->getName()] << ".\n\n\n";
     assert(outerL_latency.latency > -0.5 && "The latency for a loop should be not be negative");
     return outerL_latency*1;
 }
@@ -242,7 +244,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     (4) Release the block from visited flag, as a step of typical DFS
 
 */
-void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(HI_NoDirectiveTimingResourceEvaluation::timingBase tmp_critical_path, Loop* L, BasicBlock *curBlock)
+void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(HI_NoDirectiveTimingResourceEvaluation::timingBase tmp_critical_path, Loop* L, BasicBlock *curBlock, resourceBase &resourceAccumulator)
 {
 
     // (1) Mark the block visited, as a step of typical DFS
@@ -261,7 +263,12 @@ void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyResourceEvaluation_trave
         *Evaluating_log << " NewCP =  " << try_critical_path <<" ";
         bool checkFlag = false;         
        
-        if (tmp_SubLoop_CriticalPath.find(tmp_SubLoop) == tmp_SubLoop_CriticalPath.end() )   checkFlag = true;
+        if (tmp_SubLoop_CriticalPath.find(tmp_SubLoop) == tmp_SubLoop_CriticalPath.end() ) 
+        {  
+            assert(LoopResource.find(tmp_SubLoop->getName())!=LoopResource.end());
+            resourceAccumulator = resourceAccumulator + LoopResource[tmp_SubLoop->getName()];
+            checkFlag = true;
+        }
         else if (try_critical_path > tmp_SubLoop_CriticalPath[tmp_SubLoop]) checkFlag = true;
                 
         if (checkFlag)
@@ -286,7 +293,7 @@ void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyResourceEvaluation_trave
                     if (L->contains(B) && BlockVisited.find(B) == BlockVisited.end())
                     {
                         *Evaluating_log << "---- continue to traverser to Block: " << B->getName() <<" ";
-                        LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(try_critical_path,L,B);
+                        LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(try_critical_path,L,B,resourceAccumulator);
                     }
                 }
             }
@@ -304,7 +311,12 @@ void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyResourceEvaluation_trave
         *Evaluating_log << " NewCP =  " << try_critical_path <<" ";
         bool checkFlag = false;
         
-        if (tmp_BlockCriticalPath_inLoop.find(curBlock) == tmp_BlockCriticalPath_inLoop.end() )   checkFlag = true;
+        if (tmp_BlockCriticalPath_inLoop.find(curBlock) == tmp_BlockCriticalPath_inLoop.end() )
+        {
+            assert(BlockResource.find(curBlock)!=BlockResource.end());
+            resourceAccumulator = resourceAccumulator + BlockResource[curBlock];   
+            checkFlag = true;
+        }
         else if (try_critical_path > tmp_BlockCriticalPath_inLoop[curBlock]) checkFlag = true;
         
         if (checkFlag) // update the block-level critical path
@@ -326,7 +338,7 @@ void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyResourceEvaluation_trave
                 if (L->contains(B) && BlockVisited.find(B) == BlockVisited.end())
                 {                 
                     *Evaluating_log << "---- continue to traverser to Block: " << B->getName() <<" ";
-                    LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(try_critical_path,L,B);
+                    LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(try_critical_path,L,B,resourceAccumulator);
                 }
             }
         }

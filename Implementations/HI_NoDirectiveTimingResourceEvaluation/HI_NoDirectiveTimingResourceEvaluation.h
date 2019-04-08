@@ -249,7 +249,7 @@ public:
     void analyzeFunction_traverseFromEntryToExiting(timingBase tmp_critical_path, Function *F, BasicBlock* curBlock);
 
     // get the loop latency by traversing from the header to the exiting blocks and evluation resource
-    void LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(timingBase tmp_critical_path,  Loop* L, BasicBlock *curBlock);
+    void LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(timingBase tmp_critical_path,  Loop* L, BasicBlock *curBlock, resourceBase &resourceAccumulator);
 
     // mark the block in loop with latency by traversing from the header to the exiting blocks
     void MarkBlock_traversFromHeaderToExitingBlocks(timingBase total_latency, Loop* L, BasicBlock *curBlock);

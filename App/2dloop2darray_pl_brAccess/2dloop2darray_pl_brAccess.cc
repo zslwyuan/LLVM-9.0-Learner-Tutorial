@@ -9,7 +9,7 @@ void f ( int A[50][100]) {
     for ( int i = 1; i < M; i++ )
     {
       B[i][j]=i;
-      A[i][j] = i%2? A[i-1][j]:B[i][j]+A[i][j];//+A[i-2][j];
+      A[i][j] = i%2? A[i-1][j]:i;//+A[i-2][j];
     }
   // for ( int j = 1; j < N; j++ )
   //   for ( int i = 1; i < M; i++ )
