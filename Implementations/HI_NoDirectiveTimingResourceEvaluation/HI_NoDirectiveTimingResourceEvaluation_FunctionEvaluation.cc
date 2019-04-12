@@ -40,6 +40,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
 
     Func_BlockVisited.clear();
     analyzeFunction_traverseFromEntryToExiting(origin_path_in_F, F, Func_Entry, resourceAccumulator);
+    
         
     for (auto tmp_it : tmp_BlockCriticalPath_inFunc)
         if (tmp_it.second > max_critial_path_in_F)

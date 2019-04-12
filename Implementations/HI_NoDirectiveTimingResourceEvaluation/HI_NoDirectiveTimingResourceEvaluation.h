@@ -1,6 +1,17 @@
 #ifndef _HI_NoDirectiveTimingResourceEvaluation
 #define _HI_NoDirectiveTimingResourceEvaluation
-// related headers should be included.
+
+#define AggressiveSchedule
+
+#ifdef AggressiveSchedule
+    #define LoadStore_Thredhold 2
+    #define CertaintyRatio (7.2/8.0)
+#else
+    #define LoadStore_Thredhold 3.25
+    #define CertaintyRatio (7.0/8.0)
+#endif
+
+
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
@@ -113,7 +124,7 @@ public:
         InstructionEvaluated.clear();
         BlockVisited.clear();
         Func_BlockVisited.clear();
-
+        Instruction_FFAssigned.clear();
         Function2OuterLoops.clear();
         Block2EvaluatedLoop.clear();
         BlockCriticalPath_inLoop.clear();
@@ -186,6 +197,7 @@ public:
     std::set<Loop*> LoopEvaluated;
     std::set<Function*> FunctionEvaluated;
     std::set<Instruction*> InstructionEvaluated;
+    std::set<Instruction*> Instruction_FFAssigned;
     std::set<BasicBlock*> BlockVisited;
     std::set<BasicBlock*> Func_BlockVisited;
     std::set<Value*> ValueVisited;
@@ -237,7 +249,7 @@ public:
     void AnalyzeFunctions(Module &M);
 
     // get the latency of TopFunction Latency
-    void getTopFunctionLatency(Module &M);
+    void analyzeTopFunction(Module &M);
  
     // get the function latency  and compute the resource cost
     timingBase analyzeFunction(Function* F);
@@ -400,7 +412,7 @@ public:
         }
         if (rhs.latency==-2) // for operation like load
         {
-            if (lhs.clock_period-lhs.timing>3.25)
+            if (lhs.clock_period-lhs.timing>LoadStore_Thredhold)
             {
                 lhs.timing = rhs.timing;
                 lhs.latency++;
@@ -415,7 +427,7 @@ public:
         }
         lhs.latency = lhs.latency + rhs.latency;
         lhs.timing = lhs.timing + rhs.timing;
-        if (lhs.timing > lhs.clock_period*7/8)
+        if (lhs.timing > lhs.clock_period*CertaintyRatio)
         {
             lhs.timing = rhs.timing;
             lhs.latency++;
@@ -549,6 +561,19 @@ public:
     // int get_N_Lat(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
     // double get_N_Delay(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
 
+    // evaluate the number of FF needed by the instruction
+    resourceBase FF_Evaluate(std::map<Instruction*, timingBase> &cur_InstructionCriticalPath, Instruction* cur_I);
+
+    // trace back to find the original operator, bypassing SExt and ZExt operations
+    Instruction* byPassUnregisterOp(Instruction* cur_I);
+
+    Instruction* byPassBitcastOp(Instruction* cur_I);
+
+    // evaluate the number of LUT needed by the PHI instruction
+    resourceBase IndexVar_LUT(std::map<Instruction*, timingBase> &cur_InstructionCriticalPath, Instruction* I);
+
+    // evaluate the number of LUT needed by the BRAM Mux
+    resourceBase BRAM_MUX_Evaluate();
 
     // check whether a specific information is in the database
     bool checkInfoAvailability(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
@@ -570,6 +595,9 @@ public:
 
     // check whether the two operations can be chained into a MAC operation
     bool isMACpossible(Instruction *PredI,Instruction *I);
+
+    // check whether the three operations can be chained into a AMA operation
+    bool isAMApossible(Instruction *PredI,Instruction *I);
 
 //////////////////// Declaration related to Memory Access Tracing ////////////////////  
  

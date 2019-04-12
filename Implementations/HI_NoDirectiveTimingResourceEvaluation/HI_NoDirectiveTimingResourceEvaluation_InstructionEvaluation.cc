@@ -15,6 +15,8 @@
 
 using namespace llvm;
 
+
+
 /*
     mainly used to get the latency of an instruction 
 */
@@ -224,6 +226,8 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     return result;
 }
 
+
+
 // check whether the two operations can be chained
 bool HI_NoDirectiveTimingResourceEvaluation::canChainOrNot(Instruction *PredI,Instruction *I)
 {
@@ -233,8 +237,15 @@ bool HI_NoDirectiveTimingResourceEvaluation::canChainOrNot(Instruction *PredI,In
         // *Evaluating_log << "        --------- checking Instruction " << *I << " can be chained as MAC\n";
         return true;
     }
+    if (isAMApossible(PredI,I))
+    {
+        // *Evaluating_log << "        --------- checking Instruction " << *I << " can be chained as MAC\n";
+        return true;
+    }
     return false;
 }
+
+
 
 // check whether the two operations can be chained into MAC operation
 bool HI_NoDirectiveTimingResourceEvaluation::isMACpossible(Instruction *PredI,Instruction *I)
@@ -273,6 +284,41 @@ bool HI_NoDirectiveTimingResourceEvaluation::isMACpossible(Instruction *PredI,In
     return false;
 }
 
+
+bool HI_NoDirectiveTimingResourceEvaluation::isAMApossible(Instruction *PredI,Instruction *I)
+{
+    // for the GEP MAA, consider to transform it into AMA
+    if (I->getOpcode()==Instruction::Add)
+    {
+        if (PredI->getOpcode()==Instruction::Add)
+        {
+            Value *op0 = (PredI->getOperand(0));
+            Value *op1 = (PredI->getOperand(1));
+            if (auto Pred_Pred_I = dyn_cast<Instruction>(op0))
+            {
+                if (Pred_Pred_I->getOpcode()==Instruction::Mul)
+                {
+                    if (auto Pred_Pred_I_const = dyn_cast<ConstantInt>(Pred_Pred_I->getOperand(1)))
+                    {
+                        if (auto I_const = dyn_cast<ConstantInt>(I->getOperand(1)))
+                        {
+                            long long add_const = (I_const->getValue().getSExtValue());
+                            long long mul_const = (Pred_Pred_I_const->getValue().getSExtValue());
+                            if (add_const % mul_const == 0)
+                            {
+                                return (getOriginalBitwidth(op0)<=18) && (getOriginalBitwidth(op1)<=18) && (Pred_Pred_I->getType()->getIntegerBitWidth()<=48);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }    
+    return false;
+}
+
+
+
 // Trace back to get the bitwidth of an operand, bypassing truct/zext/sext
 int HI_NoDirectiveTimingResourceEvaluation::getOriginalBitwidth(Value *Val)
 {
@@ -287,6 +333,8 @@ int HI_NoDirectiveTimingResourceEvaluation::getOriginalBitwidth(Value *Val)
     else 
         return Val->getType()->getIntegerBitWidth();
 }
+
+
 
 // Trace forward to get the bitwidth of an operand, bypassing truct/zext/sext
 int HI_NoDirectiveTimingResourceEvaluation::getActualUsersNum(Instruction *I, int dep)
@@ -309,6 +357,7 @@ int HI_NoDirectiveTimingResourceEvaluation::getActualUsersNum(Instruction *I, in
         return 1;
     }        
 }
+
 
 
 HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::getInstructionResource(Instruction *I)
@@ -498,7 +547,366 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
     {
         return result;
     }
-
-
     return result;
 }
+
+
+
+
+// evaluate the number of FF needed by the instruction
+HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::FF_Evaluate(std::map<Instruction*, timingBase> &cur_InstructionCriticalPath, Instruction* I)
+{
+    resourceBase res(0,0,0,clock_period);
+
+    // Handle Load/Store for FF calculation since usually we have lower the GEP to mul/add/inttoptr/ptrtoint operations
+    if (auto storeI = dyn_cast<StoreInst>(I))
+    {
+        if (auto l0_pred = dyn_cast<IntToPtrInst>(storeI->getOperand(1)))
+        {
+            if (auto l1_pred = dyn_cast<AddOperator>(l0_pred->getOperand(0)))
+            {
+                if (auto l2_pred = dyn_cast<Instruction>(l1_pred->getOperand(1)))
+                {
+
+                    // check whether we should consider the FF cost by this instruction l2_pred
+                    if (Instruction_FFAssigned.find(l2_pred) != Instruction_FFAssigned.end())
+                        return res;
+
+                    if (BlockContain(I->getParent(), l2_pred))
+                    {
+                        if (cur_InstructionCriticalPath.find(l2_pred) != cur_InstructionCriticalPath.end())
+                            if (cur_InstructionCriticalPath[l2_pred].latency  == (cur_InstructionCriticalPath[I].latency - getInstructionLatency(I).latency))
+                                return res;
+                    }
+                    
+                    // For ZExt/SExt Instruction, we do not need to consider those constant bits
+                    int minBW = l2_pred->getType()->getIntegerBitWidth();
+                    if (auto zext_I = dyn_cast<ZExtInst>(l2_pred))
+                        minBW = zext_I->getSrcTy()->getIntegerBitWidth();
+                    if (auto sext_I = dyn_cast<SExtInst>(l2_pred))
+                        minBW = sext_I->getSrcTy()->getIntegerBitWidth(); 
+                    res.FF = minBW;
+                    Instruction_FFAssigned.insert(l2_pred);                   
+                }
+            }
+            else
+            {
+                print_warning("WARNING: The PRE-predecessor of store instruction should be AddOperator.");
+            }
+        }
+        else
+        {
+            print_warning("WARNING: The predecessor of store instruction should be IntToPtrInst.");
+        }
+
+        if (auto I_Pred = dyn_cast<Instruction>(storeI->getOperand(0)))
+        {
+            if (I_Pred->getType()->isIntegerTy() )
+            {
+                int minBW = I_Pred->getType()->getIntegerBitWidth();
+                
+                // For ZExt/SExt Instruction, we do not need to consider those constant bits
+                if (auto zext_I = dyn_cast<ZExtInst>(I_Pred))
+                {                    
+                    Instruction* ori_I = byPassUnregisterOp(zext_I);
+                    if (Instruction_FFAssigned.find(ori_I) == Instruction_FFAssigned.end())
+                    {
+                        minBW = zext_I->getSrcTy()->getIntegerBitWidth();
+                        Instruction_FFAssigned.insert(ori_I);
+                    }
+                    
+                    // if (auto )
+                    // res = FF_Evaluate(cur_InstructionCriticalPath,static_cast<Instruction>());
+                }
+                if (auto sext_I = dyn_cast<SExtInst>(I_Pred))
+                {
+                    Instruction* ori_I = byPassUnregisterOp(sext_I);
+                    if (Instruction_FFAssigned.find(ori_I) == Instruction_FFAssigned.end())
+                    {
+                        minBW = sext_I->getSrcTy()->getIntegerBitWidth();
+                        Instruction_FFAssigned.insert(ori_I);
+                    }                 
+                }
+                    
+
+                res.FF += minBW;
+                
+                Instruction_FFAssigned.insert(I_Pred);
+            }
+        }
+
+
+        return res;
+    }
+
+    // Handle Load/Store for FF calculation since usually we have lower the GEP to mul/add/inttoptr/ptrtoint operations
+    if (auto loadI = dyn_cast<LoadInst>(I))
+    {
+        if (auto l0_pred = dyn_cast<IntToPtrInst>(loadI->getOperand(0)))
+        {
+            if (auto l1_pred = dyn_cast<AddOperator>(l0_pred->getOperand(0)))
+            {
+                if (auto l2_pred = dyn_cast<Instruction>(l1_pred->getOperand(1)))
+                {                  
+
+                    // check whether we should consider the FF cost by this instruction l2_pred
+                    if (Instruction_FFAssigned.find(l2_pred) != Instruction_FFAssigned.end())
+                        return res;
+
+                    if (BlockContain(I->getParent(), l2_pred))
+                    {
+                        if (cur_InstructionCriticalPath.find(l2_pred) != cur_InstructionCriticalPath.end())
+                            if (cur_InstructionCriticalPath[l2_pred].latency  == (cur_InstructionCriticalPath[I].latency - getInstructionLatency(I).latency))
+                                return res;
+                    }
+                    
+                    // For ZExt/SExt Instruction, we do not need to consider those constant bits
+                    int minBW = l2_pred->getType()->getIntegerBitWidth();
+                    if (auto zext_I = dyn_cast<ZExtInst>(l2_pred))
+                        minBW = zext_I->getSrcTy()->getIntegerBitWidth();
+                    if (auto sext_I = dyn_cast<SExtInst>(l2_pred))
+                        minBW = sext_I->getSrcTy()->getIntegerBitWidth(); 
+                    res.FF = minBW;
+                    Instruction_FFAssigned.insert(l2_pred);                   
+                }
+            }
+            else
+            {
+                print_warning("WARNING: The PRE-predecessor of load instruction should be AddOperator.");
+            }
+        }
+        else
+        {
+            print_warning("WARNING: The predecessor of load instruction should be IntToPtrInst.");
+        }
+
+
+
+        return res;
+    }
+
+    // Handle Load/Store for FF calculation since usually we have lower the GEP to mul/add/inttoptr/ptrtoint operations
+    for (auto use_IT=I->use_begin(), use_IE=I->use_end(); use_IT!=use_IE; ++use_IT)
+    {
+        if (auto int2ptr = dyn_cast<IntToPtrInst>(use_IT->getUser()))
+        {
+            return res;
+        }
+    }
+
+
+    for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp)
+    {
+        if (auto I_Pred = dyn_cast<Instruction>(I_tmp))
+        {
+            // check whether we should consider the FF cost by this instruction I
+            if (Instruction_FFAssigned.find(I_Pred) != Instruction_FFAssigned.end())
+            {
+                continue;
+            }                
+
+            if (BlockContain(I->getParent(), I_Pred))
+            {
+                // may be the operand is operated later, especially for phi insturction in loop
+                if (cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
+                    if (cur_InstructionCriticalPath[I_Pred].latency == (cur_InstructionCriticalPath[I].latency - getInstructionLatency(I).latency))
+                        continue;
+            }           
+
+            // calculate the FF needed to store the immediate result
+            if (I_Pred->getType()->isIntegerTy() )
+            {
+                int minBW = I_Pred->getType()->getIntegerBitWidth();
+                
+                // For ZExt/SExt Instruction, we do not need to consider those constant bits
+                if (auto zext_I = dyn_cast<ZExtInst>(I_Pred))
+                {                    
+                    Instruction* ori_I = byPassUnregisterOp(zext_I);
+                    if (Instruction_FFAssigned.find(ori_I) != Instruction_FFAssigned.end())
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        minBW = zext_I->getSrcTy()->getIntegerBitWidth();
+                        Instruction_FFAssigned.insert(ori_I);
+                    }
+                    
+                    // if (auto )
+                    // res = FF_Evaluate(cur_InstructionCriticalPath,static_cast<Instruction>());
+                }
+                if (auto sext_I = dyn_cast<SExtInst>(I_Pred))
+                {
+                    Instruction* ori_I = byPassUnregisterOp(sext_I);
+                    if (Instruction_FFAssigned.find(ori_I) != Instruction_FFAssigned.end())
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        minBW = sext_I->getSrcTy()->getIntegerBitWidth();
+                        Instruction_FFAssigned.insert(ori_I);
+                    }                 
+                }
+                    
+
+                res.FF += minBW;
+                
+                Instruction_FFAssigned.insert(I_Pred);
+            }
+            else if (I_Pred->getType()->isFloatTy() )
+            {
+                res.FF += 32;
+                Instruction_FFAssigned.insert(I_Pred);
+            }
+            else if (I_Pred->getType()->isDoubleTy() )
+            {
+                res.FF += 64;
+                Instruction_FFAssigned.insert(I_Pred);
+            }
+        }           
+    }
+    return res;
+}
+
+
+
+// evaluate the number of LUT needed by the PHI instruction
+HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::IndexVar_LUT(std::map<Instruction*, timingBase> &cur_InstructionCriticalPath, Instruction* I)
+{
+    resourceBase res(0,0,0,clock_period);
+
+    if (auto PHI_I = dyn_cast<PHINode>(I))
+    {
+        for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp)
+        {
+            if (auto I_Pred = dyn_cast<Instruction>(I_tmp))
+            {
+                if (BlockContain(I->getParent(), I_Pred))
+                {
+                    // may be the operand is operated later, especially for phi insturction in loop
+                    if (cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
+                    {
+                        res.LUT = 9; // for invar PHI with two input
+                    }
+                }   
+            }           
+        }
+    }
+    return res;
+}
+
+
+// evaluate the number of LUT needed by the BRAM MUXs
+HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::BRAM_MUX_Evaluate()
+{
+    resourceBase res(0,0,0,clock_period);
+    int LUT_total = 0;
+       
+    for (auto Val_IT : target2LastAccessCycleInBlock)
+    {
+        int access_counter_for_value = 0;
+        *Evaluating_log << " The access to target: [" << Val_IT.first->getName() <<"] includes:\n";
+        for (auto B2Cycles : Val_IT.second)
+        {
+            access_counter_for_value += B2Cycles.second.size();
+            *Evaluating_log << " in block: [" << B2Cycles.first->getName() <<"] cycles: ";
+            for (auto C_tmp : B2Cycles.second)
+                *Evaluating_log << " --- " << C_tmp <<" ";
+            *Evaluating_log << " \n";
+            Evaluating_log->flush();
+        }
+        *Evaluating_log << " \n\n";
+        // This analysis is based on observation
+        if (access_counter_for_value <= 2)
+        {
+            LUT_total += 0;
+        }
+        else if (access_counter_for_value <= 4)
+        {
+            LUT_total += 6;
+        }
+        else 
+        {
+            LUT_total += (access_counter_for_value + 2);
+        }
+    }
+
+    res.LUT = LUT_total * 5;
+    return res;
+}
+
+
+// trace back to find the original operator, bypassing SExt and ZExt operations
+Instruction* HI_NoDirectiveTimingResourceEvaluation::byPassUnregisterOp(Instruction* cur_I)
+{
+                
+    // For ZExt/SExt Instruction, we do not need to consider those constant bits
+    if (/*cur_I->getOpcode() == Instruction::Trunc ||*/ cur_I->getOpcode() == Instruction::ZExt || cur_I->getOpcode() == Instruction::SExt )
+    {
+        if (auto next_I = dyn_cast<Instruction>(cur_I->getOperand(0)))
+        {
+            return byPassUnregisterOp(next_I);
+        }
+        else
+        {
+            assert(false && "Predecessor of bitcast operator should be found.\n");
+        }
+    }
+    // else if ( cur_I->getOpcode() == Instruction::PHI )
+    // {
+    //     int constant_cnt = 0;
+    //     Instruction *I_incoming;
+    //     for (int i = 0 ; i < cur_I->getNumOperands(); ++i )
+    //     {
+    //         if (auto const_val = dyn_cast<Constant>(cur_I->getOperand(i)))
+    //         {
+    //             constant_cnt ++;
+    //         }
+    //         else
+    //         {
+    //             if (auto op_I = dyn_cast<Instruction>(cur_I->getOperand(i)))
+    //             {
+    //                 I_incoming = op_I;
+    //             }
+    //         }            
+    //     }
+    //     if (constant_cnt == 1)
+    //     {
+    //         return byPassUnregisterOp(I_incoming);
+    //     }
+    //     else
+    //     {
+    //         return cur_I;
+    //     }
+        
+    // }
+    else
+    {
+        return cur_I;
+    }    
+}
+
+
+// trace back to find the original operator, bypassing SExt and ZExt operations
+Instruction* HI_NoDirectiveTimingResourceEvaluation::byPassBitcastOp(Instruction* cur_I)
+{
+                
+    // For ZExt/SExt Instruction, we do not need to consider those constant bits
+    if (cur_I->getOpcode() == Instruction::Trunc || cur_I->getOpcode() == Instruction::ZExt || cur_I->getOpcode() == Instruction::SExt )
+    {
+        if (auto next_I = dyn_cast<Instruction>(cur_I->getOperand(0)))
+        {
+            return byPassBitcastOp(next_I);
+        }
+        else
+        {
+            assert(false && "Predecessor of bitcast operator should be found.\n");
+        }
+    }
+    else
+    {
+        return cur_I;
+    }    
+}
+

@@ -34,11 +34,12 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     // A container records the critical path from the block entry to specific instruction
     std::map<Instruction*, timingBase> cur_InstructionCriticalPath; 
 
-    // iterate the instructions in the block
+    // initialize the timing and resource statistics
     timingBase max_critical_path(0,0,1,clock_period);
     timingBase origin_path(0,0,1,clock_period);
+
     resourceBase resourceAccmulator(0,0,0,clock_period);
-    
+
     // (1) iterate the instructions in the block
     if (B->getInstList().size()>1) // ignore block with only branch instruction
     {
@@ -103,12 +104,17 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
                 if (!Chained)
                     resourceAccmulator = resourceAccmulator + getInstructionResource(I);
             }
-            
 
+
+            resourceBase FF_Num(0,0,0,clock_period);
+            resourceBase PHI_LUT_Num(0,0,0,clock_period);
+            FF_Num = FF_Evaluate(cur_InstructionCriticalPath, I);
+            PHI_LUT_Num = IndexVar_LUT(cur_InstructionCriticalPath, I);
+            resourceAccmulator = resourceAccmulator + FF_Num + PHI_LUT_Num;
 
             // (3) get the maximum CP among instructions and take it as the CP of block
             if (cur_InstructionCriticalPath[I] > max_critical_path) max_critical_path = cur_InstructionCriticalPath[I];
-            *Evaluating_log << "--------- Evaluated Instruction critical path for Instruction: <<" << *I <<">> and its CP is :"<< cur_InstructionCriticalPath[I] << " the resource cost is: " << (Chained?(resourceBase(0,0,0,clock_period)):(getInstructionResource(I)) );
+            *Evaluating_log << "--------- Evaluated Instruction critical path for Instruction: <<" << *I <<">> and its CP is :"<< cur_InstructionCriticalPath[I] << " the resource cost is: " << (Chained?(resourceBase(0,0,0,clock_period)):(getInstructionResource(I)) ) << " + reg_FF: [" << FF_Num.FF << "] ";
             if (Chained)
                 *Evaluating_log << "(Chained))";
             else            
@@ -135,4 +141,3 @@ bool HI_NoDirectiveTimingResourceEvaluation::BlockContain(BasicBlock *B, Instruc
 {
     return I->getParent() == B;
 }
-

@@ -37,6 +37,7 @@ include_directories(./ ../../Implementations/
 ../../Implementations/HI_APIntSrcAnalysis
 ../../Implementations/HI_NoDirectiveTimingResourceEvaluation
 ../../Implementations/HI_IntstructionMoveBackward
+../../Implementations/HI_HLSDuplicateInstRm
 )
 
 add_subdirectory(../../Implementations ./building)

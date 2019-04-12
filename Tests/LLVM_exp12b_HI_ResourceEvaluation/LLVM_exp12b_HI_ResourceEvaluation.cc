@@ -34,6 +34,7 @@ int main(int argc, char **argv) {
   // Create a pass manager and fill it with the passes we want to run.
   legacy::PassManager PM,PM1;
   LLVMTargetRef T;
+  ModulePassManager MPM;
 
   char *Error;
 
@@ -51,6 +52,9 @@ int main(int argc, char **argv) {
   Triple ModuleTriple(Mod->getTargetTriple());
   TargetLibraryInfoImpl TLII(ModuleTriple);
   PM1.add(new TargetLibraryInfoWrapperPass(TLII));
+
+  
+  
 
   print_info("Enable LoopSimplify Pass");
   auto loopsimplifypass = createLoopSimplifyPass();
@@ -91,6 +95,13 @@ int main(int argc, char **argv) {
   auto hi_varwidthreduce = new HI_VarWidthReduce("VarWidth");
   PM1.add(hi_varwidthreduce);
   print_info("Enable HI_VarWidthReduce Pass");
+
+  // don't remove chained operations
+  auto hi_hlsduplicateinstrm = new HI_HLSDuplicateInstRm("HLSrmInsts");
+  PM1.add(hi_hlsduplicateinstrm);
+  print_info("Enable HI_HLSDuplicateInstRm Pass");
+
+  
 
   // PM.add(createCorrelatedValuePropagationPass());
   // print_info("Enable CorrelatedValuePropagation Pass");

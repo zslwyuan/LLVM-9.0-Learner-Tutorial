@@ -58,6 +58,7 @@
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DIBuilder.h"
@@ -94,4 +95,5 @@
 #include "HI_VarWidthReduce.h"
 #include "HI_NoDirectiveTimingResourceEvaluation.h"
 #include "HI_IntstructionMoveBackward.h"
+#include "HI_HLSDuplicateInstRm.h"
 // #include "X86TargetMachine.h"
