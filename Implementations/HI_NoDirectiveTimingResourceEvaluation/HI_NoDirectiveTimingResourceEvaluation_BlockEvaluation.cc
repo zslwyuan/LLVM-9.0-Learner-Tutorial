@@ -28,7 +28,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     if (BlockLatency.find(B) != BlockLatency.end()) 
     {
         *Evaluating_log << "---- Done evaluation of Block Latency for Block: " << B->getName() <<" and the latency is "<< BlockLatency[B] <<"\n";
-        return BlockLatency[B]; // if B is evaluated, return directly.
+        return BlockLatency[B]*1; // if B is evaluated, return directly.
     }
     
     // A container records the critical path from the block entry to specific instruction
@@ -110,11 +110,12 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
             resourceBase PHI_LUT_Num(0,0,0,clock_period);
             FF_Num = FF_Evaluate(cur_InstructionCriticalPath, I);
             PHI_LUT_Num = IndexVar_LUT(cur_InstructionCriticalPath, I);
+           // cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I] + PHI_LUT_Num;
             resourceAccmulator = resourceAccmulator + FF_Num + PHI_LUT_Num;
 
             // (3) get the maximum CP among instructions and take it as the CP of block
             if (cur_InstructionCriticalPath[I] > max_critical_path) max_critical_path = cur_InstructionCriticalPath[I];
-            *Evaluating_log << "--------- Evaluated Instruction critical path for Instruction: <<" << *I <<">> and its CP is :"<< cur_InstructionCriticalPath[I] << " the resource cost is: " << (Chained?(resourceBase(0,0,0,clock_period)):(getInstructionResource(I)) ) << " + reg_FF: [" << FF_Num.FF << "] ";
+            *Evaluating_log << "--------- Evaluated Instruction critical path for Instruction: <<" << *I <<">> and its CP is :"<< cur_InstructionCriticalPath[I] << " the resource cost is: " << (Chained?(resourceBase(0,0,0,clock_period)):(getInstructionResource(I)+PHI_LUT_Num) ) << " + reg_FF: [" << FF_Num.FF << "] ";
             if (Chained)
                 *Evaluating_log << "(Chained))";
             else            

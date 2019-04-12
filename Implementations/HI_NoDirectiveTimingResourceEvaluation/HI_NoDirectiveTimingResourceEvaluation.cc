@@ -126,6 +126,8 @@ void HI_NoDirectiveTimingResourceEvaluation::AnalyzeFunctions(Module &M)
 
 void HI_NoDirectiveTimingResourceEvaluation::analyzeTopFunction(Module &M)
 {
+    int state_total_num = getTotalStateNum(M);
+    int LUT_needed_by_FSM = state_total_num*5;
     for (auto &F : M)
     {
         std::string mangled_name = F.getName();
@@ -142,7 +144,7 @@ void HI_NoDirectiveTimingResourceEvaluation::analyzeTopFunction(Module &M)
             std::string printOut("");
             FunctionResource[&F] = FunctionResource[&F] + BRAM_MUX_Evaluate();
             // print out the information of top function in terminal
-            printOut = "Done latency evaluation of top function: [" + demangled_name + "] and its latency is " + std::to_string(top_function_latency) + " and its resource cost is [DSP=" + std::to_string(FunctionResource[&F].DSP) + ", FF=" + std::to_string(FunctionResource[&F].FF) + ", LUT=" + std::to_string(FunctionResource[&F].LUT) + "]";
+            printOut = "Done latency evaluation of top function: [" + demangled_name + "] and its latency is " + std::to_string(top_function_latency) + " the state num is: " + std::to_string(state_total_num) + " and its resource cost is [DSP=" + std::to_string(FunctionResource[&F].DSP) + ", FF=" + std::to_string(FunctionResource[&F].FF) + ", LUT=" + std::to_string(FunctionResource[&F].LUT +  LUT_needed_by_FSM) + "]";
             print_info(printOut);
         }
     }
@@ -157,4 +159,19 @@ void HI_NoDirectiveTimingResourceEvaluation::TraceMemoryDeclarationinModule(Modu
         demangled_name = demangeFunctionName(mangled_name);
         findMemoryDeclarationin(&F, demangled_name == top_function_name);        
     }
+}
+
+int HI_NoDirectiveTimingResourceEvaluation::getTotalStateNum(Module &M)
+{
+    int state_total = 0;
+    for (auto &F : M)
+    {
+        BasicBlock *Func_Entry = &(F.getEntryBlock()); //get the entry of the function
+        timingBase origin_path_in_F(0,0,1,clock_period);
+        tmp_BlockCriticalPath_inFunc.clear(); // record the block level critical path in the loop
+        tmp_LoopCriticalPath_inFunc.clear(); // record the critical path to the end of sub-loops in the loop
+        Func_BlockVisited.clear();
+        state_total += getFunctionStageNum(origin_path_in_F, &F, Func_Entry) ; 
+    }
+    return state_total + 2;  // TODO: check +2 is for function or module (reset/idle)
 }

@@ -195,8 +195,42 @@ void HI_NoDirectiveTimingResourceEvaluation::analyzeFunction_traverseFromEntryTo
     Func_BlockVisited.erase(curBlock);
 }
 
+int HI_NoDirectiveTimingResourceEvaluation::getFunctionStageNum(HI_NoDirectiveTimingResourceEvaluation::timingBase tmp_critical_path, Function *F, BasicBlock* curBlock)
+{
+
+    // (1) Mark the block visited, as a step of typical DFS
+    Func_BlockVisited.insert(curBlock);
+    timingBase latency_CurBlock = BlockLatencyResourceEvaluation(curBlock); // first, get the latency of the current block
+    
+    std::string Block_name = curBlock->getName();
+
+    for (auto &I : *curBlock)
+    {
+        if (auto call_I = dyn_cast<CallInst>(&I))
+        {
+            latency_CurBlock = latency_CurBlock - FunctionLatency[call_I->getCalledFunction()]; latency_CurBlock.latency++;
+        }
+    }
+
+    timingBase try_critical_path = tmp_critical_path + latency_CurBlock*1;
+
+    int CP = (try_critical_path*1).latency;
+    for (auto B : successors(curBlock))
+    {
+        if (F == B->getParent() && Func_BlockVisited.find(B) == Func_BlockVisited.end())
+        {                 
+            int tmp = getFunctionStageNum(try_critical_path*1, F, B);
+            if (tmp > CP)            
+                CP = tmp;            
+        }
+    }        
+
+    Func_BlockVisited.erase(curBlock);
+
+    return CP;
+}
+
 HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::getFunctionResource(Function *F)
 {
-    resourceBase res(0,0,0,clock_period);
-    return res;
+    return FunctionResource[F];
 }

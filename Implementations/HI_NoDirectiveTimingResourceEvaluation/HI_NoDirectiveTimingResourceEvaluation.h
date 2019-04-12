@@ -255,7 +255,13 @@ public:
     timingBase analyzeFunction(Function* F);
 
     // return the resource cost of the function
-    resourceBase getFunctionResource(Function* F);
+    resourceBase getFunctionResource(Function *F);
+
+    // get how many state needed for the function
+    int getFunctionStageNum(timingBase tmp_critical_path, Function *F, BasicBlock* curBlock);
+
+    // get how many state needed for the application
+    int getTotalStateNum(Module &M);
 
     // get the function critical path by traversing the blocks based on DFS and compute the resource cost
     void analyzeFunction_traverseFromEntryToExiting(timingBase tmp_critical_path, Function *F, BasicBlock* curBlock, resourceBase &resourceAccumulator);
@@ -432,6 +438,14 @@ public:
             lhs.timing = rhs.timing;
             lhs.latency++;
         }
+        return lhs;
+    }
+
+
+    friend timingBase operator-(timingBase lhs, timingBase rhs)
+    {
+        assert(lhs.clock_period == rhs.clock_period);
+        lhs.latency -=  rhs.latency;
         return lhs;
     }
 

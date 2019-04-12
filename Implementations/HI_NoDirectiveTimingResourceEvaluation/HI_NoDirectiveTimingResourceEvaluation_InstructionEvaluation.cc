@@ -785,7 +785,7 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
                 if (BlockContain(I->getParent(), I_Pred))
                 {
                     // may be the operand is operated later, especially for phi insturction in loop
-                    if (cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
+                    if (cur_InstructionCriticalPath.find(I_Pred) == cur_InstructionCriticalPath.end())
                     {
                         res.LUT = 9; // for invar PHI with two input
                     }
