@@ -152,6 +152,10 @@ public:
 
     virtual bool runOnModule(Module &M); 
 
+
+//////////////////// Declaration related to timing and resource evaluation of Basic Block/Loop/Function ////////////////////  
+
+
     // check whether the block is in some loops
     bool isInLoop(BasicBlock *BB); 
 
@@ -290,8 +294,8 @@ public:
     // get the relationship between loops and blocks
     void getLoopBlockMap(Function* F);
 
-    // Trace Memory Declaration in Module
-    void TraceMemoryDeclarationinModule(Module &M);
+    // Calculate the LUT for state
+    int LUT_for_FSM(int stateNum);
 
     // some LLVM analysises could be involved
     ScalarEvolution *SE;
@@ -445,6 +449,11 @@ public:
     friend timingBase operator-(timingBase lhs, timingBase rhs)
     {
         assert(lhs.clock_period == rhs.clock_period);
+        if (rhs.latency < 0) // for operation like br/ret
+        {
+            lhs.latency--;
+            return lhs;
+        }
         lhs.latency -=  rhs.latency;
         return lhs;
     }
@@ -586,9 +595,6 @@ public:
     // evaluate the number of LUT needed by the PHI instruction
     resourceBase IndexVar_LUT(std::map<Instruction*, timingBase> &cur_InstructionCriticalPath, Instruction* I);
 
-    // evaluate the number of LUT needed by the BRAM Mux
-    resourceBase BRAM_MUX_Evaluate();
-
     // check whether a specific information is in the database
     bool checkInfoAvailability(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
 
@@ -615,16 +621,40 @@ public:
 
 //////////////////// Declaration related to Memory Access Tracing ////////////////////  
  
+    // record which target arrays the instruction may access
     std::map<Instruction*,std::vector<Value*>> Access2TargetMap;
-    std::map<Value*, std::map<BasicBlock*,std::vector<int>>> target2LastAccessCycleInBlock;
+
+    // record that in the basic block, which instruction access which array at which cycle
+    std::map<Value*, std::map<BasicBlock*,std::vector<std::pair<int,Instruction*>>>> target2LastAccessCycleInBlock;
+
+    // record the access take place in which cycle
     std::map<std::pair<Instruction*,Value*>,timingBase> scheduledAccess_timing;
+
+    // Trace Memory Declaration in Module
+    void TraceMemoryDeclarationinModule(Module &M);
+
+    // find the array declaration in the function F
     void findMemoryDeclarationin(Function *F, bool isTopFunction);
+
+    // find out which instrctuins are related to the array
     void TraceAccessForTarget(Value *cur_node,Value *ori_node);
 
-    timingBase scheduleBRAMAccess(Instruction *access, BasicBlock *cur_block,  timingBase cur_Timing);
-    timingBase handleBRAMAccessFor(Instruction *access, Value *target, BasicBlock *cur_block,  timingBase cur_Timing);
+    // check whether the access to target array can be scheduled in a specific cycle
     bool checkBRAMAvailabilty(Value *target, std::string StoreOrLoad, BasicBlock *cur_block, timingBase cur_Timing);
-    void insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int cur_latency);
+
+    // schedule the access to potential target (since an instructon may use an address in different target, we need to schedule all of them)
+    timingBase scheduleBRAMAccess(Instruction *access, BasicBlock *cur_block,  timingBase cur_Timing);
+
+    // schedule the access to specific target for the instruction
+    timingBase handleBRAMAccessFor(Instruction *access, Value *target, BasicBlock *cur_block,  timingBase cur_Timing);
+    
+    // record the schedule information
+    void insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int cur_latency, Instruction* access);
+
+    // evaluate the number of LUT needed by the BRAM Mux
+    resourceBase BRAM_MUX_Evaluate();
+
+
 };
 
 #endif

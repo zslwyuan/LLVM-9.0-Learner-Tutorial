@@ -127,7 +127,7 @@ void HI_NoDirectiveTimingResourceEvaluation::AnalyzeFunctions(Module &M)
 void HI_NoDirectiveTimingResourceEvaluation::analyzeTopFunction(Module &M)
 {
     int state_total_num = getTotalStateNum(M);
-    int LUT_needed_by_FSM = state_total_num*5;
+    int LUT_needed_by_FSM = LUT_for_FSM(state_total_num);
     for (auto &F : M)
     {
         std::string mangled_name = F.getName();
@@ -174,4 +174,11 @@ int HI_NoDirectiveTimingResourceEvaluation::getTotalStateNum(Module &M)
         state_total += getFunctionStageNum(origin_path_in_F, &F, Func_Entry) ; 
     }
     return state_total + 2;  // TODO: check +2 is for function or module (reset/idle)
+}
+
+int HI_NoDirectiveTimingResourceEvaluation::LUT_for_FSM(int stateNum)
+{
+    double x = stateNum;
+    double y = -0.44444444444444475*x*x+10.555555555555559*x-14.11111111111112;
+    return round(y);
 }

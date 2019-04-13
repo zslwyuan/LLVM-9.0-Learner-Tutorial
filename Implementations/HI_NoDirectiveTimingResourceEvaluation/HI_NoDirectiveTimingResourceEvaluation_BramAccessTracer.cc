@@ -200,7 +200,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
         *BRAM_log << "    cur_timing is " << cur_Timing << " opTiming is " << get_inst_TimingInfo_result(LoadOrStore.c_str(),-1,-1,clock_period_str) << " ";
         scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)] = cur_Timing+get_inst_TimingInfo_result(LoadOrStore.c_str(),-1,-1,clock_period_str);
         *BRAM_log << "resultTiming is "<< scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)] << "\n";
-        insertBRAMAccessInfo(target, cur_block, cur_Timing.latency);
+        insertBRAMAccessInfo(target, cur_block, cur_Timing.latency, access);
         return scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)];
     }
     else
@@ -214,7 +214,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
             {
                 *BRAM_log << "    the access instruction: " << *access << " for the target [" << target->getName() << "] can be scheduled in cycle #" <<cur_Timing.latency << " of Block:" << cur_block->getName() <<"\n";
                 scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)] = cur_Timing+get_inst_TimingInfo_result(LoadOrStore.c_str(),-1,-1,clock_period_str);
-                insertBRAMAccessInfo(target, cur_block, cur_Timing.latency);
+                insertBRAMAccessInfo(target, cur_block, cur_Timing.latency, access);
                 return scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)];
             }
             BRAM_log->flush();
@@ -252,9 +252,9 @@ bool HI_NoDirectiveTimingResourceEvaluation::checkBRAMAvailabilty(Value *target,
         return true;
     }
     int cnt = 0;
-    for (int lat : target2LastAccessCycleInBlock[target][cur_block])
+    for (auto lat_Inst_pair : target2LastAccessCycleInBlock[target][cur_block])
     {
-        if (lat == cur_Timing.latency)
+        if (lat_Inst_pair.first == cur_Timing.latency)
             cnt ++;
     }
     *BRAM_log << cnt << " access(es) in this cycle\n";
@@ -263,14 +263,14 @@ bool HI_NoDirectiveTimingResourceEvaluation::checkBRAMAvailabilty(Value *target,
     return false;
 }
 
-void HI_NoDirectiveTimingResourceEvaluation::insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int cur_latency)
+void HI_NoDirectiveTimingResourceEvaluation::insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int cur_latency, Instruction* access)
 {
     *BRAM_log << "       inserting the access to the target [" << target->getName() << "] in cycle #" << cur_latency << " of Block:" << cur_block->getName() << "  --> ";
     if (target2LastAccessCycleInBlock.find(target) == target2LastAccessCycleInBlock.end())
     {
-        std::map<BasicBlock*,std::vector<int>> tmp_map;
-        std::vector<int> tmp_vec;
-        tmp_vec.push_back(cur_latency);
+        std::map<BasicBlock*,std::vector<std::pair<int,Instruction*>>> tmp_map;
+        std::vector<std::pair<int,Instruction*>> tmp_vec;
+        tmp_vec.push_back(std::pair<int,Instruction*>(cur_latency,access));
         tmp_map[cur_block] = tmp_vec;
         target2LastAccessCycleInBlock[target] = tmp_map;
         *BRAM_log << "(new map new vector)\n";
@@ -278,12 +278,97 @@ void HI_NoDirectiveTimingResourceEvaluation::insertBRAMAccessInfo(Value *target,
     }
     if (target2LastAccessCycleInBlock[target].find(cur_block) == target2LastAccessCycleInBlock[target].end())
     {
-        std::vector<int> tmp_vec;
-        tmp_vec.push_back(cur_latency);
+        std::vector<std::pair<int,Instruction*>> tmp_vec;
+        tmp_vec.push_back(std::pair<int,Instruction*>(cur_latency,access));
         target2LastAccessCycleInBlock[target][cur_block] = tmp_vec;
         *BRAM_log << "(new vector)\n";
         return;
     }
     *BRAM_log << "(existed vector)\n";
-    target2LastAccessCycleInBlock[target][cur_block].push_back(cur_latency);
+    target2LastAccessCycleInBlock[target][cur_block].push_back(std::pair<int,Instruction*>(cur_latency,access));
+}
+
+
+
+// evaluate the number of LUT needed by the BRAM MUXs
+HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::BRAM_MUX_Evaluate()
+{
+    resourceBase res(0,0,0,clock_period);
+    int inputSize = 0;
+       
+    for (auto Val_IT : target2LastAccessCycleInBlock)
+    {
+        int access_counter_for_value = 0;
+        int read_counter_for_value = 0;
+        int write_counter_for_value = 0;
+        *Evaluating_log << " The access to target: [" << Val_IT.first->getName() <<"] includes:\n";
+        for (auto B2Cycles : Val_IT.second)
+        {
+            access_counter_for_value += B2Cycles.second.size();
+            *Evaluating_log << " in block: [" << B2Cycles.first->getName() <<"] cycles: ";
+            for (auto C_tmp : B2Cycles.second)
+            {                
+                if (auto readI = dyn_cast<LoadInst>(C_tmp.second))
+                {
+                    read_counter_for_value ++ ;
+                    *Evaluating_log << " --- R" << C_tmp.first <<" ";
+                }
+                if (auto writeI = dyn_cast<StoreInst>(C_tmp.second))
+                {
+                    write_counter_for_value ++ ;
+                    *Evaluating_log << " --- W" << C_tmp.first <<" ";
+                }
+            }
+            *Evaluating_log << " \n";
+            Evaluating_log->flush();
+        }
+        *Evaluating_log << " \n\n";
+
+        // This analysis is based on observation
+        if (access_counter_for_value <= 2)
+        {
+            if (read_counter_for_value == 1)
+            {
+                inputSize += 3;            
+            }
+        }
+        else if (access_counter_for_value <= 4)
+        {
+            if (access_counter_for_value == 3)
+            {
+                if (read_counter_for_value == 3)
+                {
+                    inputSize += 3; 
+                }
+                else if (write_counter_for_value == 3)
+                {
+                    inputSize += 4; 
+                }
+                else  if (read_counter_for_value == 2)
+                {
+                    inputSize += 4; 
+                } 
+                else  if (write_counter_for_value == 2)
+                {
+                    inputSize += 4; 
+                }
+                else
+                {
+                    inputSize += 3; 
+                }
+            }
+            else
+            {
+                inputSize += 6;
+            }
+        }
+        else 
+        {
+            inputSize += (access_counter_for_value + 2);
+        }
+    }
+
+    res.LUT = inputSize * 5;
+    return res;
+
 }

@@ -290,15 +290,17 @@ bool HI_NoDirectiveTimingResourceEvaluation::isAMApossible(Instruction *PredI,In
     // for the GEP MAA, consider to transform it into AMA
     if (I->getOpcode()==Instruction::Add)
     {
-        if (PredI->getOpcode()==Instruction::Add)
+        Instruction* ori_PredI = byPassBitcastOp(PredI);
+        if (ori_PredI->getOpcode()==Instruction::Add)
         {
-            Value *op0 = (PredI->getOperand(0));
-            Value *op1 = (PredI->getOperand(1));
-            if (auto Pred_Pred_I = dyn_cast<Instruction>(op0))
+            if (auto Pred_Pred_I = dyn_cast<Instruction>(ori_PredI->getOperand(0)))
             {
-                if (Pred_Pred_I->getOpcode()==Instruction::Mul)
+                Instruction* ori_Pred_Pred_I = byPassBitcastOp(Pred_Pred_I);
+                if (ori_Pred_Pred_I->getOpcode()==Instruction::Mul)
                 {
-                    if (auto Pred_Pred_I_const = dyn_cast<ConstantInt>(Pred_Pred_I->getOperand(1)))
+                    Value *op0 = (ori_Pred_Pred_I->getOperand(0));
+                    Value *op1 = (ori_Pred_Pred_I->getOperand(1));
+                    if (auto Pred_Pred_I_const = dyn_cast<ConstantInt>(ori_Pred_Pred_I->getOperand(1)))
                     {
                         if (auto I_const = dyn_cast<ConstantInt>(I->getOperand(1)))
                         {
@@ -306,11 +308,25 @@ bool HI_NoDirectiveTimingResourceEvaluation::isAMApossible(Instruction *PredI,In
                             long long mul_const = (Pred_Pred_I_const->getValue().getSExtValue());
                             if (add_const % mul_const == 0)
                             {
-                                return (getOriginalBitwidth(op0)<=18) && (getOriginalBitwidth(op1)<=18) && (Pred_Pred_I->getType()->getIntegerBitWidth()<=48);
+                                return (getOriginalBitwidth(op0)<=18) && (getOriginalBitwidth(op1)<=18) && (ori_Pred_Pred_I->getType()->getIntegerBitWidth()<=48);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (auto Pred_Pred_I_op1 = dyn_cast<Instruction>(ori_Pred_Pred_I->getOperand(1)))
+                        {
+                            if (auto I_op1 = dyn_cast<Instruction>(I->getOperand(1)))
+                            {
+                                if (I_op1 == Pred_Pred_I_op1)
+                                {
+                                    return (getOriginalBitwidth(op0)<=18) && (getOriginalBitwidth(op1)<=18) && (ori_Pred_Pred_I->getType()->getIntegerBitWidth()<=48);
+                                }
                             }
                         }
                     }
                 }
+                
             }
         }
     }    
@@ -575,7 +591,7 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
                     if (BlockContain(I->getParent(), l2_pred))
                     {
                         if (cur_InstructionCriticalPath.find(l2_pred) != cur_InstructionCriticalPath.end())
-                            if (cur_InstructionCriticalPath[l2_pred].latency  == (cur_InstructionCriticalPath[I].latency - getInstructionLatency(I).latency))
+                            if (cur_InstructionCriticalPath[l2_pred].latency  == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency)// WARNING: there are instructions with negative latency in the libraries
                                 return res;
                     }
                     
@@ -611,6 +627,7 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
                     Instruction* ori_I = byPassUnregisterOp(zext_I);
                     if (Instruction_FFAssigned.find(ori_I) == Instruction_FFAssigned.end())
                     {
+
                         minBW = zext_I->getSrcTy()->getIntegerBitWidth();
                         Instruction_FFAssigned.insert(ori_I);
                     }
@@ -628,6 +645,9 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
                     }                 
                 }
                     
+                if (cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
+                    if (cur_InstructionCriticalPath[I_Pred].latency  == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency)// WARNING: there are instructions with negative latency in the libraries
+                        return res;
 
                 res.FF += minBW;
                 
@@ -656,8 +676,13 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
                     if (BlockContain(I->getParent(), l2_pred))
                     {
                         if (cur_InstructionCriticalPath.find(l2_pred) != cur_InstructionCriticalPath.end())
-                            if (cur_InstructionCriticalPath[l2_pred].latency  == (cur_InstructionCriticalPath[I].latency - getInstructionLatency(I).latency))
+                        {
+                            int a =  cur_InstructionCriticalPath[l2_pred].latency;
+                            int b = cur_InstructionCriticalPath[I].latency;
+                            int c = getInstructionLatency(I).latency;
+                            if (cur_InstructionCriticalPath[l2_pred].latency  == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency)// WARNING: there are instructions with negative latency in the libraries
                                 return res;
+                        }
                     }
                     
                     // For ZExt/SExt Instruction, we do not need to consider those constant bits
@@ -709,7 +734,7 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
             {
                 // may be the operand is operated later, especially for phi insturction in loop
                 if (cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
-                    if (cur_InstructionCriticalPath[I_Pred].latency == (cur_InstructionCriticalPath[I].latency - getInstructionLatency(I).latency))
+                    if (cur_InstructionCriticalPath[I_Pred].latency == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency) // WARNING: there are instructions with negative latency in the libraries
                         continue;
             }           
 
@@ -797,46 +822,6 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
 }
 
 
-// evaluate the number of LUT needed by the BRAM MUXs
-HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::BRAM_MUX_Evaluate()
-{
-    resourceBase res(0,0,0,clock_period);
-    int LUT_total = 0;
-       
-    for (auto Val_IT : target2LastAccessCycleInBlock)
-    {
-        int access_counter_for_value = 0;
-        *Evaluating_log << " The access to target: [" << Val_IT.first->getName() <<"] includes:\n";
-        for (auto B2Cycles : Val_IT.second)
-        {
-            access_counter_for_value += B2Cycles.second.size();
-            *Evaluating_log << " in block: [" << B2Cycles.first->getName() <<"] cycles: ";
-            for (auto C_tmp : B2Cycles.second)
-                *Evaluating_log << " --- " << C_tmp <<" ";
-            *Evaluating_log << " \n";
-            Evaluating_log->flush();
-        }
-        *Evaluating_log << " \n\n";
-        // This analysis is based on observation
-        if (access_counter_for_value <= 2)
-        {
-            LUT_total += 0;
-        }
-        else if (access_counter_for_value <= 4)
-        {
-            LUT_total += 6;
-        }
-        else 
-        {
-            LUT_total += (access_counter_for_value + 2);
-        }
-    }
-
-    res.LUT = LUT_total * 5;
-    return res;
-}
-
-
 // trace back to find the original operator, bypassing SExt and ZExt operations
 Instruction* HI_NoDirectiveTimingResourceEvaluation::byPassUnregisterOp(Instruction* cur_I)
 {
@@ -893,7 +878,7 @@ Instruction* HI_NoDirectiveTimingResourceEvaluation::byPassBitcastOp(Instruction
 {
                 
     // For ZExt/SExt Instruction, we do not need to consider those constant bits
-    if (cur_I->getOpcode() == Instruction::Trunc || cur_I->getOpcode() == Instruction::ZExt || cur_I->getOpcode() == Instruction::SExt )
+    if (/*cur_I->getOpcode() == Instruction::Trunc || */cur_I->getOpcode() == Instruction::ZExt || cur_I->getOpcode() == Instruction::SExt )
     {
         if (auto next_I = dyn_cast<Instruction>(cur_I->getOperand(0)))
         {
