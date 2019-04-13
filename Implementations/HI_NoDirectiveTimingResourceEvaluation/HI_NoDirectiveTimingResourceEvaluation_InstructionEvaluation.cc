@@ -168,6 +168,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     else if (StoreInst *SI = dyn_cast<StoreInst>(I))
     {
         result = get_inst_TimingInfo_result("store",-1,-1,clock_period_str);
+        result.strict_timing = true;
         return result;
     }
     else if (LoadInst *LI = dyn_cast<LoadInst>(I))

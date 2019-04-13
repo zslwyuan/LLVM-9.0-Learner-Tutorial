@@ -152,6 +152,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     result.latency = info.Lat;
     result.timing = info.delay;
     result.II = info.II;
+   // result.strict_timing = "store"==opcode;  // TODO: turn the strict timing option into library
     return result; 
 }
 

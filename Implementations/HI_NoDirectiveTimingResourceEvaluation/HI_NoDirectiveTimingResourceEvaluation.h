@@ -11,6 +11,8 @@
     #define CertaintyRatio (7.0/8.0)
 #endif
 
+#define Strict_LoadStore_Thredhold 3.25
+#define Strict_CertaintyRatio (7.0/8.0)
 
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
@@ -393,6 +395,7 @@ public:
                 II=input.II;
                 timing=input.timing;
                 clock_period=input.clock_period;
+                strict_timing = input.strict_timing;
             }
 
             timingBase(const timingBase& input)
@@ -401,6 +404,7 @@ public:
                 II=input.II;
                 timing=input.timing;
                 clock_period=input.clock_period;
+                strict_timing = input.strict_timing;
             }
             timingBase()
             {
@@ -409,6 +413,7 @@ public:
                 timing=0;
                 clock_period=0;
             }
+        bool strict_timing = false;
     };
 
     friend timingBase operator+(timingBase lhs, timingBase rhs)
@@ -420,27 +425,61 @@ public:
             lhs.latency++;
             return lhs;
         }
-        if (rhs.latency==-2) // for operation like load
+        if (rhs.strict_timing)
         {
-            if (lhs.clock_period-lhs.timing>LoadStore_Thredhold)
+            if (rhs.latency==-2) // for operation like load
+            {
+                if (lhs.clock_period-lhs.timing>Strict_LoadStore_Thredhold)
+                {
+                    lhs.timing = rhs.timing;
+                    lhs.latency++;
+                    return lhs;
+                }
+                else
+                {
+                    lhs.timing = rhs.timing;
+                    lhs.latency+=2;
+                    return lhs;
+                }      
+            }
+        }
+        else
+        {
+            if (rhs.latency==-2) // for operation like load
+            {
+                if (lhs.clock_period-lhs.timing>LoadStore_Thredhold)
+                {
+                    lhs.timing = rhs.timing;
+                    lhs.latency++;
+                    return lhs;
+                }
+                else
+                {
+                    lhs.timing = rhs.timing;
+                    lhs.latency+=2;
+                    return lhs;
+                }      
+            }
+        }
+
+
+        lhs.latency = lhs.latency + rhs.latency;
+        lhs.timing = lhs.timing + rhs.timing;
+        if (rhs.strict_timing)
+        {
+            if (lhs.timing > lhs.clock_period*Strict_CertaintyRatio)
             {
                 lhs.timing = rhs.timing;
                 lhs.latency++;
-                return lhs;
             }
-            else
+        }
+        else
+        {
+            if (lhs.timing > lhs.clock_period*CertaintyRatio)
             {
                 lhs.timing = rhs.timing;
-                lhs.latency+=2;
-                return lhs;
-            }      
-        }
-        lhs.latency = lhs.latency + rhs.latency;
-        lhs.timing = lhs.timing + rhs.timing;
-        if (lhs.timing > lhs.clock_period*CertaintyRatio)
-        {
-            lhs.timing = rhs.timing;
-            lhs.latency++;
+                lhs.latency++;
+            }
         }
         return lhs;
     }
@@ -640,7 +679,7 @@ public:
     void TraceAccessForTarget(Value *cur_node,Value *ori_node);
 
     // check whether the access to target array can be scheduled in a specific cycle
-    bool checkBRAMAvailabilty(Value *target, std::string StoreOrLoad, BasicBlock *cur_block, timingBase cur_Timing);
+    bool checkBRAMAvailabilty(Instruction* access, Value *target, std::string StoreOrLoad, BasicBlock *cur_block, timingBase cur_Timing);
 
     // schedule the access to potential target (since an instructon may use an address in different target, we need to schedule all of them)
     timingBase scheduleBRAMAccess(Instruction *access, BasicBlock *cur_block,  timingBase cur_Timing);

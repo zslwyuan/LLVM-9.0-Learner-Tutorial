@@ -194,11 +194,11 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     else    
         LoadOrStore = "load";   
 
-    if (checkBRAMAvailabilty(target, LoadOrStore, cur_block, cur_Timing))
+    if (checkBRAMAvailabilty(access, target, LoadOrStore, cur_block, cur_Timing))
     {        
         *BRAM_log << "    the access instruction: " << *access << " for the target [" << target->getName() << "] can be scheduled in cycle #" <<cur_Timing.latency << " of Block:" << cur_block->getName() <<"\n";
-        *BRAM_log << "    cur_timing is " << cur_Timing << " opTiming is " << get_inst_TimingInfo_result(LoadOrStore.c_str(),-1,-1,clock_period_str) << " ";
-        scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)] = cur_Timing+get_inst_TimingInfo_result(LoadOrStore.c_str(),-1,-1,clock_period_str);
+        *BRAM_log << "    cur_timing is " << cur_Timing << " opTiming is " << getInstructionLatency(access) << " ";
+        scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)] = cur_Timing + getInstructionLatency(access);
         *BRAM_log << "resultTiming is "<< scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)] << "\n";
         insertBRAMAccessInfo(target, cur_block, cur_Timing.latency, access);
         return scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)];
@@ -210,10 +210,10 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
             *BRAM_log << "    the access instruction: " << *access << " for the target [" << target->getName() << "] CANNOT be scheduled in cycle #" <<cur_Timing.latency << " of Block:" << cur_block->getName() <<"\n";
             cur_Timing.latency++;
             cur_Timing.timing=0;
-            if (checkBRAMAvailabilty(target, LoadOrStore, cur_block, cur_Timing))
+            if (checkBRAMAvailabilty(access, target, LoadOrStore, cur_block, cur_Timing))
             {
                 *BRAM_log << "    the access instruction: " << *access << " for the target [" << target->getName() << "] can be scheduled in cycle #" <<cur_Timing.latency << " of Block:" << cur_block->getName() <<"\n";
-                scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)] = cur_Timing+get_inst_TimingInfo_result(LoadOrStore.c_str(),-1,-1,clock_period_str);
+                scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)] = cur_Timing + getInstructionLatency(access);
                 insertBRAMAccessInfo(target, cur_block, cur_Timing.latency, access);
                 return scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)];
             }
@@ -223,10 +223,10 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     BRAM_log->flush();
 }
 
-bool HI_NoDirectiveTimingResourceEvaluation::checkBRAMAvailabilty(Value *target, std::string StoreOrLoad, BasicBlock *cur_block, HI_NoDirectiveTimingResourceEvaluation::timingBase cur_Timing)
+bool HI_NoDirectiveTimingResourceEvaluation::checkBRAMAvailabilty(Instruction* access, Value *target, std::string StoreOrLoad, BasicBlock *cur_block, HI_NoDirectiveTimingResourceEvaluation::timingBase cur_Timing)
 {
     *BRAM_log << "       checking the access to the target [" << target->getName() << "] in cycle #" << cur_Timing.latency << " of Block:" << cur_block->getName() <<"  --> ";
-    timingBase opTiming = get_inst_TimingInfo_result(StoreOrLoad.c_str(),-1,-1,clock_period_str);
+    timingBase opTiming =  getInstructionLatency(access); // get_inst_TimingInfo_result(StoreOrLoad.c_str(),-1,-1,clock_period_str);
     timingBase res = cur_Timing + opTiming;
 
     if (StoreOrLoad == "load" && (res.latency-1 != cur_Timing.latency))
