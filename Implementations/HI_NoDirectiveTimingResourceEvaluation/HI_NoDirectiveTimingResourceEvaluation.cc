@@ -128,6 +128,7 @@ void HI_NoDirectiveTimingResourceEvaluation::analyzeTopFunction(Module &M)
 {
     int state_total_num = getTotalStateNum(M);
     int LUT_needed_by_FSM = LUT_for_FSM(state_total_num);
+    int FF_needed_by_FSM = state_total_num;
     for (auto &F : M)
     {
         std::string mangled_name = F.getName();
@@ -144,7 +145,7 @@ void HI_NoDirectiveTimingResourceEvaluation::analyzeTopFunction(Module &M)
             std::string printOut("");
             FunctionResource[&F] = FunctionResource[&F] + BRAM_MUX_Evaluate();
             // print out the information of top function in terminal
-            printOut = "Done latency evaluation of top function: [" + demangled_name + "] and its latency is " + std::to_string(top_function_latency) + " the state num is: " + std::to_string(state_total_num) + " and its resource cost is [DSP=" + std::to_string(FunctionResource[&F].DSP) + ", FF=" + std::to_string(FunctionResource[&F].FF) + ", LUT=" + std::to_string(FunctionResource[&F].LUT +  LUT_needed_by_FSM) + "]";
+            printOut = "Done latency evaluation of top function: [" + demangled_name + "] and its latency is " + std::to_string(top_function_latency) + " the state num is: " + std::to_string(state_total_num) + " and its resource cost is [DSP=" + std::to_string(FunctionResource[&F].DSP) + ", FF=" + std::to_string(FunctionResource[&F].FF+FF_needed_by_FSM) + ", LUT=" + std::to_string(FunctionResource[&F].LUT +  LUT_needed_by_FSM) + "]";
             print_info(printOut);
         }
     }

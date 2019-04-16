@@ -87,6 +87,7 @@ public:
         Evaluating_log = new raw_fd_ostream(evaluating_log_name, ErrInfo, sys::fs::F_None);
         BRAM_log = new raw_fd_ostream(BRAM_log_name, ErrInfo, sys::fs::F_None);
         top_function_name = std::string(top_function);
+        FF_log = new raw_fd_ostream("FF_LOG", ErrInfo, sys::fs::F_None);
 
         // get the configureation from the file, e.g. clock period
         Parse_Config();
@@ -214,6 +215,9 @@ public:
     // record the information of the BRAMs and related accesses to BRAMs
     raw_ostream *BRAM_log;
 
+    // record the information of the BRAMs and related accesses to BRAMs
+    raw_ostream *FF_log;
+
     std::error_code ErrInfo;
     std::ifstream *config_file;
 
@@ -247,6 +251,15 @@ public:
 
     // record the critical path from the block entry to the end of the specific instruction
     std::map<BasicBlock*, std::map<Instruction*, timingBase> > InstructionCriticalPath_inBlock;
+
+    // Instruction Schedule
+    std::map<Instruction*, std::pair<BasicBlock*,int>> Inst_Schedule;
+
+    // record when the register for the result of Instruction can be release
+    std::map<Instruction*, std::pair<BasicBlock*,int>> RegRelease_Schedule;    
+
+    // record whether the result reg of the instruction I has been reused
+    std::set<Instruction*> I_RegReused;    
 
     // demangle the name of functions
     std::string demangeFunctionName(std::string mangled_name);
@@ -289,6 +302,8 @@ public:
 
     // get the resource cost of a specific instruction
     resourceBase getInstructionResource(Instruction *I);
+
+    void updateResultRelease(Instruction *I, Instruction *I_Pred, int time_point);    
 
     // check whether all the sub-function are evaluated
     bool CheckDependencyFesilility(Function &F);
@@ -631,6 +646,8 @@ public:
 
     Instruction* byPassBitcastOp(Instruction* cur_I);
 
+    Instruction* byPassBitcastOp(Value* cur_I_val);
+
     // evaluate the number of LUT needed by the PHI instruction
     resourceBase IndexVar_LUT(std::map<Instruction*, timingBase> &cur_InstructionCriticalPath, Instruction* I);
 
@@ -669,6 +686,9 @@ public:
     // record the access take place in which cycle
     std::map<std::pair<Instruction*,Value*>,timingBase> scheduledAccess_timing;
 
+    // register number for target array
+    std::vector<Instruction*> AccessesList;
+
     // Trace Memory Declaration in Module
     void TraceMemoryDeclarationinModule(Module &M);
 
@@ -693,6 +713,8 @@ public:
     // evaluate the number of LUT needed by the BRAM Mux
     resourceBase BRAM_MUX_Evaluate();
 
+    // for load instructions, HLS will reuse the register for the data
+    bool checkLoadOpRegisterReusable(Instruction* Load_I, int time_point);
 
 };
 

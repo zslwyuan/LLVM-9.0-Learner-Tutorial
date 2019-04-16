@@ -52,8 +52,6 @@ int main(int argc, char **argv) {
   Triple ModuleTriple(Mod->getTargetTriple());
   TargetLibraryInfoImpl TLII(ModuleTriple);
   PM1.add(new TargetLibraryInfoWrapperPass(TLII));
-
-  
   
 
   print_info("Enable LoopSimplify Pass");
@@ -67,9 +65,7 @@ int main(int argc, char **argv) {
   PM1.add(createTargetTransformInfoWrapperPass(TargetIRAnalysis()));
   print_info("Enable TargetIRAnalysis Pass");
 
-  auto hi_intstructionmovebackward = new HI_IntstructionMoveBackward("HI_IntstructionMoveBackward");
-  PM1.add(hi_intstructionmovebackward);
-  print_info("Enable HI_IntstructionMoveBackward Pass");
+
 
   auto hi_duplicateinstrm = new HI_DuplicateInstRm("rmInsts");
   PM1.add(hi_duplicateinstrm);
@@ -83,10 +79,13 @@ int main(int argc, char **argv) {
   // print_info("Enable SeparateConstOffsetFromGEP Pass");
 
 
+  if (argc == 5 && std::string(argv[4])=="enable-lsr")
+  {
+      auto loopstrengthreducepass = createLoopStrengthReducePass();
+      PM1.add(loopstrengthreducepass);
+      print_info("Enable LoopStrengthReducePass Pass");
+  }
 
-  // auto loopstrengthreducepass = createLoopStrengthReducePass();
-  // PM1.add(loopstrengthreducepass);
-  // print_info("Enable LoopStrengthReducePass Pass");
 
   // auto lazyvalueinfowrapperpass = new LazyValueInfoWrapperPass();
   // PM.add(lazyvalueinfowrapperpass);
@@ -95,6 +94,11 @@ int main(int argc, char **argv) {
   auto hi_varwidthreduce = new HI_VarWidthReduce("VarWidth");
   PM1.add(hi_varwidthreduce);
   print_info("Enable HI_VarWidthReduce Pass");
+
+
+  auto hi_intstructionmovebackward = new HI_IntstructionMoveBackward("HI_IntstructionMoveBackward");
+  PM1.add(hi_intstructionmovebackward);
+  print_info("Enable HI_IntstructionMoveBackward Pass");
 
   // don't remove chained operations
   auto hi_hlsduplicateinstrm = new HI_HLSDuplicateInstRm("HLSrmInsts");

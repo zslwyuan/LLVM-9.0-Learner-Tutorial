@@ -52,66 +52,76 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
 
             // (2) check the CP to the instruction's predecessors and find the maximum one to update its CP
             //     but Store/Load operation should be scheduled specially due to the limited number of BRAM ports            
+            
+            timingBase latest_timing(0,0,1,clock_period);
+            // for instructions, we find the latest-finished operand of them
+            for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp)// update the critical path to I by checking its predecessors' critical path
+            {
+                if (auto I_Pred = dyn_cast<Instruction>(I_tmp))
+                {
+                    // ensure that the predecessor is in the block and before I, considering some predecessors 
+                    // may be located behind the instruction itself (not in cur_InstructionCriticalPath yet) in some loop structures 
+                    if (BlockContain(B, I_Pred) && cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end()) 
+                    {
+                        if (canChainOrNot(I_Pred,I))
+                        {
+                            // TODO: may need to rethink the machanism carefully
+                            // *Evaluating_log << "        --------- Evaluated Instruction critical path for Instruction: <<" << *I << " which can be chained.\n";
+                            if ( cur_InstructionCriticalPath[I_Pred]  > cur_InstructionCriticalPath[I] ) //addition chained with multiplication
+                            {
+                                cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] ;
+                                latest_timing = cur_InstructionCriticalPath[I_Pred];
+                            }
+                            Chained = 1;
+                        }
+                        else
+                        {
+                            // *Evaluating_log << "        --------- Evaluated Instruction critical path for Instruction: <<" << *I << " which cannot be chained.\n";
+                            if ( cur_InstructionCriticalPath[I_Pred] + tmp_I_latency > cur_InstructionCriticalPath[I] ) //update the critical path
+                            {
+                                cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] + tmp_I_latency;        
+                                latest_timing = cur_InstructionCriticalPath[I_Pred];
+                            }
+                        }
+                    }                
+                }           
+            }
+            
             if ( I->getOpcode()==Instruction::Load || I->getOpcode()==Instruction::Store )
             {
                 *Evaluating_log << "------- A Memory Access Instruction: " << *I <<" is found, do the scheduling for it\n";
-                timingBase tmp_path(0,0,1,clock_period); // get the CP to the address
-                if (auto Address_I = dyn_cast<Instruction>(I->getOperand(0)))
-                {
-                    if (BlockContain(B, Address_I) && cur_InstructionCriticalPath.find(Address_I) != cur_InstructionCriticalPath.end()) 
-                    {
-                        tmp_path = cur_InstructionCriticalPath[Address_I];         
-                    }                 
-                }           
-                else
-                {
-                    assert(false && "For Store/Load instruction, the analysis should not arrive this branch.\n");
-                }
-                cur_InstructionCriticalPath[I] = scheduleBRAMAccess(I, B, tmp_path);                
+                cur_InstructionCriticalPath[I] = scheduleBRAMAccess(I, B, latest_timing);  
+                AccessesList.push_back(I);
             }
-            else
+            
+            // update the lifetime of the predecessors' result registers
+            for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp)// update the critical path to I by checking its predecessors' critical path
             {
-                
-                // for other instructions, we find the latest-finished operand
-                for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp)// update the critical path to I by checking its predecessors' critical path
-                {
-                    if (auto I_Pred = dyn_cast<Instruction>(I_tmp))
-                    {
-                        // ensure that the predecessor is in the block and before I, considering some predecessors 
-                        // may be located behind the instruction itself (not in cur_InstructionCriticalPath yet) in some loop structures 
-                        if (BlockContain(B, I_Pred) && cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end()) 
-                        {
-                            if (canChainOrNot(I_Pred,I))
-                            {
-                                // TODO: may need to rethink the machanism carefully
-                                // *Evaluating_log << "        --------- Evaluated Instruction critical path for Instruction: <<" << *I << " which can be chained.\n";
-                                if ( cur_InstructionCriticalPath[I_Pred]  > cur_InstructionCriticalPath[I] ) //addition chained with multiplication
-                                    cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] ;
-                                Chained = 1;
-                            }
-                            else
-                            {
-                                // *Evaluating_log << "        --------- Evaluated Instruction critical path for Instruction: <<" << *I << " which cannot be chained.\n";
-                                if ( cur_InstructionCriticalPath[I_Pred] + tmp_I_latency > cur_InstructionCriticalPath[I] ) //update the critical path
-                                    cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] + tmp_I_latency;        
-                            }
-
-                        }                 
-                    }           
-                }
-
-                // accmulate the cost of resource
-                if (!Chained)
-                    resourceAccmulator = resourceAccmulator + getInstructionResource(I);
+                if (auto I_Pred = dyn_cast<Instruction>(I_tmp))
+                { 
+                    updateResultRelease(I, I_Pred, (cur_InstructionCriticalPath[I]-getInstructionLatency(I)).latency);             
+                }           
             }
+            // accmulate the cost of resource
+            if (!Chained)
+                resourceAccmulator = resourceAccmulator + getInstructionResource(I);
+        
 
 
             resourceBase FF_Num(0,0,0,clock_period);
             resourceBase PHI_LUT_Num(0,0,0,clock_period);
+
+            // some load instructions reuse the register of previous load instructions
             FF_Num = FF_Evaluate(cur_InstructionCriticalPath, I);
+
+            // if it is a PHINode, get the LUT it need    
             PHI_LUT_Num = IndexVar_LUT(cur_InstructionCriticalPath, I);
-           // cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I] + PHI_LUT_Num;
+
+            // cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I] + PHI_LUT_Num;
             resourceAccmulator = resourceAccmulator + FF_Num + PHI_LUT_Num;
+
+            // record where the instruction is scheduled
+            Inst_Schedule[I] = std::pair<BasicBlock*,int>(B,(cur_InstructionCriticalPath[I]-getInstructionLatency(I)).latency);
 
             // (3) get the maximum CP among instructions and take it as the CP of block
             if (cur_InstructionCriticalPath[I] > max_critical_path) max_critical_path = cur_InstructionCriticalPath[I];

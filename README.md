@@ -26,7 +26,7 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 2. basic functiones and passes are implemented in the directory **["Implementations"](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations)**. Nearly all the directories have their own README file to explain the directory.
 3. experiments are tested in the directory **["Test"](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Tests)**.
 4. by making a "build" directory and using CMake in each experiment directory (e.g. **[this one](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Tests/LLVM_exp5_SimpleTimingAnalysis/)**), executable can be generated and tried. (hint: cmake .. & make) 
-5. for user's convenience, I prepare some sripts for example, **BuildAllFiles.sh**, which will build all the projects, **CleanBuiltFiles.sh**, which will clean all the built files to shrink the size of the directories, and **Build.sh** in test directory, which will just build one test project. All these scripts can be run directly.
+5. for user's convenience, I prepare some scripts for example, **BuildAllFiles.sh**, which will build all the projects, **CleanBuiltFiles.sh**, which will clean all the built files to shrink the size of the directories, and **Build.sh** in test directory, which will just build one test project. All these scripts can be run directly.
 6. looking into the source code with detailed comments, reader can trace the headers and functions to understand how the experiment work.
 
 
@@ -111,6 +111,10 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 **Experiment 12(a)**: Based on DominatorTree push instructions back to dominant ancestor to improve parallelism and reduce redundant instructions. (Transformation Pass) **[PASS CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations/HI_IntstructionMoveBackward)** 
 
       --- DominatorTree algorithm, parallelism, redudant instruction removal
+
+**Experiment 12(b)**: (WIP)Since LLVM-provided loop strength reduction (LSR) pass limits itself according to the Target ISA addressing mode, an aggressive LSR pass is implemented for HLS to reduce the cost of DSPs on FPGA. (Transformation Pass) 
+
+      --- Loop Strength Reduction (Aggressive: may not stable for all the situations 0-0)
 
 **Experiment 14**: (WIP) Based on the IR file, evaluate the resource and timing of the Window/Buffer/Filter in HLS 
 

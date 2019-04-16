@@ -574,37 +574,61 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
 HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::FF_Evaluate(std::map<Instruction*, timingBase> &cur_InstructionCriticalPath, Instruction* I)
 {
     resourceBase res(0,0,0,clock_period);
-
+    *FF_log << "\n\nChecking FF needed by Instruction: [" << *I << "]\n";
     // Handle Load/Store for FF calculation since usually we have lower the GEP to mul/add/inttoptr/ptrtoint operations
     if (auto storeI = dyn_cast<StoreInst>(I))
     {
+        *FF_log << "---- is a store instruction\n";
         if (auto l0_pred = dyn_cast<IntToPtrInst>(storeI->getOperand(1)))
         {
+            *FF_log << "---- checking the register for address\n";
+            *FF_log << "---- found the ITP instruction for it: " << *l0_pred <<"\n";
             if (auto l1_pred = dyn_cast<AddOperator>(l0_pred->getOperand(0)))
             {
-                if (auto l2_pred = dyn_cast<Instruction>(l1_pred->getOperand(1)))
+                *FF_log << "---- found the Add instruction for its offset: " << *l1_pred <<"\n";
+                for (int i = 0 ; i < l1_pred->getNumOperands(); i++)
                 {
-
-                    // check whether we should consider the FF cost by this instruction l2_pred
-                    if (Instruction_FFAssigned.find(l2_pred) != Instruction_FFAssigned.end())
-                        return res;
-
-                    if (BlockContain(I->getParent(), l2_pred))
-                    {
-                        if (cur_InstructionCriticalPath.find(l2_pred) != cur_InstructionCriticalPath.end())
-                            if (cur_InstructionCriticalPath[l2_pred].latency  == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency)// WARNING: there are instructions with negative latency in the libraries
-                                return res;
-                    }
+                    if (isa<PtrToIntInst>(l1_pred->getOperand(i)))
+                        continue;
                     
-                    // For ZExt/SExt Instruction, we do not need to consider those constant bits
-                    int minBW = l2_pred->getType()->getIntegerBitWidth();
-                    if (auto zext_I = dyn_cast<ZExtInst>(l2_pred))
-                        minBW = zext_I->getSrcTy()->getIntegerBitWidth();
-                    if (auto sext_I = dyn_cast<SExtInst>(l2_pred))
-                        minBW = sext_I->getSrcTy()->getIntegerBitWidth(); 
-                    res.FF = minBW;
-                    Instruction_FFAssigned.insert(l2_pred);                   
+                    if (auto l2_pred = dyn_cast<Instruction>(byPassBitcastOp(l1_pred->getOperand(i))))
+                    {
+                        *FF_log << "---- found the exact offset instruction for it: " << *l2_pred <<"\n";
+
+                        // check whether we should consider the FF cost by this instruction l2_pred
+                        if (Instruction_FFAssigned.find(l2_pred) != Instruction_FFAssigned.end())
+                        {
+                            *FF_log << "---- which is registered.\n";
+                            return res;
+                        }
+
+                        if (BlockContain(I->getParent(), l2_pred))
+                        {
+                            if (cur_InstructionCriticalPath.find(l2_pred) != cur_InstructionCriticalPath.end())
+                                if (cur_InstructionCriticalPath[l2_pred].latency  == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency)// WARNING: there are instructions with negative latency in the libraries
+                                {
+                                    *FF_log << "---- which needs no register.\n";
+                                    return res;
+                                }
+                        }
+                        
+                        // For ZExt/SExt Instruction, we do not need to consider those constant bits
+                        int minBW = l2_pred->getType()->getIntegerBitWidth();
+                        if (auto zext_I = dyn_cast<ZExtInst>(l2_pred))
+                        {
+                            minBW = zext_I->getSrcTy()->getIntegerBitWidth();
+                            *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
+                        }
+                        if (auto sext_I = dyn_cast<SExtInst>(l2_pred))
+                        {
+                            minBW = sext_I->getSrcTy()->getIntegerBitWidth(); 
+                            *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
+                        }
+                        res.FF = minBW;
+                        Instruction_FFAssigned.insert(l2_pred);                   
+                    }
                 }
+
             }
             else
             {
@@ -618,6 +642,17 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
 
         if (auto I_Pred = dyn_cast<Instruction>(storeI->getOperand(0)))
         {
+            *FF_log << "---- checking the register for data\n";
+
+            if (cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
+            {
+                if (checkLoadOpRegisterReusable(I_Pred, (cur_InstructionCriticalPath[I_Pred]-getInstructionLatency(I_Pred)).latency))
+                {
+                    *FF_log << "---- reuse load instruction reg for it, bypass\n";
+                    return res;
+                }
+            }
+                
             if (I_Pred->getType()->isIntegerTy() )
             {
                 int minBW = I_Pred->getType()->getIntegerBitWidth();
@@ -626,29 +661,57 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
                 if (auto zext_I = dyn_cast<ZExtInst>(I_Pred))
                 {                    
                     Instruction* ori_I = byPassUnregisterOp(zext_I);
+                    if (cur_InstructionCriticalPath.find(ori_I) != cur_InstructionCriticalPath.end())
+                    {
+                        if (checkLoadOpRegisterReusable(ori_I, (cur_InstructionCriticalPath[ori_I]-getInstructionLatency(ori_I)).latency))
+                        {
+                            *FF_log << "---- reuse load instruction reg for it, bypass\n";
+                            return res;
+                        }
+                    }
                     if (Instruction_FFAssigned.find(ori_I) == Instruction_FFAssigned.end())
                     {
 
                         minBW = zext_I->getSrcTy()->getIntegerBitWidth();
+                        *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
                         Instruction_FFAssigned.insert(ori_I);
                     }
+                    else
+                    {
+                        *FF_log << "---- which is registered.\n";
+                    }
                     
-                    // if (auto )
-                    // res = FF_Evaluate(cur_InstructionCriticalPath,static_cast<Instruction>());
                 }
                 if (auto sext_I = dyn_cast<SExtInst>(I_Pred))
                 {
                     Instruction* ori_I = byPassUnregisterOp(sext_I);
+                    if (cur_InstructionCriticalPath.find(ori_I) != cur_InstructionCriticalPath.end())
+                    {
+                        if (checkLoadOpRegisterReusable(ori_I, (cur_InstructionCriticalPath[ori_I]-getInstructionLatency(ori_I)).latency))
+                        {
+                            *FF_log << "---- reuse load instruction reg for it, bypass\n";
+                            return res;
+                        }
+                    }
+
                     if (Instruction_FFAssigned.find(ori_I) == Instruction_FFAssigned.end())
                     {
                         minBW = sext_I->getSrcTy()->getIntegerBitWidth();
+                        *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
                         Instruction_FFAssigned.insert(ori_I);
                     }                 
+                    else
+                    {
+                        *FF_log << "---- which is registered.\n";
+                    }
                 }
                     
                 if (cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
                     if (cur_InstructionCriticalPath[I_Pred].latency  == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency)// WARNING: there are instructions with negative latency in the libraries
+                    {
+                        *FF_log << "---- which needs no register.\n";
                         return res;
+                    }
 
                 res.FF += minBW;
                 
@@ -663,38 +726,58 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
     // Handle Load/Store for FF calculation since usually we have lower the GEP to mul/add/inttoptr/ptrtoint operations
     if (auto loadI = dyn_cast<LoadInst>(I))
     {
+        *FF_log << "---- is a load instruction\n";
         if (auto l0_pred = dyn_cast<IntToPtrInst>(loadI->getOperand(0)))
         {
+            *FF_log << "---- checking the register for address\n";
+            *FF_log << "---- found the ITP instruction for it: " << *l0_pred <<"\n";
             if (auto l1_pred = dyn_cast<AddOperator>(l0_pred->getOperand(0)))
             {
-                if (auto l2_pred = dyn_cast<Instruction>(l1_pred->getOperand(1)))
-                {                  
+                *FF_log << "---- found the Add instruction for its offset: " << *l1_pred <<"\n";
+                for (int i = 0 ; i < l1_pred->getNumOperands(); i++)
+                {
+                    if (isa<PtrToIntInst>(l1_pred->getOperand(i)))
+                        continue;
+                    if (auto l2_pred = dyn_cast<Instruction>(byPassBitcastOp(l1_pred->getOperand(i))))
+                    {                  
+                        *FF_log << "---- found the exact offset instruction for it: " << *l2_pred <<"\n";
 
-                    // check whether we should consider the FF cost by this instruction l2_pred
-                    if (Instruction_FFAssigned.find(l2_pred) != Instruction_FFAssigned.end())
-                        return res;
-
-                    if (BlockContain(I->getParent(), l2_pred))
-                    {
-                        if (cur_InstructionCriticalPath.find(l2_pred) != cur_InstructionCriticalPath.end())
+                        // check whether we should consider the FF cost by this instruction l2_pred
+                        if (Instruction_FFAssigned.find(l2_pred) != Instruction_FFAssigned.end())
                         {
-                            int a =  cur_InstructionCriticalPath[l2_pred].latency;
-                            int b = cur_InstructionCriticalPath[I].latency;
-                            int c = getInstructionLatency(I).latency;
-                            if (cur_InstructionCriticalPath[l2_pred].latency  == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency)// WARNING: there are instructions with negative latency in the libraries
-                                return res;
+                            *FF_log << "---- which is registered.\n";
+                            return res;
                         }
+
+                        if (BlockContain(I->getParent(), l2_pred))
+                        {
+                            if (cur_InstructionCriticalPath.find(l2_pred) != cur_InstructionCriticalPath.end())
+                            {
+                                if (cur_InstructionCriticalPath[l2_pred].latency  == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency)// WARNING: there are instructions with negative latency in the libraries
+                                {
+                                    *FF_log << "---- which needs no register.\n";
+                                    return res;
+                                }
+                            }
+                        }
+                        
+                        // For ZExt/SExt Instruction, we do not need to consider those constant bits
+                        int minBW = l2_pred->getType()->getIntegerBitWidth();
+                        if (auto zext_I = dyn_cast<ZExtInst>(l2_pred))
+                        {
+                            minBW = zext_I->getSrcTy()->getIntegerBitWidth();
+                            *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
+                        }
+                        if (auto sext_I = dyn_cast<SExtInst>(l2_pred))
+                        {
+                            minBW = sext_I->getSrcTy()->getIntegerBitWidth(); 
+                            *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
+                        }
+                        res.FF = minBW;
+                        Instruction_FFAssigned.insert(l2_pred);                   
                     }
-                    
-                    // For ZExt/SExt Instruction, we do not need to consider those constant bits
-                    int minBW = l2_pred->getType()->getIntegerBitWidth();
-                    if (auto zext_I = dyn_cast<ZExtInst>(l2_pred))
-                        minBW = zext_I->getSrcTy()->getIntegerBitWidth();
-                    if (auto sext_I = dyn_cast<SExtInst>(l2_pred))
-                        minBW = sext_I->getSrcTy()->getIntegerBitWidth(); 
-                    res.FF = minBW;
-                    Instruction_FFAssigned.insert(l2_pred);                   
                 }
+
             }
             else
             {
@@ -711,32 +794,59 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
         return res;
     }
 
-    // Handle Load/Store for FF calculation since usually we have lower the GEP to mul/add/inttoptr/ptrtoint operations
-    for (auto use_IT=I->use_begin(), use_IE=I->use_end(); use_IT!=use_IE; ++use_IT)
+    // // Handle Load/Store for FF calculation since usually we have lower the GEP to mul/add/inttoptr/ptrtoint operations
+    // // and the po
+    // for (auto use_IT=I->use_begin(), use_IE=I->use_end(); use_IT!=use_IE; ++use_IT)
+    // {
+    //     if (auto int2ptr = dyn_cast<IntToPtrInst>(use_IT->getUser()))
+    //     {
+    //         return res;
+    //     }
+    // }
+
+
+
+    *FF_log << "---- is a non-memory-access instruction\n";
+    for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp)
     {
-        if (auto int2ptr = dyn_cast<IntToPtrInst>(use_IT->getUser()))
+        if (auto I_Pred = dyn_cast<PtrToIntInst>(I_tmp))
         {
+            *FF_log << "---- is an helper instruction for array access, bypass\n";
             return res;
         }
     }
-
-
     for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp)
     {
         if (auto I_Pred = dyn_cast<Instruction>(I_tmp))
         {
+            *FF_log << "---- checking op: [" << *I_Pred << "]\n";
+            FF_log->flush();
             // check whether we should consider the FF cost by this instruction I
             if (Instruction_FFAssigned.find(I_Pred) != Instruction_FFAssigned.end())
             {
+                *FF_log << "---- op: [" << *I_Pred << "] is registered.\n";
                 continue;
             }                
+            
+            if (cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
+            {
+                if (checkLoadOpRegisterReusable(I_Pred, (cur_InstructionCriticalPath[I_Pred]-getInstructionLatency(I_Pred)).latency))
+                {
+                    *FF_log << "---- reuse load instruction reg for it, bypass\n";
+                    continue;
+                }
+            }
+
 
             if (BlockContain(I->getParent(), I_Pred))
             {
                 // may be the operand is operated later, especially for phi insturction in loop
                 if (cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
                     if (cur_InstructionCriticalPath[I_Pred].latency == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency) // WARNING: there are instructions with negative latency in the libraries
+                    {
+                        *FF_log << "---- which needs no register.\n";
                         continue;
+                    }
             }           
 
             // calculate the FF needed to store the immediate result
@@ -747,35 +857,56 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
                 // For ZExt/SExt Instruction, we do not need to consider those constant bits
                 if (auto zext_I = dyn_cast<ZExtInst>(I_Pred))
                 {                    
-                    Instruction* ori_I = byPassUnregisterOp(zext_I);
-                    if (Instruction_FFAssigned.find(ori_I) != Instruction_FFAssigned.end())
+                    Instruction* ori_I = byPassUnregisterOp(zext_I); //zext_I
+                    if (cur_InstructionCriticalPath.find(ori_I) != cur_InstructionCriticalPath.end())
                     {
+                        if (checkLoadOpRegisterReusable(ori_I, (cur_InstructionCriticalPath[ori_I]-getInstructionLatency(ori_I)).latency))
+                        {
+                            *FF_log << "---- reuse load instruction reg for it, bypass\n";
+                            continue;
+                        }
+                    }
+                    if (Instruction_FFAssigned.find(ori_I) != Instruction_FFAssigned.end())      
+                    {
+                        *FF_log << "---- ori_op: [" << *ori_I << "] is registered.\n";
                         continue;
                     }
                     else
                     {
                         minBW = zext_I->getSrcTy()->getIntegerBitWidth();
                         Instruction_FFAssigned.insert(ori_I);
+                        *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
                     }
                     
                     // if (auto )
                     // res = FF_Evaluate(cur_InstructionCriticalPath,static_cast<Instruction>());
                 }
-                if (auto sext_I = dyn_cast<SExtInst>(I_Pred))
+                else if (auto sext_I = dyn_cast<SExtInst>(I_Pred))
                 {
                     Instruction* ori_I = byPassUnregisterOp(sext_I);
+                    if (cur_InstructionCriticalPath.find(ori_I) != cur_InstructionCriticalPath.end())
+                    {
+                        if (checkLoadOpRegisterReusable(ori_I, (cur_InstructionCriticalPath[ori_I]-getInstructionLatency(ori_I)).latency))
+                        {
+                            *FF_log << "---- reuse load instruction reg for it, bypass\n";
+                            continue;
+                        }
+                    }
+
                     if (Instruction_FFAssigned.find(ori_I) != Instruction_FFAssigned.end())
                     {
+                        *FF_log << "---- ori_op: [" << *ori_I << "] is registered.\n";
                         continue;
                     }
                     else
                     {
                         minBW = sext_I->getSrcTy()->getIntegerBitWidth();
                         Instruction_FFAssigned.insert(ori_I);
+                        *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
                     }                 
                 }
                     
-
+                *FF_log << "---- op or the ori_op of " <<*I_Pred << " register now. \n";
                 res.FF += minBW;
                 
                 Instruction_FFAssigned.insert(I_Pred);
@@ -783,15 +914,39 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
             else if (I_Pred->getType()->isFloatTy() )
             {
                 res.FF += 32;
+                *FF_log << "---- ori_op: [" << *I_Pred << "] is a float variable and registered.\n";
                 Instruction_FFAssigned.insert(I_Pred);
             }
             else if (I_Pred->getType()->isDoubleTy() )
             {
                 res.FF += 64;
+                *FF_log << "---- ori_op: [" << *I_Pred << "] is a double variable and registered.\n";
                 Instruction_FFAssigned.insert(I_Pred);
             }
         }           
     }
+
+    // in VivadoHLS, for PHI node, no matter whether the value is involved in other cycle or not, it will be 
+    // registered as phireg (refer to the verbose.rpt in Vivado)
+    if (auto PHI_I = dyn_cast<PHINode>(I))
+    {
+        *FF_log << "---- is PHI instruction\n";
+        if (Instruction_FFAssigned.find(PHI_I) == Instruction_FFAssigned.end())
+        {
+            if (PHI_I->getType()->isIntegerTy())
+            {
+                int BW = PHI_I->getType()->getIntegerBitWidth();
+                res.FF += BW;
+                Instruction_FFAssigned.insert(PHI_I);
+                *FF_log << "---- register anyway\n";
+            }
+        }
+        else
+        {
+            *FF_log << "---- is registered\n";
+        }
+    }
+
     return res;
 }
 
@@ -896,3 +1051,128 @@ Instruction* HI_NoDirectiveTimingResourceEvaluation::byPassBitcastOp(Instruction
     }    
 }
 
+
+// trace back to find the original operator, bypassing SExt and ZExt operations
+Instruction* HI_NoDirectiveTimingResourceEvaluation::byPassBitcastOp(Value* cur_I_value)
+{
+    auto cur_I = dyn_cast<Instruction>(cur_I_value);
+    assert(cur_I && "This should be an instruction.\n");
+    // For ZExt/SExt Instruction, we do not need to consider those constant bits
+    if (/*cur_I->getOpcode() == Instruction::Trunc || */cur_I->getOpcode() == Instruction::ZExt || cur_I->getOpcode() == Instruction::SExt )
+    {
+        if (auto next_I = dyn_cast<Instruction>(cur_I->getOperand(0)))
+        {
+            return byPassBitcastOp(next_I);
+        }
+        else
+        {
+            assert(false && "Predecessor of bitcast operator should be found.\n");
+        }
+    }
+    else
+    {
+        return cur_I;
+    }    
+}
+
+
+
+// for load instructions, HLS will reuse the register for the data
+bool HI_NoDirectiveTimingResourceEvaluation::checkLoadOpRegisterReusable(Instruction* Load_I, int time_point)
+{   
+    if (Load_I->getOpcode() != Instruction::Load)
+        return false;
+
+    *FF_log << "\n\ncheckLoadOpRegisterReusable for instruction: [" << *Load_I << "] at cycle in the block: " << time_point << "\n";
+    // currently, the situation for a load instruction with different target array is ignored.
+    if (Access2TargetMap[Load_I].size()>1)
+    {
+        *FF_log << "---- the load has multiple potential target array, bypass it.\n";
+        return false;
+    }
+
+    for (auto Access_I : AccessesList)
+    {
+        if (auto tmp_load_I = dyn_cast<LoadInst>(Access_I))
+        {
+            if (Access_I == Load_I)
+                continue;
+
+            *FF_log << "---- checking candidate Instruction: " << *tmp_load_I << "\n";
+
+            if (Instruction_FFAssigned.find(tmp_load_I) == Instruction_FFAssigned.end())
+            {
+                *FF_log << "---- no register used for it, bypass the candidate.\n";
+                continue;
+            }
+
+            // the result register has been reused, bypass it
+            if (I_RegReused.find(tmp_load_I) != I_RegReused.end())
+            {
+                *FF_log << "---- the register is reused, bypass it.\n";
+                continue;
+            }
+            
+            // currently, the situation for a load instruction with different target array is ignored.
+            if (Access2TargetMap[tmp_load_I].size()>1)
+            {
+                *FF_log << "---- the candidate has multiple potential target array, bypass it.\n";
+                continue;
+            }
+
+            // find a load instruction which has the same target array
+            if (Access2TargetMap[tmp_load_I][0] == Access2TargetMap[Load_I][0])
+            {
+                if (RegRelease_Schedule.find(tmp_load_I) == RegRelease_Schedule.end())
+                {
+                    *FF_log << "---- no lifetime information for the instruction, bypass it.\n";
+                    continue;
+                }
+
+                // check the lifetime of the previous load instruction register
+                BasicBlock* tmpB = RegRelease_Schedule[tmp_load_I].first;
+                int last_time_point = RegRelease_Schedule[tmp_load_I].second;
+                if (tmpB != Load_I->getParent())
+                {
+                    *FF_log << "---- the candidate is in different block, reuse it.\n";
+                    I_RegReused.insert(tmp_load_I);
+                    return true;
+                }
+                else if (time_point >= last_time_point)
+                {
+                    I_RegReused.insert(tmp_load_I);
+                    *FF_log << "---- the candidate is out of its lifetime, reuse it.\n";
+                    return true;
+                }
+                else
+                {
+                    *FF_log << "---- the candidate is not reusable: in Block [" << tmpB->getName() << "]  at cycle : " << last_time_point << "\n";
+                }
+                
+            }
+        }
+    }
+    return false;
+}
+
+void HI_NoDirectiveTimingResourceEvaluation::updateResultRelease(Instruction *I, Instruction *I_Pred, int time_point)
+{
+    if (RegRelease_Schedule.find(I_Pred) == RegRelease_Schedule.end())
+    {
+        RegRelease_Schedule[I_Pred] = std::pair<BasicBlock*,int>(I->getParent(), time_point);
+    }
+    else
+    {
+        BasicBlock* tmpB = RegRelease_Schedule[I_Pred].first;
+        int last_time_point = RegRelease_Schedule[I_Pred].second;
+        if (tmpB != I->getParent())
+        {
+            RegRelease_Schedule[I_Pred] = std::pair<BasicBlock*,int>(I->getParent(), time_point);
+        }
+        else if (time_point > last_time_point)
+        {
+            RegRelease_Schedule[I_Pred] = std::pair<BasicBlock*,int>(I->getParent(), time_point);
+        }
+    }
+    return;
+}
