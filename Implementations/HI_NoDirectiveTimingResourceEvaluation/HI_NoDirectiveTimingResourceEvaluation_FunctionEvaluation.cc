@@ -195,6 +195,7 @@ void HI_NoDirectiveTimingResourceEvaluation::analyzeFunction_traverseFromEntryTo
     Func_BlockVisited.erase(curBlock);
 }
 
+// get how many state needed for the function
 int HI_NoDirectiveTimingResourceEvaluation::getFunctionStageNum(HI_NoDirectiveTimingResourceEvaluation::timingBase tmp_critical_path, Function *F, BasicBlock* curBlock)
 {
 
@@ -214,6 +215,7 @@ int HI_NoDirectiveTimingResourceEvaluation::getFunctionStageNum(HI_NoDirectiveTi
 
     timingBase try_critical_path = tmp_critical_path + latency_CurBlock*1;
 
+    // (2) get the longest STATE path from entry to the specific block
     int CP = (try_critical_path*1).latency;
     for (auto B : successors(curBlock))
     {
@@ -230,7 +232,10 @@ int HI_NoDirectiveTimingResourceEvaluation::getFunctionStageNum(HI_NoDirectiveTi
     return CP;
 }
 
+// return the resource cost of the function
 HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::getFunctionResource(Function *F)
 {
+    if (F->getName().find("llvm.")!=std::string::npos) // bypass the "llvm.xxx" functions..
+        return resourceBase(0,0,0,clock_period);
     return FunctionResource[F];
 }

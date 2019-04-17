@@ -303,6 +303,7 @@ public:
     // get the resource cost of a specific instruction
     resourceBase getInstructionResource(Instruction *I);
 
+    // update the latest user of the the specific user, based on which we can determine the lifetime of a register 
     void updateResultRelease(Instruction *I, Instruction *I_Pred, int time_point);    
 
     // check whether all the sub-function are evaluated
@@ -557,8 +558,18 @@ public:
                 FF = F;
                 LUT = L;
                 clock_period = C;
+                BRAM = 0;
+            }
+            resourceBase(int B, int D, int F, int L, double C)
+            {
+                DSP = D;
+                FF = F;
+                LUT = L;
+                clock_period = C;
+                BRAM = B;
             }
             int DSP,FF,LUT;
+            int BRAM = 0;
             double clock_period;
 
             resourceBase &operator=(resourceBase input)
@@ -566,6 +577,7 @@ public:
                 DSP = input.DSP;
                 FF = input.FF;
                 LUT = input.LUT;
+                BRAM = input.BRAM;
                 clock_period = input.clock_period;
             }
 
@@ -574,6 +586,7 @@ public:
                 DSP=input.DSP;
                 FF=input.FF;
                 LUT=input.LUT;
+                BRAM=input.BRAM;
                 clock_period = input.clock_period;
             }
 
@@ -583,6 +596,7 @@ public:
                 FF = -1;
                 LUT = -1;
                 clock_period = -1;
+                BRAM = -1;
             }
     };
 
@@ -592,6 +606,7 @@ public:
         lhs.DSP = lhs.DSP + rhs.DSP;
         lhs.FF = lhs.FF + rhs.FF;
         lhs.LUT = lhs.LUT + rhs.LUT;
+        lhs.BRAM = lhs.BRAM + rhs.BRAM;
         return lhs;
     }
 
@@ -600,6 +615,7 @@ public:
         lhs.DSP = lhs.DSP * rhs;
         lhs.FF = lhs.FF * rhs;
         lhs.LUT = lhs.LUT * rhs;
+        lhs.BRAM = lhs.BRAM * rhs;
         return lhs;
     }
 
@@ -608,12 +624,13 @@ public:
         lhs.DSP = lhs.DSP * rhs;
         lhs.FF = lhs.FF * rhs;
         lhs.LUT = lhs.LUT * rhs;
+        lhs.BRAM = lhs.BRAM * rhs;
         return lhs;
     }
 
     friend raw_ostream& operator<< (raw_ostream& stream, const resourceBase& rb)
     {
-        stream << " [DSP=" << rb.DSP << ", FF="<<rb.FF << ", LUT="<<rb.LUT <<"] ";
+        stream << " [DSP=" << rb.DSP << ", FF="<<rb.FF << ", LUT="<<rb.LUT << ", BRAM="<<rb.BRAM <<"] ";
         return stream;
     }
 
@@ -692,16 +709,22 @@ public:
     // Trace Memory Declaration in Module
     void TraceMemoryDeclarationinModule(Module &M);
 
-    // find the array declaration in the function F
+    // find the array declaration in the function F and trace the accesses to them
     void findMemoryDeclarationin(Function *F, bool isTopFunction);
 
-    // find out which instrctuins are related to the array
+    // get the number of BRAMs which are needed by the alloca instruction
+    resourceBase get_BRAM_Num_For(AllocaInst *alloca_I);
+
+    // get the number of BRAMs which are needed by the array with specific parameters
+    resourceBase get_BRAM_Num_For(int bitwidth, int depth);
+
+    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
     void TraceAccessForTarget(Value *cur_node,Value *ori_node);
 
     // check whether the access to target array can be scheduled in a specific cycle
     bool checkBRAMAvailabilty(Instruction* access, Value *target, std::string StoreOrLoad, BasicBlock *cur_block, timingBase cur_Timing);
 
-    // schedule the access to potential target (since an instructon may use an address in different target, we need to schedule all of them)
+    // schedule the access to potential target (since an instructon may use the address for different target (e.g. address comes from PHINode), we need to schedule all of them)
     timingBase scheduleBRAMAccess(Instruction *access, BasicBlock *cur_block,  timingBase cur_Timing);
 
     // schedule the access to specific target for the instruction

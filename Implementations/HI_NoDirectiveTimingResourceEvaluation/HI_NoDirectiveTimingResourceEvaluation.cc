@@ -141,11 +141,18 @@ void HI_NoDirectiveTimingResourceEvaluation::analyzeTopFunction(Module &M)
             *Evaluating_log << "Top Function: "<< F.getName() <<" is found";
             topFunctionFound = 1;
             top_function_latency = analyzeFunction(&F).latency;
-            *Evaluating_log << "Done latency evaluation of top function: "<< F.getName() <<" and its latency is "<< top_function_latency << "\n\n\n";
+            
             std::string printOut("");
             FunctionResource[&F] = FunctionResource[&F] + BRAM_MUX_Evaluate();
             // print out the information of top function in terminal
-            printOut = "Done latency evaluation of top function: [" + demangled_name + "] and its latency is " + std::to_string(top_function_latency) + " the state num is: " + std::to_string(state_total_num) + " and its resource cost is [DSP=" + std::to_string(FunctionResource[&F].DSP) + ", FF=" + std::to_string(FunctionResource[&F].FF+FF_needed_by_FSM) + ", LUT=" + std::to_string(FunctionResource[&F].LUT +  LUT_needed_by_FSM) + "]";
+            printOut = "Done latency evaluation of top function: [" + demangled_name + "] and its latency is " + std::to_string(top_function_latency) 
+                                                                                    + " the state num is: " + std::to_string(state_total_num) 
+                                                                                    + " and its resource cost is [DSP=" + std::to_string(FunctionResource[&F].DSP) 
+                                                                                    + ", FF=" + std::to_string(FunctionResource[&F].FF+FF_needed_by_FSM) 
+                                                                                    + ", LUT=" + std::to_string(FunctionResource[&F].LUT +  LUT_needed_by_FSM) 
+                                                                                    + ", BRAM=" + std::to_string(FunctionResource[&F].BRAM ) 
+                                                                                    + "]";
+            *Evaluating_log << printOut << "\n";
             print_info(printOut);
         }
     }
@@ -167,6 +174,8 @@ int HI_NoDirectiveTimingResourceEvaluation::getTotalStateNum(Module &M)
     int state_total = 0;
     for (auto &F : M)
     {
+        if (F.getName().find("llvm.")!=std::string::npos) // bypass the "llvm.xxx" functions..
+            continue;
         BasicBlock *Func_Entry = &(F.getEntryBlock()); //get the entry of the function
         timingBase origin_path_in_F(0,0,1,clock_period);
         tmp_BlockCriticalPath_inFunc.clear(); // record the block level critical path in the loop

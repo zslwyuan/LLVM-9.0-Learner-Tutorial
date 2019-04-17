@@ -15,11 +15,14 @@
 #include <sstream>
 using namespace llvm;
 
+// find the array declaration in the function F and trace the accesses to them
 void HI_NoDirectiveTimingResourceEvaluation::findMemoryDeclarationin(Function *F, bool isTopFunction)
 {
     *BRAM_log << "checking the BRAM information in Function: " << F->getName() << "\n";
     ValueVisited.clear();
     scheduledAccess_timing.clear();
+
+    // for top function in HLS, arrays in interface may involve BRAM
     if (isTopFunction)
     {
         *BRAM_log << " is Top function " << "\n";
@@ -41,6 +44,7 @@ void HI_NoDirectiveTimingResourceEvaluation::findMemoryDeclarationin(Function *F
          return;
     }
     
+    // for general function in HLS, arrays in functions are usually declared with alloca instruction
     for (auto &B: *F)
     {
         for (auto &I: B)
@@ -65,6 +69,7 @@ void HI_NoDirectiveTimingResourceEvaluation::findMemoryDeclarationin(Function *F
     BRAM_log->flush();
 }
 
+// find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
 void HI_NoDirectiveTimingResourceEvaluation::TraceAccessForTarget(Value *cur_node, Value *ori_node)
 {
     *BRAM_log << "\n\n\nTracing the access to Array " << ori_node->getName() << " and looking for the users of " << *cur_node<< "\n";
@@ -79,28 +84,34 @@ void HI_NoDirectiveTimingResourceEvaluation::TraceAccessForTarget(Value *cur_nod
     
     BRAM_log->flush();
     Function *cur_F;
+
+    // we are doing DFS now
     if (ValueVisited.find(cur_node)!=ValueVisited.end())
         return;
     ValueVisited.insert(cur_node);
 
-    if (Argument *arg = dyn_cast<Argument>(cur_node))
-    {            
-        cur_F = arg->getParent();
-    }
-    else
-    {
-        if (Instruction *InstTmp = dyn_cast<Instruction>(cur_node))
-        {
-            cur_F = InstTmp->getParent()->getParent();
-        }
-        else
-        {
-            assert(false && "The parent function should be found.\n");
-        }
-    }
+    // if (Argument *arg = dyn_cast<Argument>(cur_node))
+    // {            
+    //     cur_F = arg->getParent();
+    // }
+    // else
+    // {
+    //     if (Instruction *InstTmp = dyn_cast<Instruction>(cur_node))
+    //     {
+    //         cur_F = InstTmp->getParent()->getParent();
+    //     }
+    //     else
+    //     {
+    //         assert(false && "The parent function should be found.\n");
+    //     }
+    // }
+
+    // Trace the uses of the pointer value or integer generaed by PtrToInt
     for (auto it = cur_node->use_begin(),ie = cur_node->use_end(); it != ie; ++it)
     {
         *BRAM_log << "    find user of " << ori_node->getName() << " --> " << *it->getUser() <<  "\n";
+
+        // Load and Store Instructions are leaf nodes in the DFS
         if (LoadInst *LoadI = dyn_cast<LoadInst>(it->getUser()))
         {
             if (Access2TargetMap.find(LoadI)==Access2TargetMap.end())
@@ -130,18 +141,20 @@ void HI_NoDirectiveTimingResourceEvaluation::TraceAccessForTarget(Value *cur_nod
                 Access2TargetMap[StoreI].push_back(ori_node);
             }
         }
+        // if a pointer of arrray is passed as sub-function's argument, handle it
         else if (CallInst *CallI = dyn_cast<CallInst>(it->getUser()))
         {
             *BRAM_log << "    is an CALL instruction: " << *CallI << "\n";
             for (int i = 0; i < CallI->getNumArgOperands(); ++i)
             {
-                if (CallI->getArgOperand(i) == cur_node)
+                if (CallI->getArgOperand(i) == cur_node) // find which argument is exactly the pointer we are tracing
                 {
                     auto arg_it = CallI->getCalledFunction()->arg_begin();
                     auto arg_ie = CallI->getCalledFunction()->arg_end();
                     for (int j = 0 ; ; ++j,++arg_it)
                         if (i==j)
                         {
+                            // go into the sub-function to trace the accesses to the target
                             TraceAccessForTarget(arg_it,ori_node);
                             break;
                         }                    
@@ -157,6 +170,7 @@ void HI_NoDirectiveTimingResourceEvaluation::TraceAccessForTarget(Value *cur_nod
     ValueVisited.erase(cur_node);
 }
 
+// schedule the access to potential target (since an instructon may use the address for different target (e.g. address comes from PHINode), we need to schedule all of them)
 HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::scheduleBRAMAccess(Instruction *access, BasicBlock *cur_block, HI_NoDirectiveTimingResourceEvaluation::timingBase cur_Timing)
 {
     assert(Access2TargetMap.find(access) != Access2TargetMap.end() && "The access should be recorded in the BRAM access info.\n");
@@ -181,6 +195,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     return res;
 }
 
+// schedule the access to specific target for the instruction
 HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::handleBRAMAccessFor(Instruction *access, Value *target, BasicBlock *cur_block, HI_NoDirectiveTimingResourceEvaluation::timingBase cur_Timing)
 {
     if (scheduledAccess_timing.find(std::pair<Instruction*,Value*>(access, target)) != scheduledAccess_timing.end())
@@ -194,6 +209,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     else    
         LoadOrStore = "load";   
 
+    // if the access can take place at cur_Timing, schedule and record it
     if (checkBRAMAvailabilty(access, target, LoadOrStore, cur_block, cur_Timing))
     {        
         *BRAM_log << "    the access instruction: " << *access << " for the target [" << target->getName() << "] can be scheduled in cycle #" <<cur_Timing.latency << " of Block:" << cur_block->getName() <<"\n";
@@ -205,6 +221,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     }
     else
     {
+        // otherwise, try later time slots and see whether the schedule can be successful.
         while (1)
         {
             *BRAM_log << "    the access instruction: " << *access << " for the target [" << target->getName() << "] CANNOT be scheduled in cycle #" <<cur_Timing.latency << " of Block:" << cur_block->getName() <<"\n";
@@ -223,6 +240,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     BRAM_log->flush();
 }
 
+// check whether the access to target array can be scheduled in a specific cycle
 bool HI_NoDirectiveTimingResourceEvaluation::checkBRAMAvailabilty(Instruction* access, Value *target, std::string StoreOrLoad, BasicBlock *cur_block, HI_NoDirectiveTimingResourceEvaluation::timingBase cur_Timing)
 {
     *BRAM_log << "       checking the access to the target [" << target->getName() << "] in cycle #" << cur_Timing.latency << " of Block:" << cur_block->getName() <<"  --> ";
@@ -258,11 +276,13 @@ bool HI_NoDirectiveTimingResourceEvaluation::checkBRAMAvailabilty(Instruction* a
             cnt ++;
     }
     *BRAM_log << cnt << " access(es) in this cycle\n";
+    // consider the number of BRAM port (currently it is a constant (2). Later, consider array partitioning)
     if (cnt < 2)
         return true;
     return false;
 }
 
+// record the schedule information
 void HI_NoDirectiveTimingResourceEvaluation::insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int cur_latency, Instruction* access)
 {
     *BRAM_log << "       inserting the access to the target [" << target->getName() << "] in cycle #" << cur_latency << " of Block:" << cur_block->getName() << "  --> ";
@@ -371,4 +391,102 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
     res.LUT = inputSize * 5;
     return res;
 
+}
+
+
+// get the number of BRAMs which are needed by the alloca instruction
+HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::get_BRAM_Num_For(AllocaInst *alloca_I)
+{
+    resourceBase res(0,0,0,0,clock_period);
+    *BRAM_log << "\n\nchecking allocation instruction [" << *alloca_I << "] and its type is: " << *alloca_I->getType() << " and its ElementType is: [" << *alloca_I->getType()->getElementType()  << "]\n";
+    Type* tmp_type = alloca_I->getType()->getElementType();
+    int total_ele = 1;
+    while (auto array_T = dyn_cast<ArrayType>(tmp_type))
+    {
+        *BRAM_log << "----- element type of : " << *tmp_type << " is " << *(array_T->getElementType()) << " and the number of its elements is " << (array_T->getNumElements()) <<"\n";
+        total_ele *=  (array_T->getNumElements()) ;
+        tmp_type = array_T->getElementType();
+    }
+    int BW = 0;
+    if (tmp_type->isIntegerTy())
+        BW = tmp_type->getIntegerBitWidth();
+    else if (tmp_type->isFloatTy())
+        BW = 32;
+    else if (tmp_type->isDoubleTy())
+        BW = 64;
+    assert(BW!=0 && "we should get BW for the basic element type.\n");
+    res = get_BRAM_Num_For(BW, total_ele);
+    *BRAM_log << "checked allocation instruction [" << *alloca_I << "] and its basic elemenet type is: [" << *tmp_type << "] with BW=[" <<BW << "] and the total number of basic elements is: [" << total_ele << "] and it need BRAMs [" << res.BRAM << "].\n\n";
+    
+    return res;
+}
+
+// get the number of BRAMs which are needed by the alloca instruction
+HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::get_BRAM_Num_For(int width, int depth)
+{
+    resourceBase res(0,0,0,0,clock_period);
+    if (depth <= 0)
+        return res;
+    
+    // when an array is large, we need to partition it into multiple BRAM
+    // therefore, we need to set the depth and bidwith for each unit BRAM
+    int width_uint = 1;
+    int depth_uint = 1;
+    if (width <= 1 || depth > 16 * 1024)
+    {
+        width_uint = 1;
+        depth_uint = 16 * 1024;
+    }
+    else
+    {
+        if (width <= 2 || depth > 8 * 1024)
+        {
+            width_uint = 2;
+            depth_uint = 8 * 1024;
+        }
+        else
+        {
+            if (width <= 4 || depth > 4 * 1024)
+            {
+                width_uint = 4;
+                depth_uint = 4 * 1024;
+            }
+            else
+            {
+                if (width <= 9 || depth > 2 * 1024)
+                {
+                    width_uint = 9;
+                    depth_uint = 2 * 1024;
+                }
+                else
+                {
+                    if (width <= 18 || depth > 1 * 1024)
+                    {
+                        width_uint = 18;
+                        depth_uint = 1 * 1024;
+                    }
+                    else
+                    {
+                        width_uint = 36;
+                        depth_uint = 512;
+                    }
+                }
+            }
+        }
+    }
+
+    int width_factor = width / width_uint;
+    if ((width % width_uint) > 0)
+    {
+        width_factor = width_factor + 1;
+    }
+        
+
+    int  depth_factor = depth / depth_uint;
+    if ((depth % depth_uint) > 0)
+    {
+        depth_factor = depth_factor + 1;
+    }
+    res.BRAM = width_factor * depth_factor;
+    return res;
 }

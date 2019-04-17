@@ -534,6 +534,7 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
     }
     else if (AllocaInst *AI = dyn_cast<AllocaInst>(I))
     {
+        result = get_BRAM_Num_For(AI);
         return result;
     }
 
@@ -575,10 +576,13 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
 {
     resourceBase res(0,0,0,clock_period);
     *FF_log << "\n\nChecking FF needed by Instruction: [" << *I << "]\n";
+
     // Handle Load/Store for FF calculation since usually we have lower the GEP to mul/add/inttoptr/ptrtoint operations
     if (auto storeI = dyn_cast<StoreInst>(I))
     {
         *FF_log << "---- is a store instruction\n";
+
+        // consider the address instruction for store instruction
         if (auto l0_pred = dyn_cast<IntToPtrInst>(storeI->getOperand(1)))
         {
             *FF_log << "---- checking the register for address\n";
@@ -640,6 +644,7 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
             print_warning("WARNING: The predecessor of store instruction should be IntToPtrInst.");
         }
 
+        // consider the data instruction for store instruction
         if (auto I_Pred = dyn_cast<Instruction>(storeI->getOperand(0)))
         {
             *FF_log << "---- checking the register for data\n";
@@ -727,6 +732,7 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
     if (auto loadI = dyn_cast<LoadInst>(I))
     {
         *FF_log << "---- is a load instruction\n";
+        // consider the address instruction for store instruction
         if (auto l0_pred = dyn_cast<IntToPtrInst>(loadI->getOperand(0)))
         {
             *FF_log << "---- checking the register for address\n";
@@ -788,24 +794,11 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
         {
             print_warning("WARNING: The predecessor of load instruction should be IntToPtrInst.");
         }
-
-
-
         return res;
     }
 
-    // // Handle Load/Store for FF calculation since usually we have lower the GEP to mul/add/inttoptr/ptrtoint operations
-    // // and the po
-    // for (auto use_IT=I->use_begin(), use_IE=I->use_end(); use_IT!=use_IE; ++use_IT)
-    // {
-    //     if (auto int2ptr = dyn_cast<IntToPtrInst>(use_IT->getUser()))
-    //     {
-    //         return res;
-    //     }
-    // }
 
-
-
+    // ignore the instruction if it is a PtrToInt instruction, since in FPGA, we do not need to consider this instruction
     *FF_log << "---- is a non-memory-access instruction\n";
     for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp)
     {
@@ -815,6 +808,8 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
             return res;
         }
     }
+
+    // for other instructions, we need to check whether we need registers for their operands
     for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp)
     {
         if (auto I_Pred = dyn_cast<Instruction>(I_tmp))
@@ -828,6 +823,7 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
                 continue;
             }                
             
+            // try to reuse the load registers if they are released from previous accesses
             if (cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
             {
                 if (checkLoadOpRegisterReusable(I_Pred, (cur_InstructionCriticalPath[I_Pred]-getInstructionLatency(I_Pred)).latency))
@@ -841,6 +837,7 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
             if (BlockContain(I->getParent(), I_Pred))
             {
                 // may be the operand is operated later, especially for phi insturction in loop
+                // for this situation, we may still need registers for the operands
                 if (cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
                     if (cur_InstructionCriticalPath[I_Pred].latency == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency) // WARNING: there are instructions with negative latency in the libraries
                     {
@@ -849,7 +846,7 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
                     }
             }           
 
-            // calculate the FF needed to store the immediate result
+            // calculate the FF needed to store the intermediate result
             if (I_Pred->getType()->isIntegerTy() )
             {
                 int minBW = I_Pred->getType()->getIntegerBitWidth();
@@ -877,9 +874,6 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
                         Instruction_FFAssigned.insert(ori_I);
                         *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
                     }
-                    
-                    // if (auto )
-                    // res = FF_Evaluate(cur_InstructionCriticalPath,static_cast<Instruction>());
                 }
                 else if (auto sext_I = dyn_cast<SExtInst>(I_Pred))
                 {
@@ -1155,6 +1149,7 @@ bool HI_NoDirectiveTimingResourceEvaluation::checkLoadOpRegisterReusable(Instruc
     return false;
 }
 
+// update the latest user of the the specific user, based on which we can determine the lifetime of a register
 void HI_NoDirectiveTimingResourceEvaluation::updateResultRelease(Instruction *I, Instruction *I_Pred, int time_point)
 {
     if (RegRelease_Schedule.find(I_Pred) == RegRelease_Schedule.end())

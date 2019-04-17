@@ -79,6 +79,7 @@ void HI_NoDirectiveTimingResourceEvaluation::Parse_Config()
     assert(HLS_lib_path!="" && "The HLS Lib is necessary in the configuration file!\n");
 }
 
+// load the HLS database of timing and resource
 void HI_NoDirectiveTimingResourceEvaluation::Load_Instruction_Info()
 {
     int i;
@@ -144,7 +145,7 @@ void HI_NoDirectiveTimingResourceEvaluation::Load_Instruction_Info()
     }
 }
 
-
+// Organize the information into timingBase after getting the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
 HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::get_inst_TimingInfo_result(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
 {
     timingBase result(0,0,1,clock_period);
@@ -156,6 +157,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     return result; 
 }
 
+// Organize the information into resourceBase after getting the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
 HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::get_inst_ResourceInfo_result(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
 {
     resourceBase result(0,0,0,clock_period);
@@ -166,6 +168,7 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
     return result; 
 }
 
+// get the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period
 HI_NoDirectiveTimingResourceEvaluation::inst_timing_resource_info HI_NoDirectiveTimingResourceEvaluation::get_inst_info(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
 {
     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
@@ -196,7 +199,7 @@ HI_NoDirectiveTimingResourceEvaluation::inst_timing_resource_info HI_NoDirective
     assert(false && "no such information in the database\n");
 }
 
-
+// check whether a specific information is in the database
 bool HI_NoDirectiveTimingResourceEvaluation::checkInfoAvailability(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
 {
     if (BiOp_Info_name2list_map.find(opcode)!=BiOp_Info_name2list_map.end())
@@ -233,6 +236,7 @@ bool HI_NoDirectiveTimingResourceEvaluation::checkInfoAvailability(std::string o
     return false;
 }
 
+// check whether we can infer the information by increasing the clock frequency
 bool HI_NoDirectiveTimingResourceEvaluation::checkFreqProblem(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
 {
     if (BiOp_Info_name2list_map.find(opcode)!=BiOp_Info_name2list_map.end())
@@ -262,10 +266,12 @@ bool HI_NoDirectiveTimingResourceEvaluation::checkFreqProblem(std::string opcode
     return false;
 }
 
+// if the information is not found in database, we may infer the information by increasing the clock frequency
 HI_NoDirectiveTimingResourceEvaluation::inst_timing_resource_info HI_NoDirectiveTimingResourceEvaluation::checkInfo_HigherFreq(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
 {
     int i;
     
+    // locate the target clock in clock sequence
     for (i = clockNum - 1; i >= 0; i--)
         if (std::stof(clockStrs[i]) == std::stof(period))
         {
@@ -280,6 +286,8 @@ HI_NoDirectiveTimingResourceEvaluation::inst_timing_resource_info HI_NoDirective
     if (i<0)
         llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
     assert(i >= 0 && "The clock should be found.\n" );
+
+    // iterate to find available information in database
     for (; i >= 0 ; i--)
     {
         if (checkInfoAvailability(opcode, operand_bitwid, res_bitwidth, clockStrs[i]))
