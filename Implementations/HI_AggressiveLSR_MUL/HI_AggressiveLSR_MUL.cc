@@ -19,47 +19,28 @@ using namespace llvm;
 bool HI_AggressiveLSR_MUL::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
 {
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
     bool changed = false;
-
-    printDominatorTree(DT);
-    processedBlock.clear();
-    
-
-    // 1. loop to find the lowest node in Dominator Tree, which should not be preocessed previously, to process
-    while (1)
-    {   
-        BasicBlock* cur_block = findUnprocessedLowestBlock(DT);
-        assert(cur_block && "A unprocessed block should be found until the root is reached.\n");
-
-        // 2. mark the block processed
-        processedBlock.insert(cur_block);
-        if (DT.getRoot() == cur_block)
-            break;
-
-        // 3. obtain the instruction independent with those PHI nodes
-        std::vector<Instruction*> InstructionVec_forBackward = getInstructions_PhiIndependent(cur_block);
-
-        // 4. move those specific instructions to dominator block
-        for (auto node = GraphTraits<DominatorTree *>::nodes_begin(&DT); node != GraphTraits<DominatorTree *>::nodes_end(&DT); ++node) 
+    bool ActionTaken = true;
+    TraceMemoryAccessinFunction(F);
+    while (ActionTaken)
+    {
+        ActionTaken = false;
+        for (auto &B : F)
         {
-            BasicBlock *BB = node->getBlock();
-            if (BB==cur_block)
-            {               
-                assert(node->getIDom() && "This node should have its dominator.\n");
-                BasicBlock *domB = node->getIDom()->getBlock();
-                for (Instruction *I : InstructionVec_forBackward)
-                {
-                    changed|=transferInstructionTo(I, domB);
-                }
-                printFunction(&F);
-                BackwardLog->flush();
-                break;
+            for (auto &I : B)
+            {
+                ActionTaken = LSR_Mul(&I,&SE);
+                changed |= ActionTaken;
+                if (ActionTaken)
+                    break;
             }
+            if (ActionTaken)
+                break;
         }
-
     }
 
-    BackwardLog->flush(); 
+    // return false;
     return changed;
 }
 
@@ -75,129 +56,219 @@ void HI_AggressiveLSR_MUL::getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesCFG();
 }
 
-// print out the graph of dominator tree
-void HI_AggressiveLSR_MUL::printDominatorTree(DominatorTree &DT)
+// check whether the instruction is Multiplication suitable for LSR
+// If suitable, process it
+bool HI_AggressiveLSR_MUL::LSR_Mul(Instruction *I, ScalarEvolution *SE)
 {
-    *BackwardLog << "\n\n\n\n\n Printing Dominator Graph:\n";
-    for (auto node = GraphTraits<DominatorTree *>::nodes_begin(&DT); node != GraphTraits<DominatorTree *>::nodes_end(&DT); ++node) 
-    {
-        BasicBlock *BB = node->getBlock();
-        if (node->getIDom())
-        {
-            BasicBlock *PreBB = node->getIDom()->getBlock();
-            *BackwardLog << "Block: [" << PreBB->getName() <<"] dominates Block: [" << BB->getName() <<"].\n";
-        }            
-    }
-    BackwardLog->flush();
-}
+/*
+1.  get the incremental value by using SCEV
+2.  insert a new PHI (carefully select the initial constant)
+3.  replace multiplication with addition
+*/
+    if (I->getOpcode() != Instruction:: Mul)
+        return false;
+    if (Inst_AccessRelated.find(I) == Inst_AccessRelated.end())
+        return false;
 
-// find the lowest unprocessed block in the dominator tree
-BasicBlock* HI_AggressiveLSR_MUL::findUnprocessedLowestBlock(DominatorTree &DT)
-{
-    *BackwardLog << "findUnprocessedLowestBlock:\n";
-    for (auto node = GraphTraits<DominatorTree *>::nodes_begin(&DT); node != GraphTraits<DominatorTree *>::nodes_end(&DT); ++node) 
+    Instruction *Incr_I = find_Incremental_op(I);
+    ConstantInt *Mul_Const_V = find_Constant_op(I); 
+
+    if (!Incr_I)
+        return false;
+    if (!Mul_Const_V)
+        return false;
+
+    // 1.  get the incremental value by using SCEV
+    const SCEV *tmp_S = SE->getSCEV(I);
+    const SCEVAddRecExpr *SARE = dyn_cast<SCEVAddRecExpr>(tmp_S);
+    if (SARE)
     {
-        BasicBlock *BB = node->getBlock();
-        if (processedBlock.find(BB)!=processedBlock.end())
-            continue;
-        bool hasUnprocessedChild = 0;
-        for (auto childNode : node->getChildren())
+        if (SARE->isAffine())
         {
-            BasicBlock *childBB = childNode->getBlock();
-            if (processedBlock.find(childBB)==processedBlock.end())
+            *AggrLSRLog << *I << " --> is add rec Mul: " << *SARE  << " it operand (0) " << *SARE->getOperand(0)  << " it operand (1) " << *SARE->getOperand(1) << "\n";
+            if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(SARE->getOperand(0)))
             {
-                hasUnprocessedChild = 1;
-                break;
+                if (const SCEVConstant *step_V = dyn_cast<SCEVConstant>(SARE->getOperand(1)))
+                {
+                    int start_val = start_V->getAPInt().getSExtValue();
+                    int step_val = step_V->getAPInt().getSExtValue();
+                    APInt start_val_APInt = start_V->getAPInt();
+                    APInt step_val_APInt = step_V->getAPInt();
+                    LSR_Process(I, start_val_APInt, step_val_APInt);
+                    return true;
+                }
             }
         }
-        if (!hasUnprocessedChild)
-            return BB;
     }
-    BackwardLog->flush();
+    return false;
+}
+
+// replace the original MUL with PHI and Add operator
+void HI_AggressiveLSR_MUL::LSR_Process(Instruction *Mul_I, APInt start_val, APInt step_val)
+{
+/*
+1.  get the incremental value by using SCEV
+2.  insert a new PHI (carefully select the initial constant)
+3.  replace multiplication with addition
+*/
+    Instruction *Inst_I = find_Incremental_op(Mul_I);
+    PHINode* PHI_I = byPassBack_BitcastOp_findPHINode(Inst_I);
+    *AggrLSRLog << "find the PHINode: [" << *PHI_I << "] for Mul: [" << *Mul_I << "]\n";
+
+    std::string LSR_PHI_Name = Mul_I->getName();
+    LSR_PHI_Name += ".PHI";
+    std::string LSR_Add_Name = Mul_I->getName();
+    LSR_Add_Name += ".Add";
+    IRBuilder<> Builder(Mul_I);
+
+    // 2.  insert a new PHI (carefully select the initial constant)
+    PHINode* PHI_I_for_LSR_Mul = Builder.CreatePHI(Mul_I->getType(), 2,  LSR_PHI_Name);
+    Constant *step_Value = ConstantInt::get(Mul_I->getType(),step_val);
+    Constant *start_Value = ConstantInt::get(Mul_I->getType(),start_val);
+
+    Value* Add_I_for_LSR_Mul = Builder.CreateAdd(PHI_I_for_LSR_Mul, step_Value, LSR_Add_Name);
+
+    for (int i = 0; i < PHI_I->getNumOperands(); i++)
+    {
+        if (auto con_val = dyn_cast<ConstantInt>(PHI_I->getOperand(i)))
+        {
+            PHI_I_for_LSR_Mul->addIncoming(start_Value,PHI_I->getIncomingBlock(i));
+        }
+    }
+    
+    for (int i = 0; i < PHI_I->getNumOperands(); i++)
+    {
+        if (auto opI_val = dyn_cast<Instruction>(PHI_I->getOperand(i)))
+        {
+            PHI_I_for_LSR_Mul->addIncoming(Add_I_for_LSR_Mul,PHI_I->getIncomingBlock(i));
+        }
+    }    
+
+    *AggrLSRLog << "create the LSR PHINode: [" << *PHI_I_for_LSR_Mul << "] for Mul: [" << *Mul_I << "]\n";
+    *AggrLSRLog << "create the LSR Add: [" << *Add_I_for_LSR_Mul << "] for Mul: [" << *Mul_I << "]\n\n\n";
+
+    // 3.  replace multiplication with addition
+    Mul_I->replaceAllUsesWith(Add_I_for_LSR_Mul);
+    Mul_I->eraseFromParent();
+
+    AggrLSRLog->flush();
+}
+
+
+// find the instruction operand of the Mul operation
+Instruction* HI_AggressiveLSR_MUL::find_Incremental_op(Instruction *Mul_I)
+{
+    for (int i = 0; i < Mul_I->getNumOperands(); i++)
+    {
+        if (auto res_I = dyn_cast<Instruction>(Mul_I->getOperand(i)))
+            return res_I;
+    }
     return nullptr;
 }
 
-// find the instructions independent with the PHI nodes
-std::vector<Instruction*> HI_AggressiveLSR_MUL::getInstructions_PhiIndependent(BasicBlock *cur_block)
+// find the constant operand of the Mul operation
+ConstantInt* HI_AggressiveLSR_MUL::find_Constant_op(Instruction *Mul_I)
 {
-    *BackwardLog << "\ngetInstructions_PhiIndependent\n";
-    isInstruction_PHI_Independent.clear();
-
-    // mark those instruction dependent on the PHINodes
-    for (auto &I : *cur_block)
+    for (int i = 0; i < Mul_I->getNumOperands(); i++)
     {
-        if (auto PHI_I = dyn_cast<PHINode>(&I))
+        if (auto res_I = dyn_cast<ConstantInt>(Mul_I->getOperand(i)))
+            return res_I;
+    }
+    return nullptr;
+}
+
+// check the memory access in the function
+void HI_AggressiveLSR_MUL::TraceMemoryAccessinFunction(Function &F)
+{
+    if (F.getName().find("llvm.")!=std::string::npos) // bypass the "llvm.xxx" functions..
+        return;
+    findMemoryAccessin(&F);        
+    
+}
+
+
+// find the array access in the function F and trace the accesses to them
+void HI_AggressiveLSR_MUL::findMemoryAccessin(Function *F)
+{
+    *AggrLSRLog << "checking the Memory Access information in Function: " << F->getName() << "\n";
+    ValueVisited.clear();
+
+
+    // for general function in HLS, arrays in functions are usually declared with alloca instruction
+    for (auto &B: *F)
+    {
+        for (auto &I: B)
         {
-            isInstruction_PHI_Independent.insert(&I);
+            if (IntToPtrInst *ITP_I = dyn_cast<IntToPtrInst>(&I))
+            {
+                *AggrLSRLog << "find a IntToPtrInst: [" << *ITP_I << "] backtrace to its operands.\n";
+                TraceAccessForTarget(ITP_I);
+            }
+        }
+    }
+    *AggrLSRLog << "-------------------------------------------------" << "\n\n\n\n";
+    AggrLSRLog->flush();
+}
+
+// find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
+void HI_AggressiveLSR_MUL::TraceAccessForTarget(Value *cur_node)
+{
+    *AggrLSRLog << "looking for the operands of " << *cur_node<< "\n";
+    if (Instruction* tmpI = dyn_cast<Instruction>(cur_node))
+    {       
+        Inst_AccessRelated.insert(tmpI);
+    }
+    else
+    {
+        return;
+    }    
+
+    Instruction* curI = dyn_cast<Instruction>(cur_node);
+    AggrLSRLog->flush();
+
+    // we are doing DFS now
+    if (ValueVisited.find(cur_node)!=ValueVisited.end())
+        return;
+
+    ValueVisited.insert(cur_node);
+
+    // Trace the uses of the pointer value or integer generaed by PtrToInt
+    for (int i = 0; i < curI->getNumOperands(); ++i)
+    {
+        Value * tmp_op = curI->getOperand(i);
+        TraceAccessForTarget(tmp_op);
+    }
+    ValueVisited.erase(cur_node);
+}
+
+
+// trace back to find the original PHI operator, bypassing SExt and ZExt operations
+// according to which, we can generate new PHI node for the MUL operation
+PHINode* HI_AggressiveLSR_MUL::byPassBack_BitcastOp_findPHINode(Value* cur_I_value)
+{
+    auto cur_I = dyn_cast<Instruction>(cur_I_value);
+    assert(cur_I && "This should be an instruction.\n");
+    // For ZExt/SExt Instruction, we do not need to consider those constant bits
+    if (cur_I->getOpcode() == Instruction::ZExt || cur_I->getOpcode() == Instruction::SExt )
+    {
+        if (auto next_I = dyn_cast<Instruction>(cur_I->getOperand(0)))
+        {
+            return byPassBack_BitcastOp_findPHINode(next_I);
         }
         else
         {
-            auto cur_opcode = I.getOpcode();
-            if (cur_opcode == Instruction::Ret || cur_opcode == Instruction::Br || cur_opcode == Instruction::Switch || 
-                cur_opcode == Instruction::IndirectBr || cur_opcode == Instruction::Invoke || cur_opcode == Instruction::Resume || 
-                cur_opcode == Instruction::Unreachable || cur_opcode == Instruction::CleanupRet || cur_opcode == Instruction::CatchRet || 
-                cur_opcode == Instruction::CatchSwitch )
-            {
-                isInstruction_PHI_Independent.insert(&I);
-            }
-            if (auto callI = dyn_cast<CallInst>(&I))
-            {
-                for (int i = 0; i<callI->getNumArgOperands(); i++)
-                {
-                    if (auto tmpI = dyn_cast<Instruction>(callI->getArgOperand(i)))
-                    {
-                        if (tmpI->getParent()==cur_block)
-                        {
-                            if (isInstruction_PHI_Independent.find(tmpI)!=isInstruction_PHI_Independent.end())
-                            {
-                                isInstruction_PHI_Independent.insert(&I);
-                            }
-                        }
-                    }
-                }
-                continue;
-            }
-            for (int i = 0; i<I.getNumOperands(); i++)
-            {
-                if (auto tmpI = dyn_cast<Instruction>(I.getOperand(i)))
-                {
-                    if (tmpI->getParent()==cur_block)
-                    {
-                        if (isInstruction_PHI_Independent.find(tmpI)!=isInstruction_PHI_Independent.end())
-                        {
-                            isInstruction_PHI_Independent.insert(&I);
-                        }
-                    }
-                }
-            }
-        }        
-    }
-
-    std::vector<Instruction*> res;
-    *BackwardLog << "\n\n\n\n\n In block: " << cur_block->getName() << ", the following instructions are independent with the PHI";
-    for (auto &I : *cur_block)
-    {
-        if (isInstruction_PHI_Independent.find(&I)==isInstruction_PHI_Independent.end())
-        {
-            *BackwardLog << I << "\n";         
-            res.push_back(&I);
+            assert(false && "Predecessor of bitcast operator should be found.\n");
         }
     }
-    BackwardLog->flush();
-    return res;
-}
-
-// move the Instruction to another block
-bool HI_AggressiveLSR_MUL::transferInstructionTo(Instruction* I, BasicBlock *To_B)
-{
-    *BackwardLog << "moving instruction: " << *I<< " from block: " << I->getParent()->getName() << " to block: " << To_B->getName() <<"\n" ;
-    Instruction* BlockEnd_I = To_B->getTerminator();
-    I->moveBefore(BlockEnd_I);
-    return true;
-}
-
-void HI_AggressiveLSR_MUL::printFunction(Function* F)
-{
-    *BackwardLog << "\n\nThe Content of Function: " << F->getName() << " is \n" <<*F;
-    *BackwardLog << "\n";
+    else
+    {
+        if (auto PHI_I = dyn_cast<PHINode>(cur_I))
+        {
+            return PHI_I;
+        }
+        else
+        {
+            return nullptr;
+        }     
+    }    
 }

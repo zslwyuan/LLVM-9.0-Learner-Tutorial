@@ -162,6 +162,8 @@ void HI_NoDirectiveTimingResourceEvaluation::TraceMemoryDeclarationinModule(Modu
 {
     for (auto &F : M)
     {
+        if (F.getName().find("llvm.")!=std::string::npos) // bypass the "llvm.xxx" functions..
+            continue;
         std::string mangled_name = F.getName();
         std::string demangled_name;
         demangled_name = demangeFunctionName(mangled_name);

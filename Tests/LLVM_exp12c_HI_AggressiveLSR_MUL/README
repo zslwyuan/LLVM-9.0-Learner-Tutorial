@@ -5,7 +5,7 @@ variables.
 
 
 1.  find the mul for array offset calculation
-2.  get the incremental value by find the induction varialble (addition) and check its step
+2.  get the incremental value by using SCEV
 3.  insert a new PHI (carefully select the initial constant)
 4.  replace multiplication with addition
 
