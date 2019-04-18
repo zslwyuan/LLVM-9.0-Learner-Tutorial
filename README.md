@@ -115,6 +115,7 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 **Experiment 12(c)**: Since LLVM-provided loop strength reduction (LSR) pass limits itself according to the Target ISA addressing mode, an aggressive LSR pass is implemented for HLS to reduce the cost of DSPs on FPGA. (Transformation Pass) **[PASS CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations/HI_AggressiveLSR_MUL)** 
 
       --- Loop Strength Reduction, Analysis based on Scalar Evolution, AddRecExpr, (Aggressive: may not stable for all the situations 0-0, but it works fine temporarily)
+      --- Thank Momchil Velikov for his detailed reply about my inquiry about LSR pass
 
 **Experiment 14**: (WIP) Based on the IR file, evaluate the resource and timing of the Window/Buffer/Filter in HLS 
 
