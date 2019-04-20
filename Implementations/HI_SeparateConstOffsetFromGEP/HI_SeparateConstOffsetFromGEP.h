@@ -107,6 +107,9 @@
 #include <stdio.h>
 #include <string>
 #include <ios>
+
+#include "HI_print.h"
+
 using namespace llvm;
 using namespace llvm::PatternMatch;
 

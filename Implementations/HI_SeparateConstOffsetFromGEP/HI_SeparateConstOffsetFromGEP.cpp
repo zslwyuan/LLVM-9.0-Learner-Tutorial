@@ -529,6 +529,7 @@ HI_SeparateConstOffsetFromGEP::accumulateByteOffset(GetElementPtrInst *GEP,
 
       }
     } else if (LowerGEP) {
+      print_warning("GEP Instruction for struct type detected! Please note that currently, Hi-LLVM does not support GEP for struct.");
       StructType *StTy = GTI.getStructType();
       uint64_t Field = cast<ConstantInt>(GEP->getOperand(I))->getZExtValue();
       // Skip field 0 as the offset is always 0.

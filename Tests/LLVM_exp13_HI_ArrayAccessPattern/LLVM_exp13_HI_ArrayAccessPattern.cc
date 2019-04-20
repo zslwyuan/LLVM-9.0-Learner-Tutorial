@@ -1,12 +1,12 @@
-#include "LLVM_exp6_GEP_Transformation.h"
+#include "LLVM_exp13_HI_ArrayAccessPattern.h"
 
 using namespace llvm;
 using namespace polly;
 
 
 int main(int argc, char **argv) {
-  if (argc < 3) {
-    errs() << "Usage: " << argv[0] << " <C/C++ file> <Top_Function_Name>\n";
+  if (argc < 4) {
+    errs() << "Usage: " << argv[0] << " <C/C++ file> <Top_Function_Name> <Config_File_Path>\n";
     return 1;
   }
 
@@ -18,6 +18,7 @@ int main(int argc, char **argv) {
   LLVMContext Context;
   std::string cmd_str = "clang -O1 -emit-llvm -S "+std::string(argv[1])+" -o top.bc 2>&1";
   std::string top_str = std::string(argv[2]);
+  std::string configFile_str = std::string(argv[3]);
   print_cmd(cmd_str.c_str());
   bool result = sysexec(cmd_str.c_str());
   assert(result); // ensure the cmd is executed successfully
@@ -31,8 +32,9 @@ int main(int argc, char **argv) {
   
 
   // Create a pass manager and fill it with the passes we want to run.
-  legacy::PassManager PM;
+  legacy::PassManager PM,PM1;
   LLVMTargetRef T;
+  ModulePassManager MPM;
 
   char *Error;
 
@@ -49,33 +51,98 @@ int main(int argc, char **argv) {
 
   Triple ModuleTriple(Mod->getTargetTriple());
   TargetLibraryInfoImpl TLII(ModuleTriple);
-  PM.add(new TargetLibraryInfoWrapperPass(TLII));
+  PM1.add(new TargetLibraryInfoWrapperPass(TLII));
+  
 
   print_info("Enable LoopSimplify Pass");
   auto loopsimplifypass = createLoopSimplifyPass();
-  PM.add(loopsimplifypass);
+  PM1.add(loopsimplifypass);
 
   auto indvarsimplifypass = createIndVarSimplifyPass();
-  PM.add(indvarsimplifypass);
+  PM1.add(indvarsimplifypass);
   print_info("Enable IndVarSimplifyPass Pass");
 
-  PM.add(createTargetTransformInfoWrapperPass(TargetIRAnalysis()));
+  PM1.add(createTargetTransformInfoWrapperPass(TargetIRAnalysis()));
   print_info("Enable TargetIRAnalysis Pass");
 
 
 
 
-  auto separateconstoffsetfromgep = createSeparateConstOffsetFromGEPPass(true);
-  PM.add(separateconstoffsetfromgep);
-  print_info("Enable SeparateConstOffsetFromGEP Pass");
 
-  PM.add(createStraightLineStrengthReducePass());
-  print_info("Enable StraightLineStrengthReduce Pass");
+  auto hi_separateconstoffsetfromgep = new HI_SeparateConstOffsetFromGEP("HI_SeparateConstOffsetFromGEP",true);
+  PM1.add(hi_separateconstoffsetfromgep);
+  print_info("Enable HI_SeparateConstOffsetFromGEP Pass");
+  // auto separateconstoffsetfromgep = createSeparateConstOffsetFromGEPPass(true);
+  // PM.add(separateconstoffsetfromgep);
+  // print_info("Enable SeparateConstOffsetFromGEP Pass");
 
 
-  auto instructioncombiningpass = createInstructionCombiningPass(true);
-  PM.add(instructioncombiningpass);
-  print_info("Enable InstructionCombiningPass Pass");
+
+  if (argc == 5 && std::string(argv[4])=="enable-lsr")
+  {
+      auto loopstrengthreducepass = createLoopStrengthReducePass();
+      PM1.add(loopstrengthreducepass);
+      print_info("Enable LoopStrengthReducePass Pass");
+  }
+
+  auto hi_duplicateinstrm = new HI_DuplicateInstRm("rmInsts");
+  PM1.add(hi_duplicateinstrm);
+  print_info("Enable HI_DuplicateInstRm Pass");
+
+  auto hi_aggressivelsr_mul = new HI_AggressiveLSR_MUL("AggressiveLSR");
+  PM.add(hi_aggressivelsr_mul);
+  print_info("Enable HI_AggressiveLSR_MUL Pass");
+
+  // auto lazyvalueinfowrapperpass = new LazyValueInfoWrapperPass();
+  // PM.add(lazyvalueinfowrapperpass);
+  // print_info("Enable LazyValueInfoWrapperPass Pass");
+
+  auto hi_varwidthreduce = new HI_VarWidthReduce("VarWidth");
+  PM1.add(hi_varwidthreduce);
+  print_info("Enable HI_VarWidthReduce Pass");
+
+
+  auto hi_intstructionmovebackward = new HI_IntstructionMoveBackward("HI_IntstructionMoveBackward");
+  PM1.add(hi_intstructionmovebackward);
+  print_info("Enable HI_IntstructionMoveBackward Pass");
+
+  // don't remove chained operations
+  auto hi_hlsduplicateinstrm = new HI_HLSDuplicateInstRm("HLSrmInsts");
+  PM1.add(hi_hlsduplicateinstrm);
+  print_info("Enable HI_HLSDuplicateInstRm Pass");
+
+  auto hi_arrayaccesspattern = new HI_ArrayAccessPattern("HI_ArrayAccessPattern");
+  PM.add(hi_arrayaccesspattern);
+  print_info("Enable HI_ArrayAccessPattern Pass");
+
+
+  // PM.add(createCorrelatedValuePropagationPass());
+  // print_info("Enable CorrelatedValuePropagation Pass");
+  
+
+  // PM.add(createCorrelatedValuePropagationPass());
+  // print_info("Enable CorrelatedValuePropagation Pass");
+
+  PM1.run(*Mod);
+
+  std::error_code EC;
+  llvm::raw_fd_ostream OS1("top_output0.bc", EC, llvm::sys::fs::F_None);
+  WriteBitcodeToFile(*Mod, OS1);
+  OS1.flush();
+
+
+  // auto hi_duplicateinstrm1 = new HI_DuplicateInstRm("rmInsts");
+  // PM.add(hi_duplicateinstrm1);
+  // print_info("Enable HI_DuplicateInstRm Pass");
+
+
+  // PM.add(createStraightLineStrengthReducePass());
+  // print_info("Enable StraightLineStrengthReduce Pass");
+
+
+  // auto instructioncombiningpass = createInstructionCombiningPass(true);
+  // PM.add(instructioncombiningpass);
+  // print_info("Enable InstructionCombiningPass Pass");
 
   // auto loopstrengthreducepass = createLoopStrengthReducePass();
   // PM.add(loopstrengthreducepass);
@@ -138,17 +205,21 @@ int main(int argc, char **argv) {
   print_info("Enable PollyInformation Pass");
   PM.add(hi_polly_info);   
 
-  // auto hi_loopinformationcollect = new HI_LoopInFormationCollect("Loops");
-  // PM.add(hi_loopinformationcollect); 
-  // print_info("Enable HI_LoopInFormationCollect Pass");
+  auto hi_loopinformationcollect = new HI_LoopInFormationCollect("Loops");
+  PM.add(hi_loopinformationcollect); 
+  print_info("Enable HI_LoopInFormationCollect Pass");
 
-  // auto hi_loopdependenceanalysis = new HI_LoopDependenceAnalysis("HI_LoopDependenceAnalysis");
-  // print_info("Enable HI_LoopDependenceAnalysis Pass");
-  // PM.add(hi_loopdependenceanalysis); 
+  auto hi_loopdependenceanalysis = new HI_LoopDependenceAnalysis("HI_LoopDependenceAnalysis");
+  print_info("Enable HI_LoopDependenceAnalysis Pass");
+  PM.add(hi_loopdependenceanalysis); 
   
   // auto hi_simpletimingevaluation = new HI_SimpleTimingEvaluation("HI_SimpleTimingEvaluation",top_str.c_str());
   // print_info("Enable HI_SimpleTimingEvaluation Pass");
   // PM.add(hi_simpletimingevaluation); 
+
+  auto hi_nodirectivetimingresourceevaluation = new HI_NoDirectiveTimingResourceEvaluation(configFile_str.c_str(),"HI_NoDirectiveTimingResourceEvaluation","BRAM_info",top_str.c_str());
+  print_info("Enable HI_NoDirectiveTimingResourceEvaluation Pass");
+  PM.add(hi_nodirectivetimingresourceevaluation); 
 
   print_info("Enable HI_FindFunctions Pass");
   print_info("Enable HI_DependenceList Pass");
@@ -157,20 +228,29 @@ int main(int argc, char **argv) {
   auto hi_dependencelist = new HI_DependenceList("Instructions","Instruction_Dep");
   PM.add(hi_dependencelist);
 
-
-
-
-    // AU.addRequiredTransitive<polly::DependenceInfoWrapperPass>();
-    // AU.addRequiredTransitive<polly::ScopInfoWrapperPass>();
+  // while (1)
+  // {
+  //     int opBitWid, outBitWid;
+  //     std::string ClockPerid,opcode;
+  //     std::cin >> opcode >> opBitWid >> outBitWid >> ClockPerid;
+  //     if (opcode=="end")
+  //       break;
+  //     // int DSP = testObj->get_N_DSP(opcode, opBitWid , outBitWid, ClockPerid);
+  //     // int FF = testObj->get_N_FF(opcode, opBitWid , outBitWid, ClockPerid);
+  //     // int LUT = testObj->get_N_LUT(opcode, opBitWid , outBitWid, ClockPerid);
+  //     // int Lat = testObj->get_N_Lat(opcode, opBitWid , outBitWid, ClockPerid);
+  //     // double Delay = testObj->get_N_Delay(opcode, opBitWid , outBitWid, ClockPerid);
+  //     hi_nodirectivetimingresourceevaluation->get_inst_info(opcode, opBitWid , outBitWid, ClockPerid).print();
+  // }
 
   print_status("Start LLVM processing");  
   PM.run(*Mod);
   print_status("Accomplished LLVM processing");
 
-  // assert(hi_simpletimingevaluation->topFunctionFound && "The specified top function is not found in the program");
+  assert(hi_nodirectivetimingresourceevaluation->topFunctionFound && "The specified top function is not found in the program");
 
   print_status("Writing LLVM IR to File");
-  std::error_code EC;
+  
   llvm::raw_fd_ostream OS("top_output.bc", EC, llvm::sys::fs::F_None);
   WriteBitcodeToFile(*Mod, OS);
   OS.flush();

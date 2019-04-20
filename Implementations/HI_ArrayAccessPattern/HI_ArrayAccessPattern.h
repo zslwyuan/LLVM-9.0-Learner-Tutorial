@@ -1,5 +1,5 @@
-#ifndef _HI_AggressiveLSR_MUL
-#define _HI_AggressiveLSR_MUL
+#ifndef _HI_ArrayAccessPattern
+#define _HI_ArrayAccessPattern
 // related headers should be included.
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
@@ -254,9 +254,9 @@
 
 using namespace llvm;
 
-class HI_AggressiveLSR_MUL : public FunctionPass {
+class HI_ArrayAccessPattern : public FunctionPass {
 public:
-    HI_AggressiveLSR_MUL(const char* AggrLSRLog_Name ) : FunctionPass(ID)
+    HI_ArrayAccessPattern(const char* AggrLSRLog_Name ) : FunctionPass(ID)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;
@@ -267,7 +267,7 @@ public:
         tmp_stream = new raw_string_ostream(tmp_stream_str);
     } // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
 
-    ~HI_AggressiveLSR_MUL()
+    ~HI_ArrayAccessPattern()
     {
         AggrLSRLog->flush(); delete AggrLSRLog;
         tmp_stream->flush(); delete tmp_stream;
@@ -275,7 +275,7 @@ public:
 
     virtual bool doInitialization(Module &M)
     {
-        print_status("Initilizing HI_AggressiveLSR_MUL pass.");  
+        print_status("Initilizing HI_ArrayAccessPattern pass.");  
         
 
         return false;
@@ -290,10 +290,6 @@ public:
     virtual bool runOnFunction(Function &M);
     static char ID;
 
-    // check whether the instruction is Multiplication suitable for LSR
-    // If suitable, process it
-    bool LSR_Mul(Instruction *I, ScalarEvolution *SE);
-
     // find the array access in the function F and trace the accesses to them
     void findMemoryAccessin(Function *F);
 
@@ -307,11 +303,7 @@ public:
     // according to which, we can generate new PHI node for the MUL operation
     PHINode* byPassBack_BitcastOp_findPHINode(Value* cur_I_value);
 
-    // replace the original MUL with PHI and Add operator
-    void LSR_Process(Instruction *Mul_I, APInt start_val, APInt step_val);
-
-
-    bool LSR_Add(Instruction *I, ScalarEvolution *SE);
+    bool ArrayAccessOffset(Instruction *I, ScalarEvolution *SE);
 
     // find the instruction operand of the Mul operation
     Instruction* find_Incremental_op(Instruction *Mul_I);
@@ -324,6 +316,11 @@ public:
     int Function_Counter;
     int BasicBlock_Counter;
     int Loop_Counter;
+
+    class arrayInfo
+    {
+        int dimensitions[5];
+    };
 
     std::string top_function_name;
 

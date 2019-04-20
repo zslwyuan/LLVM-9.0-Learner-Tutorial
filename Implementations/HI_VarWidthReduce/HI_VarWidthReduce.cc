@@ -236,6 +236,14 @@ bool HI_VarWidthReduce::InsturctionUpdate_WidthCast(Function *F)
                             changed = 1;    
                             break;
                         }
+                        // else if (CallInst* Call_I = dyn_cast<CallInst>(&I))
+                        // {
+                        //     *VarWidthChangeLog << "          "<< *Call_I << " is a CallInst\n ";
+                        //     CallInst_WidthCast(Call_I);
+                        //     take_action = 1;
+                        //     changed = 1;    
+                        //     break;
+                        // }
                         else
                         {
                             *VarWidthChangeLog << "and it is not a operator which HI_VarWidthReduce can be applied.(bypass)\n";
@@ -283,7 +291,7 @@ bool HI_VarWidthReduce::RedundantCastRemove(Function *F)
                         *VarWidthChangeLog << "                         ------->remove redunctan CastI: " << *CastI  <<"\n";
                         *VarWidthChangeLog << "                         ------->replace CastI with its operand 0: " << *I.getOperand(0)  <<"\n";
                         //VarWidthChangeLog->flush(); 
-                        ReplaceUsesUnsafe(&I,I.getOperand(0));
+                        ReplaceUses_withNewOperand_newBW(&I,I.getOperand(0));
                         I.eraseFromParent();
                         rmflag = 1;
                         changed = 1;
@@ -339,7 +347,7 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
                             }                            
                             // re-create the instruction to update the type(bitwidth) of it, otherwise, although the operans are changed, the output of instrcution will be remained.
                             *VarWidthChangeLog << "                         ------->  new_BOI = "<<*ResultPtr<<"\n";
-                            ReplaceUsesUnsafe(&I, ResultPtr) ;
+                            ReplaceUses_withNewOperand_newBW(&I, ResultPtr) ;
                             *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
                             //VarWidthChangeLog->flush(); 
                             I.eraseFromParent();
@@ -350,7 +358,7 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
                         }
                         else if (TI->getDestTy()->getIntegerBitWidth() == TI->getSrcTy()->getIntegerBitWidth())
                         {
-                            ReplaceUsesUnsafe(&I, TI->getOperand(0)) ;
+                            ReplaceUses_withNewOperand_newBW(&I, TI->getOperand(0)) ;
                             *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
                             //VarWidthChangeLog->flush(); 
                             I.eraseFromParent();
@@ -381,7 +389,7 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
                             }                            
                             // re-create the instruction to update the type(bitwidth) of it, otherwise, although the operans are changed, the output of instrcution will be remained.
                             *VarWidthChangeLog << "                         ------->  new_BOI = "<<*ResultPtr<<"\n";
-                            ReplaceUsesUnsafe(&I, ResultPtr) ;
+                            ReplaceUses_withNewOperand_newBW(&I, ResultPtr) ;
                             *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
                             //VarWidthChangeLog->flush(); 
                             I.eraseFromParent();
@@ -392,7 +400,7 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
                         }                        
                         else if (ZI->getDestTy()->getIntegerBitWidth() == ZI->getSrcTy()->getIntegerBitWidth())
                         {
-                            ReplaceUsesUnsafe(&I, ZI->getOperand(0)) ;
+                            ReplaceUses_withNewOperand_newBW(&I, ZI->getOperand(0)) ;
                             *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
                             //VarWidthChangeLog->flush(); 
                             I.eraseFromParent();
@@ -423,7 +431,7 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
                             }                            
                             // re-create the instruction to update the type(bitwidth) of it, otherwise, although the operans are changed, the output of instrcution will be remained.
                             *VarWidthChangeLog << "                         ------->  new_BOI = "<<*ResultPtr<<"\n";
-                            ReplaceUsesUnsafe(&I, ResultPtr) ;
+                            ReplaceUses_withNewOperand_newBW(&I, ResultPtr) ;
                             *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
                             //VarWidthChangeLog->flush(); 
                             I.eraseFromParent();
@@ -434,7 +442,7 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
                         }                        
                         else if (SI->getDestTy()->getIntegerBitWidth() == SI->getSrcTy()->getIntegerBitWidth())
                         {
-                            ReplaceUsesUnsafe(&I, SI->getOperand(0)) ;
+                            ReplaceUses_withNewOperand_newBW(&I, SI->getOperand(0)) ;
                             *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
                             //VarWidthChangeLog->flush(); 
                             I.eraseFromParent();
@@ -472,14 +480,39 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
 
 // The replaceAllUsesWith function requires that the new use in the user has the same type with the original use.
 // Therefore, a new function to replace uses of an instruction is implemented
-void HI_VarWidthReduce::ReplaceUsesUnsafe(Instruction *from, Value *to) 
+void HI_VarWidthReduce::ReplaceUses_withNewOperand_newBW(Instruction *from, Value *to) 
 {
     *VarWidthChangeLog << "            ------  replacing  " << *from << " in its user\n";
     while (!from->use_empty()) 
     {
         User* tmp_user = from->use_begin()->getUser();
         *VarWidthChangeLog << "            ------  replacing the original inst in " << *from->use_begin()->getUser() << " with " << *to <<"\n";
-        from->use_begin()->set(to);
+
+        // we should not replace the argument with new argument with different BW, it may go wrong to match the definition of the function
+        // therefore, we need to bitcast the value "to" to fit the bitwidth defined in the function definition
+        if (auto Call_I = dyn_cast<CallInst>(tmp_user))
+        {
+            const SCEV *tmp_S = SE->getSCEV(to);
+            ConstantRange tmp_CR = HI_getSignedRangeRef(tmp_S);
+            Value *ResultPtr;
+            IRBuilder<> Builder( Call_I);
+            std::string regNameS = "bcast"+std::to_string(changed_id);
+            changed_id++; 
+            if (tmp_CR.getLower().isNegative())
+            {                                                
+                ResultPtr = Builder.CreateSExtOrTrunc(to, from->use_begin()->get()->getType(),regNameS.c_str()); // process the operand with SExtOrTrunc if it is signed.
+            }
+            else
+            {
+                ResultPtr = Builder.CreateZExtOrTrunc(to, from->use_begin()->get()->getType(),regNameS.c_str()); // process the operand with ZExtOrTrunc if it is unsigned.                                           
+            }
+            from->use_begin()->set(ResultPtr);      
+        }
+        else
+        {
+            from->use_begin()->set(to);
+        }      
+        
         *VarWidthChangeLog << "            ------  new user => " << *tmp_user << "\n";
         *VarWidthChangeLog << "            ------  from->getNumUses() "<< from->getNumUses() << "\n";
     }
@@ -590,7 +623,7 @@ void HI_VarWidthReduce::BOI_WidthCast(BinaryOperator *BOI)
     BinaryOperator *newBOI = BinaryOperator::Create(BOI->getOpcode(), BOI->getOperand(0), BOI->getOperand(1), "HI."+BOI->getName()+regNameS,BOI); 
     *VarWidthChangeLog << "                         ------->  new_BOI = "<<*newBOI<<"\n";
     // BOI->replaceAllUsesWith(newBOI) ;
-    ReplaceUsesUnsafe(BOI, newBOI) ;
+    ReplaceUses_withNewOperand_newBW(BOI, newBOI) ;
     *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
     //VarWidthChangeLog->flush(); 
     I.eraseFromParent();
@@ -682,7 +715,7 @@ void HI_VarWidthReduce::ICMP_WidthCast(ICmpInst *ICMP_I)
     ); 
     *VarWidthChangeLog << "                         ------->  new_CMP = "<<*newCMP<<"\n";
     // BOI->replaceAllUsesWith(newBOI) ;
-    ReplaceUsesUnsafe(ICMP_I, newCMP) ;
+    ReplaceUses_withNewOperand_newBW(ICMP_I, newCMP) ;
     *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
     //VarWidthChangeLog->flush(); 
     I.eraseFromParent();
@@ -784,7 +817,7 @@ void HI_VarWidthReduce::PHI_WidthCast(PHINode *PHI_I)
     *VarWidthChangeLog << "                         ------->  new_PHI_I = "<<*new_PHI<<"\n";
     
     // BOI->replaceAllUsesWith(newBOI) ;
-    ReplaceUsesUnsafe(PHI_I, new_PHI) ;
+    ReplaceUses_withNewOperand_newBW(PHI_I, new_PHI) ;
     *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
     //VarWidthChangeLog->flush(); 
     I.eraseFromParent();

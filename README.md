@@ -91,6 +91,7 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 **Experiment 9**: Build a GEP operation transformation pass for HLS  (Transformation Pass)  **[PASS CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations/HI_SeparateConstOffsetFromGEP)**
 
       --- HLS, ByteAlignment->ElementAlignment, SeparateConstOffsetFromGEP, GEP Lowering, Transformation Pass, DataLayout
+      --- WARNING: Currently, array of struct is not supported. In the future, we need to transform array of struct to seperate array.
 
 
 **Experiment 10**: Hack on Clang to detect arbitary precision integer ap\_int<X> in source code for VivadoHLS and mark them in the source code (Front-end Operation: AST Consumer) **[ACTION CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations/HI_APIntSrcAnalysis)**

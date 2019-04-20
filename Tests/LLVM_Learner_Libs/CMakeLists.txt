@@ -39,6 +39,7 @@ include_directories(./ ../../Implementations/
 ../../Implementations/HI_IntstructionMoveBackward
 ../../Implementations/HI_HLSDuplicateInstRm
 ../../Implementations/HI_AggressiveLSR_MUL
+../../Implementations/HI_ArrayAccessPattern
 )
 
 add_subdirectory(../../Implementations ./building)

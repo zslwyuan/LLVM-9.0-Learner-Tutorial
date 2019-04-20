@@ -299,7 +299,7 @@ public:
 
     unsigned int bitNeededFor(ConstantRange CR);
 
-    void ReplaceUsesUnsafe(Instruction *from, Value *to);
+    void ReplaceUses_withNewOperand_newBW(Instruction *from, Value *to);
 
     // Analysis: check the value range of the instructions in the source code and determine the bitwidth
     void Bitwidth_Analysis(Function *F);    

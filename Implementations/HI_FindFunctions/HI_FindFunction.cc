@@ -52,6 +52,9 @@ bool HI_FindFunctions::runOnModule(Module &M) // The runOnModule declaration wil
             }
         }
     }
+    
+    *Function_Demangle << "===============printing the module ====================================\n";
+    *Function_Demangle << M << "\n";
     Function_Demangle->flush();
     return false;
 }

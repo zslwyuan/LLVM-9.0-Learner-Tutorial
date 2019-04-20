@@ -40,6 +40,15 @@
 #define NJ 18
 #define NK 22
 #define NL 24
+
+/*
+  %0 = ptrtoint [18 x i32]* %tmp to i64
+  %1 = ptrtoint [22 x i32]* %A to i64
+  %2 = ptrtoint [18 x i32]* %B to i64
+  %3 = ptrtoint [24 x i32]* %D to i64
+  %4 = ptrtoint [24 x i32]* %C to i64
+*/
+
 void kernel_2mm(int ni, int nj, int nk, int nl,
 		int alpha,
 		int beta,

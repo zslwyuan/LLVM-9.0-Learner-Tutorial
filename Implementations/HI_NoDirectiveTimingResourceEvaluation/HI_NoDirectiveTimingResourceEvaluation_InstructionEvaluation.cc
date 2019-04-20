@@ -45,13 +45,13 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     }
     else if (UIToFPInst *UTF = dyn_cast<UIToFPInst>(I))
     {
-        Value *op1 = UTF->getOperand(1);
+        Value *op1 = UTF->getOperand(0);
         result = get_inst_TimingInfo_result("uitofp",op1->getType()->getIntegerBitWidth(),op1->getType()->getIntegerBitWidth(),clock_period_str);
         return result;
     }
     else if (SIToFPInst *STF = dyn_cast<SIToFPInst>(I))
     {
-        Value *op1 = STF->getOperand(1);
+        Value *op1 = STF->getOperand(0);
         result = get_inst_TimingInfo_result("sitofp",op1->getType()->getIntegerBitWidth(),op1->getType()->getIntegerBitWidth(),clock_period_str);
         return result;
     }
@@ -402,13 +402,13 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
     }
     else if (UIToFPInst *UTF = dyn_cast<UIToFPInst>(I))
     {
-        Value *op1 = UTF->getOperand(1);
+        Value *op1 = UTF->getOperand(0);
         result = get_inst_ResourceInfo_result("uitofp",op1->getType()->getIntegerBitWidth(),op1->getType()->getIntegerBitWidth(),clock_period_str);
         return result;
     }
     else if (SIToFPInst *STF = dyn_cast<SIToFPInst>(I))
     {
-        Value *op1 = STF->getOperand(1);
+        Value *op1 = STF->getOperand(0);
         result = get_inst_ResourceInfo_result("sitofp",op1->getType()->getIntegerBitWidth(),op1->getType()->getIntegerBitWidth(),clock_period_str);
         return result;
     }

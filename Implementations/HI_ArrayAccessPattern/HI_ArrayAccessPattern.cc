@@ -8,7 +8,7 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 #include "HI_print.h"
-#include "HI_AggressiveLSR_MUL.h"
+#include "HI_ArrayAccessPattern.h"
 #include <stdio.h>
 #include <string>
 #include <ios>
@@ -16,7 +16,7 @@
 
 using namespace llvm;
  
-bool HI_AggressiveLSR_MUL::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
+bool HI_ArrayAccessPattern::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
 {
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
@@ -30,8 +30,8 @@ bool HI_AggressiveLSR_MUL::runOnFunction(Function &F) // The runOnModule declara
         {
             for (auto &I : B)
             {
-                ActionTaken = LSR_Mul(&I,&SE);
-                LSR_Add(&I,&SE);
+            //    ActionTaken = LSR_Mul(&I,&SE);
+                ArrayAccessOffset(&I,&SE);
                 changed |= ActionTaken;
                 if (ActionTaken)
                     break;
@@ -47,9 +47,9 @@ bool HI_AggressiveLSR_MUL::runOnFunction(Function &F) // The runOnModule declara
 
 
 
-char HI_AggressiveLSR_MUL::ID = 0;  // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_ArrayAccessPattern::ID = 0;  // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
 
-void HI_AggressiveLSR_MUL::getAnalysisUsage(AnalysisUsage &AU) const {
+void HI_ArrayAccessPattern::getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
@@ -57,58 +57,10 @@ void HI_AggressiveLSR_MUL::getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesCFG();
 }
 
-// check whether the instruction is Multiplication suitable for LSR
-// If suitable, process it
-bool HI_AggressiveLSR_MUL::LSR_Mul(Instruction *I, ScalarEvolution *SE)
-{
-/*
-1.  get the incremental value by using SCEV
-2.  insert a new PHI (carefully select the initial constant)
-3.  replace multiplication with addition
-*/
-    if (I->getOpcode() != Instruction:: Mul)
-        return false;
-    if (Inst_AccessRelated.find(I) == Inst_AccessRelated.end())
-        return false;
-
-    Instruction *Incr_I = find_Incremental_op(I);
-    ConstantInt *Mul_Const_V = find_Constant_op(I); 
-
-    if (!Incr_I)
-        return false;
-    if (!Mul_Const_V)
-        return false;
-
-    // 1.  get the incremental value by using SCEV
-    const SCEV *tmp_S = SE->getSCEV(I);
-    const SCEVAddRecExpr *SARE = dyn_cast<SCEVAddRecExpr>(tmp_S);
-    if (SARE)
-    {
-        if (SARE->isAffine())
-        {
-            *AggrLSRLog << *I << " --> is add rec Mul: " << *SARE  << " it operand (0) " << *SARE->getOperand(0)  << " it operand (1) " << *SARE->getOperand(1) << "\n";
-            if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(SARE->getOperand(0)))
-            {
-                if (const SCEVConstant *step_V = dyn_cast<SCEVConstant>(SARE->getOperand(1)))
-                {
-                    int start_val = start_V->getAPInt().getSExtValue();
-                    int step_val = step_V->getAPInt().getSExtValue();
-                    APInt start_val_APInt = start_V->getAPInt();
-                    APInt step_val_APInt = step_V->getAPInt();
-                    LSR_Process(I, start_val_APInt, step_val_APInt);
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
-}
-
-
 
 // check whether the instruction is Multiplication suitable for LSR
 // If suitable, process it
-bool HI_AggressiveLSR_MUL::LSR_Add(Instruction *I, ScalarEvolution *SE)
+bool HI_ArrayAccessPattern::ArrayAccessOffset(Instruction *I, ScalarEvolution *SE)
 {
 /*
 1.  get the incremental value by using SCEV
@@ -118,6 +70,11 @@ bool HI_AggressiveLSR_MUL::LSR_Add(Instruction *I, ScalarEvolution *SE)
     if (I->getOpcode() != Instruction:: Add)
         return false;
     if (Inst_AccessRelated.find(I) == Inst_AccessRelated.end())
+        return false;
+
+    auto ITP_I = dyn_cast<IntToPtrInst>(I->use_begin()->getUser());
+
+    if (!ITP_I)
         return false;
 
     // 1.  get the incremental value by using SCEV
@@ -162,61 +119,8 @@ bool HI_AggressiveLSR_MUL::LSR_Add(Instruction *I, ScalarEvolution *SE)
 }
 
 
-
-// replace the original MUL with PHI and Add operator
-void HI_AggressiveLSR_MUL::LSR_Process(Instruction *Mul_I, APInt start_val, APInt step_val)
-{
-/*
-1.  get the incremental value by using SCEV
-2.  insert a new PHI (carefully select the initial constant)
-3.  replace multiplication with addition
-*/
-    Instruction *Inst_I = find_Incremental_op(Mul_I);
-    PHINode* PHI_I = byPassBack_BitcastOp_findPHINode(Inst_I);
-    *AggrLSRLog << "find the PHINode: [" << *PHI_I << "] for Mul: [" << *Mul_I << "]\n";
-
-    std::string LSR_PHI_Name = Mul_I->getName();
-    LSR_PHI_Name += ".PHI";
-    std::string LSR_Add_Name = Mul_I->getName();
-    LSR_Add_Name += ".Add";
-    IRBuilder<> Builder(Mul_I);
-
-    // 2.  insert a new PHI (carefully select the initial constant)
-    PHINode* PHI_I_for_LSR_Mul = Builder.CreatePHI(Mul_I->getType(), 2,  LSR_PHI_Name);
-    Constant *step_Value = ConstantInt::get(Mul_I->getType(),step_val);
-    Constant *start_Value = ConstantInt::get(Mul_I->getType(),start_val-step_val);
-
-    Value* Add_I_for_LSR_Mul = Builder.CreateAdd(PHI_I_for_LSR_Mul, step_Value, LSR_Add_Name);
-
-    for (int i = 0; i < PHI_I->getNumOperands(); i++)
-    {
-        if (auto con_val = dyn_cast<ConstantInt>(PHI_I->getOperand(i)))
-        {
-            PHI_I_for_LSR_Mul->addIncoming(start_Value,PHI_I->getIncomingBlock(i));
-        }
-    }
-    
-    for (int i = 0; i < PHI_I->getNumOperands(); i++)
-    {
-        if (auto opI_val = dyn_cast<Instruction>(PHI_I->getOperand(i)))
-        {
-            PHI_I_for_LSR_Mul->addIncoming(Add_I_for_LSR_Mul,PHI_I->getIncomingBlock(i));
-        }
-    }    
-
-    *AggrLSRLog << "create the LSR PHINode: [" << *PHI_I_for_LSR_Mul << "] for Mul: [" << *Mul_I << "]\n";
-    *AggrLSRLog << "create the LSR Add: [" << *Add_I_for_LSR_Mul << "] for Mul: [" << *Mul_I << "]\n\n\n";
-
-    // 3.  replace multiplication with addition
-    Mul_I->replaceAllUsesWith(Add_I_for_LSR_Mul);
-    Mul_I->eraseFromParent();
-
-    AggrLSRLog->flush();
-}
-
-
 // find the instruction operand of the Mul operation
-Instruction* HI_AggressiveLSR_MUL::find_Incremental_op(Instruction *Mul_I)
+Instruction* HI_ArrayAccessPattern::find_Incremental_op(Instruction *Mul_I)
 {
     for (int i = 0; i < Mul_I->getNumOperands(); i++)
     {
@@ -227,7 +131,7 @@ Instruction* HI_AggressiveLSR_MUL::find_Incremental_op(Instruction *Mul_I)
 }
 
 // find the constant operand of the Mul operation
-ConstantInt* HI_AggressiveLSR_MUL::find_Constant_op(Instruction *Mul_I)
+ConstantInt* HI_ArrayAccessPattern::find_Constant_op(Instruction *Mul_I)
 {
     for (int i = 0; i < Mul_I->getNumOperands(); i++)
     {
@@ -238,7 +142,7 @@ ConstantInt* HI_AggressiveLSR_MUL::find_Constant_op(Instruction *Mul_I)
 }
 
 // check the memory access in the function
-void HI_AggressiveLSR_MUL::TraceMemoryAccessinFunction(Function &F)
+void HI_ArrayAccessPattern::TraceMemoryAccessinFunction(Function &F)
 {
     if (F.getName().find("llvm.")!=std::string::npos) // bypass the "llvm.xxx" functions..
         return;
@@ -248,7 +152,7 @@ void HI_AggressiveLSR_MUL::TraceMemoryAccessinFunction(Function &F)
 
 
 // find the array access in the function F and trace the accesses to them
-void HI_AggressiveLSR_MUL::findMemoryAccessin(Function *F)
+void HI_ArrayAccessPattern::findMemoryAccessin(Function *F)
 {
     *AggrLSRLog << "checking the Memory Access information in Function: " << F->getName() << "\n";
     ValueVisited.clear();
@@ -271,7 +175,7 @@ void HI_AggressiveLSR_MUL::findMemoryAccessin(Function *F)
 }
 
 // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
-void HI_AggressiveLSR_MUL::TraceAccessForTarget(Value *cur_node)
+void HI_ArrayAccessPattern::TraceAccessForTarget(Value *cur_node)
 {
     *AggrLSRLog << "looking for the operands of " << *cur_node<< "\n";
     if (Instruction* tmpI = dyn_cast<Instruction>(cur_node))
@@ -304,7 +208,7 @@ void HI_AggressiveLSR_MUL::TraceAccessForTarget(Value *cur_node)
 
 // trace back to find the original PHI operator, bypassing SExt and ZExt operations
 // according to which, we can generate new PHI node for the MUL operation
-PHINode* HI_AggressiveLSR_MUL::byPassBack_BitcastOp_findPHINode(Value* cur_I_value)
+PHINode* HI_ArrayAccessPattern::byPassBack_BitcastOp_findPHINode(Value* cur_I_value)
 {
     auto cur_I = dyn_cast<Instruction>(cur_I_value);
     assert(cur_I && "This should be an instruction.\n");
