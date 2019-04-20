@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
   PM1.add(hi_hlsduplicateinstrm);
   print_info("Enable HI_HLSDuplicateInstRm Pass");
 
-  auto hi_arrayaccesspattern = new HI_ArrayAccessPattern("HI_ArrayAccessPattern");
+  auto hi_arrayaccesspattern = new HI_ArrayAccessPattern("HI_ArrayAccessPattern",top_str);
   PM.add(hi_arrayaccesspattern);
   print_info("Enable HI_ArrayAccessPattern Pass");
 

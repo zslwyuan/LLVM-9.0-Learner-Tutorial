@@ -256,20 +256,20 @@ using namespace llvm;
 
 class HI_ArrayAccessPattern : public FunctionPass {
 public:
-    HI_ArrayAccessPattern(const char* AggrLSRLog_Name ) : FunctionPass(ID)
+    HI_ArrayAccessPattern(const char* ArrayLog_Name, std::string _top_function_name) : FunctionPass(ID), top_function_name(_top_function_name)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;
         BasicBlock_Counter = 0;
         Loop_Counter = 0;
         callCounter = 0;
-        AggrLSRLog = new raw_fd_ostream(AggrLSRLog_Name, ErrInfo, sys::fs::F_None);
+        ArrayLog = new raw_fd_ostream(ArrayLog_Name, ErrInfo, sys::fs::F_None);
         tmp_stream = new raw_string_ostream(tmp_stream_str);
     } // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
 
     ~HI_ArrayAccessPattern()
     {
-        AggrLSRLog->flush(); delete AggrLSRLog;
+        ArrayLog->flush(); delete ArrayLog;
         tmp_stream->flush(); delete tmp_stream;
     }
 
@@ -289,6 +289,7 @@ public:
     void getAnalysisUsage(AnalysisUsage &AU) const;
     virtual bool runOnFunction(Function &M);
     static char ID;
+    class ArrayInfo;
 
     // find the array access in the function F and trace the accesses to them
     void findMemoryAccessin(Function *F);
@@ -303,7 +304,7 @@ public:
     // according to which, we can generate new PHI node for the MUL operation
     PHINode* byPassBack_BitcastOp_findPHINode(Value* cur_I_value);
 
-    bool ArrayAccessOffset(Instruction *I, ScalarEvolution *SE);
+    bool ArrayAccessOffset(Instruction *I, ScalarEvolution *SE, bool isTopFunction);
 
     // find the instruction operand of the Mul operation
     Instruction* find_Incremental_op(Instruction *Mul_I);
@@ -311,16 +312,72 @@ public:
     // find the constant operand of the Mul operation
     ConstantInt* find_Constant_op(Instruction *Mul_I);
 
+    void findMemoryDeclarationin(Function *F, bool isTopFunction);
+
+    std::string demangeFunctionName(std::string mangled_name);
+
+    const SCEVAddExpr* findTheActualStartValue(const SCEVAddRecExpr *S);
+
     int callCounter;
     int Instruction_Counter;
     int Function_Counter;
     int BasicBlock_Counter;
     int Loop_Counter;
 
-    class arrayInfo
+    class ArrayInfo
     {
-        int dimensitions[5];
+        public:
+            int dim_size[10];
+            int sub_element_num[10];
+            int num_dims;
+            Type* elementType;
+            Value* target;
+            ArrayInfo()
+            {
+                num_dims = -1;
+            }
+            ArrayInfo(const ArrayInfo &input)
+            {
+                elementType = input.elementType;
+                num_dims = input.num_dims;
+                target = input.target;
+                for (int i=0;i<num_dims;i++)
+                    dim_size[i] = input.dim_size[i];
+                for (int i=0;i<num_dims;i++)
+                    sub_element_num[i] = input.sub_element_num[i];
+            }
+            ArrayInfo& operator=(const ArrayInfo &input)
+            {
+                elementType = input.elementType;
+                num_dims = input.num_dims;
+                target = input.target;
+                for (int i=0;i<num_dims;i++)
+                    dim_size[i] = input.dim_size[i];
+                for (int i=0;i<num_dims;i++)
+                    sub_element_num[i] = input.sub_element_num[i];
+            }
     };
+
+    friend raw_ostream& operator<< (raw_ostream& stream, const ArrayInfo& tb)
+    {
+        stream << "ArrayInfo for" << *tb.target << " [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
+        for (int i = 0; i<tb.num_dims; i++)
+        {
+            stream << "dim-" << i << "-size=" << tb.dim_size[i] << ", ";
+        }
+
+        for (int i = 0; i<tb.num_dims; i++)
+        {
+            stream << "dim-" << i << "-subnum=" << tb.sub_element_num[i] << ", ";
+        }
+        stream << "] ";
+        //timing="<<tb.timing<<"] ";
+        return stream;
+    }
+
+    std::map<Value*, ArrayInfo> Target2ArrayInfo;
+
+    ArrayInfo getArrayInfo(Value* target);
 
     std::string top_function_name;
 
@@ -332,7 +389,7 @@ public:
     std::set<Instruction*> isInstruction_PHI_Independent;
     
     std::error_code ErrInfo;
-    raw_ostream *AggrLSRLog;
+    raw_ostream *ArrayLog;
 
     raw_string_ostream *tmp_stream;
     std::string tmp_stream_str;
