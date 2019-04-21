@@ -316,7 +316,7 @@ public:
 
     std::string demangeFunctionName(std::string mangled_name);
 
-    const SCEVAddExpr* findTheActualStartValue(const SCEVAddRecExpr *S);
+    const SCEV* findTheActualStartValue(const SCEVAddRecExpr *S);
 
     HI_AccessInfo getAccessInfoFor(Value* target, int initial_offset);
 

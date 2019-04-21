@@ -90,37 +90,74 @@ bool HI_ArrayAccessPattern::ArrayAccessOffset(Instruction *I, ScalarEvolution *S
         {
             *ArrayLog << *I << " --> is add rec Affine Add: " << *SARE  << " it operand (0) " << *SARE->getOperand(0)  << " it operand (1) " << *SARE->getOperand(1) << "\n";
             *ArrayLog << " -----> intial offset expression: " << *findTheActualStartValue(SARE) <<"\n";
-            const SCEVAddExpr *initial_expr = findTheActualStartValue(SARE);
+            ArrayLog->flush();
+            const SCEV *initial_expr_tmp = findTheActualStartValue(SARE);
             int initial_const = -1;
             Value* target = nullptr;
-            for (int i = 0; i<initial_expr->getNumOperands(); i++)
+            if (auto initial_expr_add = dyn_cast<SCEVAddExpr>(initial_expr_tmp))
             {
-                if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(initial_expr->getOperand(i)))
-                {                 
-                    initial_const = start_V->getAPInt().getSExtValue();
-                    *ArrayLog << " -----> intial offset const: " << initial_const <<"\n";
-                }
-                else
+                for (int i = 0; i<initial_expr_add->getNumOperands(); i++)
                 {
-                    if (const SCEVUnknown* array_value_scev = dyn_cast<SCEVUnknown>(initial_expr->getOperand(i)))
-                    {
-                        *ArrayLog << " -----> access target: " << *array_value_scev->getValue() << "\n";
-                        if (auto tmp_PTI_I = dyn_cast<PtrToIntInst>(array_value_scev->getValue()))
-                        {
-                            target = tmp_PTI_I->getOperand(0);
-                        }
-                        *ArrayLog << " -----> access target info: " << Target2ArrayInfo[target] << "\n";                        
+                    if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(initial_expr_add->getOperand(i)))
+                    {                 
+                        initial_const = start_V->getAPInt().getSExtValue();
+                        *ArrayLog << " -----> intial offset const: " << initial_const <<"\n";
+                        ArrayLog->flush();
                     }
                     else
                     {
-                        assert(false && "The access target should be found.\n");
-                    }
-                }       
+                        if (const SCEVUnknown* array_value_scev = dyn_cast<SCEVUnknown>(initial_expr_add->getOperand(i)))
+                        {
+                            *ArrayLog << " -----> access target: " << *array_value_scev->getValue() << "\n";
+                            if (auto tmp_PTI_I = dyn_cast<PtrToIntInst>(array_value_scev->getValue()))
+                            {
+                                target = tmp_PTI_I->getOperand(0);
+                            }
+                            else
+                            {
+                                assert(target && "There should be an PtrToInt Instruction for the addition operation.\n");
+                            }
+                            *ArrayLog << " -----> access target info: " << Target2ArrayInfo[target] << "\n";         
+                            ArrayLog->flush();               
+                        }
+                        else
+                        {
+                            assert(false && "The access target should be found.\n");
+                        }
+                    }       
+                }
+                assert(initial_const >= 0 && "the initial offset should be found.\n");
+                assert(target && "the target array should be found.\n");
+                Inst2AccessInfo[I] = getAccessInfoFor(target, initial_const);
+                *ArrayLog << " -----> access info with array index: " << Inst2AccessInfo[I] << "\n";
+                ArrayLog->flush();    
             }
-            assert(initial_const >= 0 && "the initial offset should be found.\n");
-            assert(target && "the target array should be found.\n");
-            Inst2AccessInfo[I] = getAccessInfoFor(target, initial_const);
-            *ArrayLog << " -----> access info with array index: " << Inst2AccessInfo[I] << "\n";       
+            else if (auto initial_expr_unknown = dyn_cast<SCEVUnknown>(initial_expr_tmp))
+            {
+
+                initial_const = 0;
+                *ArrayLog << " -----> intial offset const: " << initial_const <<"\n";
+                *ArrayLog << " -----> access target: " << *initial_expr_unknown->getValue() << "\n";
+                if (auto tmp_PTI_I = dyn_cast<PtrToIntInst>(initial_expr_unknown->getValue()))
+                {
+                    target = tmp_PTI_I->getOperand(0);
+                }
+                else
+                {
+                    assert(target && "There should be an PtrToInt Instruction for the addition operation.\n");
+                }
+                
+                *ArrayLog << " -----> access target info: " << Target2ArrayInfo[target] << "\n";         
+                ArrayLog->flush();               
+
+                assert(initial_const >= 0 && "the initial offset should be found.\n");
+                assert(target && "the target array should be found.\n");
+                Inst2AccessInfo[I] = getAccessInfoFor(target, initial_const);
+                *ArrayLog << " -----> access info with array index: " << Inst2AccessInfo[I] << "\n";
+                ArrayLog->flush();  
+            }
+            
+   
         }
     }
     return false;
@@ -145,11 +182,15 @@ HI_ArrayAccessPattern::HI_AccessInfo HI_ArrayAccessPattern::getAccessInfoFor(Val
     return res;
 }
 
-const SCEVAddExpr * HI_ArrayAccessPattern::findTheActualStartValue(const SCEVAddRecExpr *S)
+const SCEV * HI_ArrayAccessPattern::findTheActualStartValue(const SCEVAddRecExpr *S)
 {
     if (const SCEVAddExpr *start_V = dyn_cast<SCEVAddExpr>(S->getOperand(0)))
     {
         return start_V;
+    }
+    else if (const SCEVUnknown *start_V_unknown = dyn_cast<SCEVUnknown>(S->getOperand(0)))
+    {
+        return start_V_unknown;
     }
     else
     {

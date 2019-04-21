@@ -118,6 +118,10 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
       --- Loop Strength Reduction, Analysis based on Scalar Evolution, AddRecExpr, (Aggressive: may not stable for all the situations 0-0, but it works fine temporarily)
       --- Thank Momchil Velikov for his detailed reply about my inquiry about LSR pass
 
+**Experiment 13**: Before involving HLS directives (array partitioning, loop pipelining/unroll), we need to check the memory access pattern of arrays in the source code
+
+      --- SCEV, Scalar Evolution Interpretation (AddRec, Add, Unknown, Constant), Array Access Pattern
+
 **Experiment 14**: (WIP) Based on the IR file, evaluate the resource and timing of the Window/Buffer/Filter in HLS 
 
       --- IR transformation, Timing/Resource Evaluation for special structures on FPGA
