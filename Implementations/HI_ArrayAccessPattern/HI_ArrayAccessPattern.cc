@@ -89,40 +89,61 @@ bool HI_ArrayAccessPattern::ArrayAccessOffset(Instruction *I, ScalarEvolution *S
         if (SARE->isAffine())
         {
             *ArrayLog << *I << " --> is add rec Affine Add: " << *SARE  << " it operand (0) " << *SARE->getOperand(0)  << " it operand (1) " << *SARE->getOperand(1) << "\n";
-            *ArrayLog << " -----> intial offset" << *findTheActualStartValue(SARE) <<"\n";
-            if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(SARE->getOperand(0)))
+            *ArrayLog << " -----> intial offset expression: " << *findTheActualStartValue(SARE) <<"\n";
+            const SCEVAddExpr *initial_expr = findTheActualStartValue(SARE);
+            int initial_const = -1;
+            Value* target = nullptr;
+            for (int i = 0; i<initial_expr->getNumOperands(); i++)
             {
-                if (const SCEVConstant *step_V = dyn_cast<SCEVConstant>(SARE->getOperand(1)))
-                {
-                    // int start_val = start_V->getAPInt().getSExtValue();
-                    // int step_val = step_V->getAPInt().getSExtValue();
-                    // APInt start_val_APInt = start_V->getAPInt();
-                    // APInt step_val_APInt = step_V->getAPInt();
-                    // LSR_Process(I, start_val_APInt, step_val_APInt);
-                    // return true;
+                if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(initial_expr->getOperand(i)))
+                {                 
+                    initial_const = start_V->getAPInt().getSExtValue();
+                    *ArrayLog << " -----> intial offset const: " << initial_const <<"\n";
                 }
-            }
-        }
-        if (SARE->isQuadratic())
-        {
-            *ArrayLog << *I << " --> is add rec Quadratic Add: " << *SARE  << " it operand (0) " << *SARE->getOperand(0)  << " it operand (1) " << *SARE->getOperand(1)  << " it operand (2) " << *SARE->getOperand(2) << "\n";
-            if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(SARE->getOperand(0)))
-            {
-                if (const SCEVConstant *step_V = dyn_cast<SCEVConstant>(SARE->getOperand(1)))
+                else
                 {
-                    // int start_val = start_V->getAPInt().getSExtValue();
-                    // int step_val = step_V->getAPInt().getSExtValue();
-                    // APInt start_val_APInt = start_V->getAPInt();
-                    // APInt step_val_APInt = step_V->getAPInt();
-                    // LSR_Process(I, start_val_APInt, step_val_APInt);
-                    // return true;
-                }
+                    if (const SCEVUnknown* array_value_scev = dyn_cast<SCEVUnknown>(initial_expr->getOperand(i)))
+                    {
+                        *ArrayLog << " -----> access target: " << *array_value_scev->getValue() << "\n";
+                        if (auto tmp_PTI_I = dyn_cast<PtrToIntInst>(array_value_scev->getValue()))
+                        {
+                            target = tmp_PTI_I->getOperand(0);
+                        }
+                        *ArrayLog << " -----> access target info: " << Target2ArrayInfo[target] << "\n";                        
+                    }
+                    else
+                    {
+                        assert(false && "The access target should be found.\n");
+                    }
+                }       
             }
+            assert(initial_const >= 0 && "the initial offset should be found.\n");
+            assert(target && "the target array should be found.\n");
+            Inst2AccessInfo[I] = getAccessInfoFor(target, initial_const);
+            *ArrayLog << " -----> access info with array index: " << Inst2AccessInfo[I] << "\n";       
         }
     }
     return false;
 }
 
+HI_ArrayAccessPattern::HI_AccessInfo HI_ArrayAccessPattern::getAccessInfoFor(Value* target, int initial_offset)
+{
+    HI_AccessInfo res(Target2ArrayInfo[target]);
+    for (int i=0;i<res.num_dims;i++)
+    {
+        res.index[i] = (initial_offset / res.sub_element_num[i]) % res.dim_size[i];
+    }
+
+    if (initial_offset >= res.sub_element_num[res.num_dims-1]*res.dim_size[res.num_dims-1])
+    {
+        res.isArrayPtr = 1;
+        
+        res.index[res.num_dims] = initial_offset/res.sub_element_num[res.num_dims-1]/res.dim_size[res.num_dims-1];
+        res.num_dims ++;
+    }
+                    
+    return res;
+}
 
 const SCEVAddExpr * HI_ArrayAccessPattern::findTheActualStartValue(const SCEVAddRecExpr *S)
 {

@@ -276,8 +276,6 @@ public:
     virtual bool doInitialization(Module &M)
     {
         print_status("Initilizing HI_ArrayAccessPattern pass.");  
-        
-
         return false;
     }
 
@@ -289,7 +287,9 @@ public:
     void getAnalysisUsage(AnalysisUsage &AU) const;
     virtual bool runOnFunction(Function &M);
     static char ID;
+
     class ArrayInfo;
+    class HI_AccessInfo;
 
     // find the array access in the function F and trace the accesses to them
     void findMemoryAccessin(Function *F);
@@ -317,6 +317,8 @@ public:
     std::string demangeFunctionName(std::string mangled_name);
 
     const SCEVAddExpr* findTheActualStartValue(const SCEVAddRecExpr *S);
+
+    HI_AccessInfo getAccessInfoFor(Value* target, int initial_offset);
 
     int callCounter;
     int Instruction_Counter;
@@ -358,6 +360,90 @@ public:
             }
     };
 
+    class HI_AccessInfo
+    {
+        public:
+            int dim_size[10];
+            int sub_element_num[10];
+            int index[10];
+            int num_dims;
+            bool isArrayPtr = 0;
+            Type* elementType;
+            Value* target;
+            HI_AccessInfo()
+            {
+                num_dims = -1;
+            }
+            HI_AccessInfo(const HI_AccessInfo &input)
+            {
+                elementType = input.elementType;
+                num_dims = input.num_dims;
+                target = input.target;
+                for (int i=0;i<10;i++)
+                {
+                    dim_size[i] = -1;
+                    sub_element_num[i] = -1;
+                    index[i] = -1;
+                }
+                for (int i=0;i<num_dims;i++)
+                    dim_size[i] = input.dim_size[i];
+                for (int i=0;i<num_dims;i++)
+                    sub_element_num[i] = input.sub_element_num[i];
+                for (int i=0;i<num_dims;i++)
+                    index[i] = input.index[i];
+            }
+            HI_AccessInfo(const ArrayInfo &input)
+            {
+                elementType = input.elementType;
+                num_dims = input.num_dims;
+                target = input.target;
+                for (int i=0;i<10;i++)
+                {
+                    dim_size[i] = -1;
+                    sub_element_num[i] = -1;
+                    index[i] = -1;
+                }
+                for (int i=0;i<num_dims;i++)
+                    dim_size[i] = input.dim_size[i];
+                for (int i=0;i<num_dims;i++)
+                    sub_element_num[i] = input.sub_element_num[i];
+            }
+            HI_AccessInfo& operator=(const HI_AccessInfo &input)
+            {
+                elementType = input.elementType;
+                num_dims = input.num_dims;
+                target = input.target;
+                for (int i=0;i<10;i++)
+                {
+                    dim_size[i] = -1;
+                    sub_element_num[i] = -1;
+                    index[i] = -1;
+                }
+                for (int i=0;i<num_dims;i++)
+                    dim_size[i] = input.dim_size[i];
+                for (int i=0;i<num_dims;i++)
+                    sub_element_num[i] = input.sub_element_num[i];
+                for (int i=0;i<num_dims;i++)
+                    index[i] = input.index[i];
+            }
+            HI_AccessInfo& operator=(const ArrayInfo &input)
+            {
+                elementType = input.elementType;
+                num_dims = input.num_dims;
+                target = input.target;
+                for (int i=0;i<10;i++)
+                {
+                    dim_size[i] = -1;
+                    sub_element_num[i] = -1;
+                    index[i] = -1;
+                }
+                for (int i=0;i<num_dims;i++)
+                    dim_size[i] = input.dim_size[i];
+                for (int i=0;i<num_dims;i++)
+                    sub_element_num[i] = input.sub_element_num[i];
+            }
+    };
+
     friend raw_ostream& operator<< (raw_ostream& stream, const ArrayInfo& tb)
     {
         stream << "ArrayInfo for" << *tb.target << " [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
@@ -375,7 +461,32 @@ public:
         return stream;
     }
 
+    friend raw_ostream& operator<< (raw_ostream& stream, const HI_AccessInfo& tb)
+    {
+        stream << "ArrayInfo for" << *tb.target << " [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
+        for (int i = 0; i<tb.num_dims; i++)
+        {
+            stream << "dim-" << i << "-size=" << tb.dim_size[i] << ", ";
+        }
+
+        for (int i = 0; i<tb.num_dims; i++)
+        {
+            stream << "dim-" << i << "-subnum=" << tb.sub_element_num[i] << ", ";
+        }
+
+        for (int i = 0; i<tb.num_dims; i++)
+        {
+            stream << "dim-" << i << "-index=" << tb.index[i] << ", ";
+        }
+
+        stream << "] ";
+        //timing="<<tb.timing<<"] ";
+        return stream;
+    }
+
     std::map<Value*, ArrayInfo> Target2ArrayInfo;
+
+    std::map<Instruction*, HI_AccessInfo> Inst2AccessInfo;
 
     ArrayInfo getArrayInfo(Value* target);
 
