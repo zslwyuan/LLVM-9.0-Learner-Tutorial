@@ -118,7 +118,7 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
       --- Loop Strength Reduction, Analysis based on Scalar Evolution, AddRecExpr, (Aggressive: may not stable for all the situations 0-0, but it works fine temporarily)
       --- Thank Momchil Velikov for his detailed reply about my inquiry about LSR pass
 
-**Experiment 13**: Before involving HLS directives (array partitioning, loop pipelining/unroll), we need to check the memory access pattern of arrays in the source code
+**Experiment 13**: Before involving HLS directives (array partitioning, loop pipelining/unroll), we need to check the memory access pattern of arrays in the source code (Analysis Pass) **[PASS CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations/HI_ArrayAccessPattern)** 
 
       --- SCEV, Scalar Evolution Interpretation (AddRec, Add, Unknown, Constant), Array Access Pattern
 
