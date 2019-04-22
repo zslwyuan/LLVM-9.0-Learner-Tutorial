@@ -40,6 +40,8 @@ include_directories(./ ../../Implementations/
 ../../Implementations/HI_HLSDuplicateInstRm
 ../../Implementations/HI_AggressiveLSR_MUL
 ../../Implementations/HI_ArrayAccessPattern
+../../Implementations/HI_WithDirectiveTimingResourceEvaluation
+../../Implementations/HI_StringProcess
 )
 
 add_subdirectory(../../Implementations ./building)

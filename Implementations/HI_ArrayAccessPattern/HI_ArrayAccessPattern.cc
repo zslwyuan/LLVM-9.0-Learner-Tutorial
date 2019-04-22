@@ -20,33 +20,22 @@ bool HI_ArrayAccessPattern::runOnFunction(Function &F) // The runOnModule declar
 {
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-    bool changed = false;
-    bool ActionTaken = true;
-    TraceMemoryAccessinFunction(F);
+
+    
     std::string demangled_name = demangeFunctionName(F.getName());
     bool isTopFunction = top_function_name == demangled_name;
 
+    TraceMemoryAccessinFunction(F);
     findMemoryDeclarationin(&F, isTopFunction);
-    while (ActionTaken)
+
+    for (auto &B : F)
     {
-        ActionTaken = false;
-        for (auto &B : F)
+        for (auto &I : B)
         {
-            for (auto &I : B)
-            {
-            //    ActionTaken = LSR_Mul(&I,&SE);
-                ArrayAccessOffset(&I,&SE, isTopFunction);
-                changed |= ActionTaken;
-                if (ActionTaken)
-                    break;
-            }
-            if (ActionTaken)
-                break;
+            ArrayAccessOffset(&I,&SE, isTopFunction);
         }
     }
-
-    // return false;
-    return changed;
+    return false;
 }
 
 
@@ -170,15 +159,7 @@ HI_ArrayAccessPattern::HI_AccessInfo HI_ArrayAccessPattern::getAccessInfoFor(Val
     {
         res.index[i] = (initial_offset / res.sub_element_num[i]) % res.dim_size[i];
     }
-
-    // if (initial_offset >= res.sub_element_num[res.num_dims-1]*res.dim_size[res.num_dims-1])
-    // {
-    //     res.isArrayPtr = 1;
-        
-    //     res.index[res.num_dims] = initial_offset/res.sub_element_num[res.num_dims-1]/res.dim_size[res.num_dims-1];
-    //     res.num_dims ++;
-    // }
-                    
+ 
     return res;
 }
 
@@ -200,28 +181,6 @@ const SCEV * HI_ArrayAccessPattern::findTheActualStartValue(const SCEVAddRecExpr
     
 }
 
-// find the instruction operand of the Mul operation
-Instruction* HI_ArrayAccessPattern::find_Incremental_op(Instruction *Mul_I)
-{
-    for (int i = 0; i < Mul_I->getNumOperands(); i++)
-    {
-        if (auto res_I = dyn_cast<Instruction>(Mul_I->getOperand(i)))
-            return res_I;
-    }
-    return nullptr;
-}
-
-// find the constant operand of the Mul operation
-ConstantInt* HI_ArrayAccessPattern::find_Constant_op(Instruction *Mul_I)
-{
-    for (int i = 0; i < Mul_I->getNumOperands(); i++)
-    {
-        if (auto res_I = dyn_cast<ConstantInt>(Mul_I->getOperand(i)))
-            return res_I;
-    }
-    return nullptr;
-}
-
 // check the memory access in the function
 void HI_ArrayAccessPattern::TraceMemoryAccessinFunction(Function &F)
 {
@@ -236,7 +195,7 @@ void HI_ArrayAccessPattern::TraceMemoryAccessinFunction(Function &F)
 void HI_ArrayAccessPattern::findMemoryAccessin(Function *F)
 {
     *ArrayLog << "checking the Memory Access information in Function: " << F->getName() << "\n";
-    ValueVisited.clear();
+    ArrayValueVisited.clear();
 
 
     // for general function in HLS, arrays in functions are usually declared with alloca instruction
@@ -272,10 +231,10 @@ void HI_ArrayAccessPattern::TraceAccessForTarget(Value *cur_node)
     ArrayLog->flush();
 
     // we are doing DFS now
-    if (ValueVisited.find(cur_node)!=ValueVisited.end())
+    if (ArrayValueVisited.find(cur_node)!=ArrayValueVisited.end())
         return;
 
-    ValueVisited.insert(cur_node);
+    ArrayValueVisited.insert(cur_node);
 
     // Trace the uses of the pointer value or integer generaed by PtrToInt
     for (int i = 0; i < curI->getNumOperands(); ++i)
@@ -283,39 +242,7 @@ void HI_ArrayAccessPattern::TraceAccessForTarget(Value *cur_node)
         Value * tmp_op = curI->getOperand(i);
         TraceAccessForTarget(tmp_op);
     }
-    ValueVisited.erase(cur_node);
-}
-
-
-// trace back to find the original PHI operator, bypassing SExt and ZExt operations
-// according to which, we can generate new PHI node for the MUL operation
-PHINode* HI_ArrayAccessPattern::byPassBack_BitcastOp_findPHINode(Value* cur_I_value)
-{
-    auto cur_I = dyn_cast<Instruction>(cur_I_value);
-    assert(cur_I && "This should be an instruction.\n");
-    // For ZExt/SExt Instruction, we do not need to consider those constant bits
-    if (cur_I->getOpcode() == Instruction::ZExt || cur_I->getOpcode() == Instruction::SExt )
-    {
-        if (auto next_I = dyn_cast<Instruction>(cur_I->getOperand(0)))
-        {
-            return byPassBack_BitcastOp_findPHINode(next_I);
-        }
-        else
-        {
-            assert(false && "Predecessor of bitcast operator should be found.\n");
-        }
-    }
-    else
-    {
-        if (auto PHI_I = dyn_cast<PHINode>(cur_I))
-        {
-            return PHI_I;
-        }
-        else
-        {
-            return nullptr;
-        }     
-    }    
+    ArrayValueVisited.erase(cur_node);
 }
 
 
@@ -387,8 +314,7 @@ void HI_ArrayAccessPattern::findMemoryDeclarationin(Function *F, bool isTopFunct
     }
     else
     {
-         *ArrayLog << " is not function " << "\n";
-         return;
+        *ArrayLog << " is not top function " << "\n";
     }
     
     // for general function in HLS, arrays in functions are usually declared with alloca instruction
@@ -427,6 +353,6 @@ int HI_ArrayAccessPattern::getPartitionFor(HI_ArrayAccessPattern::HI_AccessInfo 
 {
     int res = -1;
     res = access.index[partition_dimension-1]%partition_factor;
-    assert(res>=0);
+    
     return res;
 }

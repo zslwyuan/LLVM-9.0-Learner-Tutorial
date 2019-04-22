@@ -258,11 +258,6 @@ class HI_ArrayAccessPattern : public FunctionPass {
 public:
     HI_ArrayAccessPattern(const char* ArrayLog_Name, std::string _top_function_name) : FunctionPass(ID), top_function_name(_top_function_name)
     {
-        Instruction_Counter = 0;
-        Function_Counter = 0;
-        BasicBlock_Counter = 0;
-        Loop_Counter = 0;
-        callCounter = 0;
         ArrayLog = new raw_fd_ostream(ArrayLog_Name, ErrInfo, sys::fs::F_None);
         tmp_stream = new raw_string_ostream(tmp_stream_str);
     } // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
@@ -300,17 +295,7 @@ public:
     // check the memory access in the function
     void TraceMemoryAccessinFunction(Function &F);
 
-    // trace back to find the original PHI operator, bypassing SExt and ZExt operations
-    // according to which, we can generate new PHI node for the MUL operation
-    PHINode* byPassBack_BitcastOp_findPHINode(Value* cur_I_value);
-
     bool ArrayAccessOffset(Instruction *I, ScalarEvolution *SE, bool isTopFunction);
-
-    // find the instruction operand of the Mul operation
-    Instruction* find_Incremental_op(Instruction *Mul_I);
-
-    // find the constant operand of the Mul operation
-    ConstantInt* find_Constant_op(Instruction *Mul_I);
 
     void findMemoryDeclarationin(Function *F, bool isTopFunction);
 
@@ -321,12 +306,6 @@ public:
     HI_AccessInfo getAccessInfoFor(Value* target, int initial_offset);
 
     int getPartitionFor(HI_AccessInfo access, int partition_factor, int partition_dimension);
-
-    int callCounter;
-    int Instruction_Counter;
-    int Function_Counter;
-    int BasicBlock_Counter;
-    int Loop_Counter;
 
     class ArrayInfo
     {
@@ -510,10 +489,8 @@ public:
 
     Function* TargeFunction;
 
-    std::set<Value*> ValueVisited;
+    std::set<Value*> ArrayValueVisited;
     std::set<Instruction*> Inst_AccessRelated;
-
-    std::set<Instruction*> isInstruction_PHI_Independent;
     
     std::error_code ErrInfo;
     raw_ostream *ArrayLog;

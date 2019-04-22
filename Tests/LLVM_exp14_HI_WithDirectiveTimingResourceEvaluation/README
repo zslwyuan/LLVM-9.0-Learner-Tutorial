@@ -1,0 +1,42 @@
+The HI_AggressiveLSR_MUL pass is used to remove unnecessary multiplications 
+which can be transformed into addition operations if they are actually related 
+to loop induction variables. These multiplications are usally the array index
+variables.
+
+
+1.  find the mul for array offset calculation
+2.  get the incremental value by using SCEV
+3.  insert a new PHI (carefully select the initial constant)
+4.  replace multiplication with addition
+
+
+example:
+
+--------------------------------------------------------------
+from 
+--------------------------------------------------------------
+for.cond31.preheader:                             ; preds = %for.inc62, %for.cond31.preheader.preheader
+  %HI.lsr.iv1new26 = phi i9 [ 0, %for.cond31.preheader.preheader ], [ %HI.lsr.iv.next2new49, %for.inc62 ]
+  %HI.indvars.iv105new27 = phi i5 [ %HI.indvars.iv.next106new48, %for.inc62 ], [ 0, %for.cond31.preheader.preheader ]
+  %bcast28 = zext i5 %HI.indvars.iv105new27 to i9
+  %HI.new29 = mul i9 %bcast28, 24
+  %HI.indvars.iv.next106new48 = add i5 %HI.indvars.iv105new27, 1
+  %HI.lsr.iv.next2new49 = add i9 %HI.lsr.iv1new26, 18
+  %HI.exitcond107new50 = icmp eq i5 %HI.indvars.iv.next106new48, -16
+  br label %for.body33
+
+--------------------------------------------------------------
+to 
+--------------------------------------------------------------
+for.cond31.preheader:                             ; preds = %for.inc62, %for.cond31.preheader.preheader
+  %HI.lsr.iv1new26 = phi i9 [ 0, %for.cond31.preheader.preheader ], [ %HI.lsr.iv.next2new49, %for.inc62 ]
+  %HI.indvars.iv105new27 = phi i5 [ %HI.indvars.iv.next106new48, %for.inc62 ], [ 0, %for.cond31.preheader.preheader ]
+  %bcast28 = zext i5 %HI.indvars.iv105new27 to i9
+  %HI.new29.PHI = phi i9 [ 0, %for.cond31.preheader.preheader ], [ %HI.new29.Add, %for.inc62 ]
+  %HI.new29.Add = add i9 %HI.new29.PHI, 24
+  %HI.indvars.iv.next106new48 = add i5 %HI.indvars.iv105new27, 1
+  %HI.lsr.iv.next2new49 = add i9 %HI.lsr.iv1new26, 18
+  %HI.exitcond107new50 = icmp eq i5 %HI.indvars.iv.next106new48, -16
+  br label %for.body33
+
+  ---------------------------------------------------
