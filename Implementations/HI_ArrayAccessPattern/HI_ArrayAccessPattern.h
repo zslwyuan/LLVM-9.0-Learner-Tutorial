@@ -320,6 +320,8 @@ public:
 
     HI_AccessInfo getAccessInfoFor(Value* target, int initial_offset);
 
+    int getPartitionFor(HI_AccessInfo access, int partition_factor, int partition_dimension);
+
     int callCounter;
     int Instruction_Counter;
     int Function_Counter;
@@ -332,6 +334,7 @@ public:
             int dim_size[10];
             int sub_element_num[10];
             int num_dims;
+            bool isArgument = 0;
             Type* elementType;
             Value* target;
             ArrayInfo()
@@ -343,6 +346,7 @@ public:
                 elementType = input.elementType;
                 num_dims = input.num_dims;
                 target = input.target;
+                isArgument = input.isArgument;
                 for (int i=0;i<num_dims;i++)
                     dim_size[i] = input.dim_size[i];
                 for (int i=0;i<num_dims;i++)
@@ -353,6 +357,7 @@ public:
                 elementType = input.elementType;
                 num_dims = input.num_dims;
                 target = input.target;
+                isArgument = input.isArgument;
                 for (int i=0;i<num_dims;i++)
                     dim_size[i] = input.dim_size[i];
                 for (int i=0;i<num_dims;i++)
@@ -367,7 +372,7 @@ public:
             int sub_element_num[10];
             int index[10];
             int num_dims;
-            bool isArrayPtr = 0;
+            bool isArgument = 0;
             Type* elementType;
             Value* target;
             HI_AccessInfo()
@@ -379,6 +384,7 @@ public:
                 elementType = input.elementType;
                 num_dims = input.num_dims;
                 target = input.target;
+                isArgument = input.isArgument;
                 for (int i=0;i<10;i++)
                 {
                     dim_size[i] = -1;
@@ -397,6 +403,7 @@ public:
                 elementType = input.elementType;
                 num_dims = input.num_dims;
                 target = input.target;
+                isArgument = input.isArgument;
                 for (int i=0;i<10;i++)
                 {
                     dim_size[i] = -1;
@@ -413,6 +420,7 @@ public:
                 elementType = input.elementType;
                 num_dims = input.num_dims;
                 target = input.target;
+                isArgument = input.isArgument;
                 for (int i=0;i<10;i++)
                 {
                     dim_size[i] = -1;
@@ -431,6 +439,7 @@ public:
                 elementType = input.elementType;
                 num_dims = input.num_dims;
                 target = input.target;
+                isArgument = input.isArgument;
                 for (int i=0;i<10;i++)
                 {
                     dim_size[i] = -1;
@@ -446,7 +455,7 @@ public:
 
     friend raw_ostream& operator<< (raw_ostream& stream, const ArrayInfo& tb)
     {
-        stream << "ArrayInfo for" << *tb.target << " [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
+        stream << "ArrayInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
         for (int i = 0; i<tb.num_dims; i++)
         {
             stream << "dim-" << i << "-size=" << tb.dim_size[i] << ", ";
@@ -463,7 +472,7 @@ public:
 
     friend raw_ostream& operator<< (raw_ostream& stream, const HI_AccessInfo& tb)
     {
-        stream << "ArrayInfo for" << *tb.target << " [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
+        stream << "HI_AccessInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
         for (int i = 0; i<tb.num_dims; i++)
         {
             stream << "dim-" << i << "-size=" << tb.dim_size[i] << ", ";
@@ -479,6 +488,13 @@ public:
             stream << "dim-" << i << "-index=" << tb.index[i] << ", ";
         }
 
+        stream << "representation: " << tb.target->getName() << "[";
+
+        for (int i = tb.num_dims-1; i>0; i--)
+        {
+            stream <<  tb.index[i] << "][";
+        }
+        stream <<  tb.index[0] << "]   ";
         stream << "] ";
         //timing="<<tb.timing<<"] ";
         return stream;

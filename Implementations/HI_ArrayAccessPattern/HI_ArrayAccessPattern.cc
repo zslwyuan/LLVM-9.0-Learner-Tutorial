@@ -129,7 +129,7 @@ bool HI_ArrayAccessPattern::ArrayAccessOffset(Instruction *I, ScalarEvolution *S
                 assert(initial_const >= 0 && "the initial offset should be found.\n");
                 assert(target && "the target array should be found.\n");
                 Inst2AccessInfo[I] = getAccessInfoFor(target, initial_const);
-                *ArrayLog << " -----> access info with array index: " << Inst2AccessInfo[I] << "\n";
+                *ArrayLog << " -----> access info with array index: " << Inst2AccessInfo[I] << "\n\n\n";
                 ArrayLog->flush();    
             }
             else if (auto initial_expr_unknown = dyn_cast<SCEVUnknown>(initial_expr_tmp))
@@ -153,7 +153,7 @@ bool HI_ArrayAccessPattern::ArrayAccessOffset(Instruction *I, ScalarEvolution *S
                 assert(initial_const >= 0 && "the initial offset should be found.\n");
                 assert(target && "the target array should be found.\n");
                 Inst2AccessInfo[I] = getAccessInfoFor(target, initial_const);
-                *ArrayLog << " -----> access info with array index: " << Inst2AccessInfo[I] << "\n";
+                *ArrayLog << " -----> access info with array index: " << Inst2AccessInfo[I] << "\n\n\n";
                 ArrayLog->flush();  
             }
             
@@ -171,13 +171,13 @@ HI_ArrayAccessPattern::HI_AccessInfo HI_ArrayAccessPattern::getAccessInfoFor(Val
         res.index[i] = (initial_offset / res.sub_element_num[i]) % res.dim_size[i];
     }
 
-    if (initial_offset >= res.sub_element_num[res.num_dims-1]*res.dim_size[res.num_dims-1])
-    {
-        res.isArrayPtr = 1;
+    // if (initial_offset >= res.sub_element_num[res.num_dims-1]*res.dim_size[res.num_dims-1])
+    // {
+    //     res.isArrayPtr = 1;
         
-        res.index[res.num_dims] = initial_offset/res.sub_element_num[res.num_dims-1]/res.dim_size[res.num_dims-1];
-        res.num_dims ++;
-    }
+    //     res.index[res.num_dims] = initial_offset/res.sub_element_num[res.num_dims-1]/res.dim_size[res.num_dims-1];
+    //     res.num_dims ++;
+    // }
                     
     return res;
 }
@@ -350,6 +350,14 @@ HI_ArrayAccessPattern::ArrayInfo HI_ArrayAccessPattern::getArrayInfo(Value* targ
         res_array_info.sub_element_num[i] = res_array_info.sub_element_num[i-1] * res_array_info.dim_size[i-1];
     }
 
+    if (auto arg_v = dyn_cast<Argument>(target))
+    {
+        res_array_info.sub_element_num[num_dims] = res_array_info.sub_element_num[num_dims-1] * res_array_info.dim_size[num_dims-1];
+        res_array_info.dim_size[num_dims] = 100000000; // set to nearly infinite
+        res_array_info.num_dims ++;
+        res_array_info.isArgument = 1;
+    }
+
     res_array_info.elementType = tmp_type;
     res_array_info.target = target;
     return res_array_info;
@@ -358,7 +366,7 @@ HI_ArrayAccessPattern::ArrayInfo HI_ArrayAccessPattern::getArrayInfo(Value* targ
 // find the array declaration in the function F and trace the accesses to them
 void HI_ArrayAccessPattern::findMemoryDeclarationin(Function *F, bool isTopFunction)
 {
-    *ArrayLog << "checking the BRAM information in Function: " << F->getName() << "\n";
+    *ArrayLog << "\n\nchecking the BRAM information in Function: " << F->getName() << "\n";
 
     // for top function in HLS, arrays in interface may involve BRAM
     if (isTopFunction)
@@ -412,4 +420,13 @@ std::string HI_ArrayAccessPattern::demangeFunctionName(std::string mangled_name)
             int len; iss >> len; while (len--) {char tc;iss>>tc;demangled_name+=tc;}
         }
     return demangled_name;
+}
+
+
+int HI_ArrayAccessPattern::getPartitionFor(HI_ArrayAccessPattern::HI_AccessInfo access, int partition_factor, int partition_dimension)
+{
+    int res = -1;
+    res = access.index[partition_dimension-1]%partition_factor;
+    assert(res>=0);
+    return res;
 }
