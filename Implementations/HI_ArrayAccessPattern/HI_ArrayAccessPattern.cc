@@ -20,33 +20,22 @@ bool HI_ArrayAccessPattern::runOnFunction(Function &F) // The runOnModule declar
 {
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-    bool changed = false;
-    bool ActionTaken = true;
-    TraceMemoryAccessinFunction(F);
+
+    
     std::string demangled_name = demangeFunctionName(F.getName());
     bool isTopFunction = top_function_name == demangled_name;
 
+    TraceMemoryAccessinFunction(F);
     findMemoryDeclarationin(&F, isTopFunction);
-    while (ActionTaken)
+
+    for (auto &B : F)
     {
-        ActionTaken = false;
-        for (auto &B : F)
+        for (auto &I : B)
         {
-            for (auto &I : B)
-            {
-            //    ActionTaken = LSR_Mul(&I,&SE);
-                ArrayAccessOffset(&I,&SE, isTopFunction);
-                changed |= ActionTaken;
-                if (ActionTaken)
-                    break;
-            }
-            if (ActionTaken)
-                break;
+            ArrayAccessOffset(&I,&SE, isTopFunction);
         }
     }
-
-    // return false;
-    return changed;
+    return false;
 }
 
 
@@ -89,46 +78,100 @@ bool HI_ArrayAccessPattern::ArrayAccessOffset(Instruction *I, ScalarEvolution *S
         if (SARE->isAffine())
         {
             *ArrayLog << *I << " --> is add rec Affine Add: " << *SARE  << " it operand (0) " << *SARE->getOperand(0)  << " it operand (1) " << *SARE->getOperand(1) << "\n";
-            *ArrayLog << " -----> intial offset" << *findTheActualStartValue(SARE) <<"\n";
-            if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(SARE->getOperand(0)))
+            *ArrayLog << " -----> intial offset expression: " << *findTheActualStartValue(SARE) <<"\n";
+            ArrayLog->flush();
+            const SCEV *initial_expr_tmp = findTheActualStartValue(SARE);
+            int initial_const = -1;
+            Value* target = nullptr;
+            if (auto initial_expr_add = dyn_cast<SCEVAddExpr>(initial_expr_tmp))
             {
-                if (const SCEVConstant *step_V = dyn_cast<SCEVConstant>(SARE->getOperand(1)))
+                for (int i = 0; i<initial_expr_add->getNumOperands(); i++)
                 {
-                    // int start_val = start_V->getAPInt().getSExtValue();
-                    // int step_val = step_V->getAPInt().getSExtValue();
-                    // APInt start_val_APInt = start_V->getAPInt();
-                    // APInt step_val_APInt = step_V->getAPInt();
-                    // LSR_Process(I, start_val_APInt, step_val_APInt);
-                    // return true;
+                    if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(initial_expr_add->getOperand(i)))
+                    {                 
+                        initial_const = start_V->getAPInt().getSExtValue();
+                        *ArrayLog << " -----> intial offset const: " << initial_const <<"\n";
+                        ArrayLog->flush();
+                    }
+                    else
+                    {
+                        if (const SCEVUnknown* array_value_scev = dyn_cast<SCEVUnknown>(initial_expr_add->getOperand(i)))
+                        {
+                            *ArrayLog << " -----> access target: " << *array_value_scev->getValue() << "\n";
+                            if (auto tmp_PTI_I = dyn_cast<PtrToIntInst>(array_value_scev->getValue()))
+                            {
+                                target = tmp_PTI_I->getOperand(0);
+                            }
+                            else
+                            {
+                                assert(target && "There should be an PtrToInt Instruction for the addition operation.\n");
+                            }
+                            *ArrayLog << " -----> access target info: " << Target2ArrayInfo[target] << "\n";         
+                            ArrayLog->flush();               
+                        }
+                        else
+                        {
+                            assert(false && "The access target should be found.\n");
+                        }
+                    }       
                 }
+                assert(initial_const >= 0 && "the initial offset should be found.\n");
+                assert(target && "the target array should be found.\n");
+                Inst2AccessInfo[I] = getAccessInfoFor(target, initial_const);
+                *ArrayLog << " -----> access info with array index: " << Inst2AccessInfo[I] << "\n\n\n";
+                ArrayLog->flush();    
             }
-        }
-        if (SARE->isQuadratic())
-        {
-            *ArrayLog << *I << " --> is add rec Quadratic Add: " << *SARE  << " it operand (0) " << *SARE->getOperand(0)  << " it operand (1) " << *SARE->getOperand(1)  << " it operand (2) " << *SARE->getOperand(2) << "\n";
-            if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(SARE->getOperand(0)))
+            else if (auto initial_expr_unknown = dyn_cast<SCEVUnknown>(initial_expr_tmp))
             {
-                if (const SCEVConstant *step_V = dyn_cast<SCEVConstant>(SARE->getOperand(1)))
+
+                initial_const = 0;
+                *ArrayLog << " -----> intial offset const: " << initial_const <<"\n";
+                *ArrayLog << " -----> access target: " << *initial_expr_unknown->getValue() << "\n";
+                if (auto tmp_PTI_I = dyn_cast<PtrToIntInst>(initial_expr_unknown->getValue()))
                 {
-                    // int start_val = start_V->getAPInt().getSExtValue();
-                    // int step_val = step_V->getAPInt().getSExtValue();
-                    // APInt start_val_APInt = start_V->getAPInt();
-                    // APInt step_val_APInt = step_V->getAPInt();
-                    // LSR_Process(I, start_val_APInt, step_val_APInt);
-                    // return true;
+                    target = tmp_PTI_I->getOperand(0);
                 }
+                else
+                {
+                    assert(target && "There should be an PtrToInt Instruction for the addition operation.\n");
+                }
+                
+                *ArrayLog << " -----> access target info: " << Target2ArrayInfo[target] << "\n";         
+                ArrayLog->flush();               
+
+                assert(initial_const >= 0 && "the initial offset should be found.\n");
+                assert(target && "the target array should be found.\n");
+                Inst2AccessInfo[I] = getAccessInfoFor(target, initial_const);
+                *ArrayLog << " -----> access info with array index: " << Inst2AccessInfo[I] << "\n\n\n";
+                ArrayLog->flush();  
             }
+            
+   
         }
     }
     return false;
 }
 
+HI_ArrayAccessPattern::HI_AccessInfo HI_ArrayAccessPattern::getAccessInfoFor(Value* target, int initial_offset)
+{
+    HI_AccessInfo res(Target2ArrayInfo[target]);
+    for (int i=0;i<res.num_dims;i++)
+    {
+        res.index[i] = (initial_offset / res.sub_element_num[i]) % res.dim_size[i];
+    }
+ 
+    return res;
+}
 
-const SCEVAddExpr * HI_ArrayAccessPattern::findTheActualStartValue(const SCEVAddRecExpr *S)
+const SCEV * HI_ArrayAccessPattern::findTheActualStartValue(const SCEVAddRecExpr *S)
 {
     if (const SCEVAddExpr *start_V = dyn_cast<SCEVAddExpr>(S->getOperand(0)))
     {
         return start_V;
+    }
+    else if (const SCEVUnknown *start_V_unknown = dyn_cast<SCEVUnknown>(S->getOperand(0)))
+    {
+        return start_V_unknown;
     }
     else
     {
@@ -136,28 +179,6 @@ const SCEVAddExpr * HI_ArrayAccessPattern::findTheActualStartValue(const SCEVAdd
             findTheActualStartValue(SARE);
     }
     
-}
-
-// find the instruction operand of the Mul operation
-Instruction* HI_ArrayAccessPattern::find_Incremental_op(Instruction *Mul_I)
-{
-    for (int i = 0; i < Mul_I->getNumOperands(); i++)
-    {
-        if (auto res_I = dyn_cast<Instruction>(Mul_I->getOperand(i)))
-            return res_I;
-    }
-    return nullptr;
-}
-
-// find the constant operand of the Mul operation
-ConstantInt* HI_ArrayAccessPattern::find_Constant_op(Instruction *Mul_I)
-{
-    for (int i = 0; i < Mul_I->getNumOperands(); i++)
-    {
-        if (auto res_I = dyn_cast<ConstantInt>(Mul_I->getOperand(i)))
-            return res_I;
-    }
-    return nullptr;
 }
 
 // check the memory access in the function
@@ -174,7 +195,7 @@ void HI_ArrayAccessPattern::TraceMemoryAccessinFunction(Function &F)
 void HI_ArrayAccessPattern::findMemoryAccessin(Function *F)
 {
     *ArrayLog << "checking the Memory Access information in Function: " << F->getName() << "\n";
-    ValueVisited.clear();
+    ArrayValueVisited.clear();
 
 
     // for general function in HLS, arrays in functions are usually declared with alloca instruction
@@ -210,10 +231,10 @@ void HI_ArrayAccessPattern::TraceAccessForTarget(Value *cur_node)
     ArrayLog->flush();
 
     // we are doing DFS now
-    if (ValueVisited.find(cur_node)!=ValueVisited.end())
+    if (ArrayValueVisited.find(cur_node)!=ArrayValueVisited.end())
         return;
 
-    ValueVisited.insert(cur_node);
+    ArrayValueVisited.insert(cur_node);
 
     // Trace the uses of the pointer value or integer generaed by PtrToInt
     for (int i = 0; i < curI->getNumOperands(); ++i)
@@ -221,39 +242,7 @@ void HI_ArrayAccessPattern::TraceAccessForTarget(Value *cur_node)
         Value * tmp_op = curI->getOperand(i);
         TraceAccessForTarget(tmp_op);
     }
-    ValueVisited.erase(cur_node);
-}
-
-
-// trace back to find the original PHI operator, bypassing SExt and ZExt operations
-// according to which, we can generate new PHI node for the MUL operation
-PHINode* HI_ArrayAccessPattern::byPassBack_BitcastOp_findPHINode(Value* cur_I_value)
-{
-    auto cur_I = dyn_cast<Instruction>(cur_I_value);
-    assert(cur_I && "This should be an instruction.\n");
-    // For ZExt/SExt Instruction, we do not need to consider those constant bits
-    if (cur_I->getOpcode() == Instruction::ZExt || cur_I->getOpcode() == Instruction::SExt )
-    {
-        if (auto next_I = dyn_cast<Instruction>(cur_I->getOperand(0)))
-        {
-            return byPassBack_BitcastOp_findPHINode(next_I);
-        }
-        else
-        {
-            assert(false && "Predecessor of bitcast operator should be found.\n");
-        }
-    }
-    else
-    {
-        if (auto PHI_I = dyn_cast<PHINode>(cur_I))
-        {
-            return PHI_I;
-        }
-        else
-        {
-            return nullptr;
-        }     
-    }    
+    ArrayValueVisited.erase(cur_node);
 }
 
 
@@ -288,6 +277,14 @@ HI_ArrayAccessPattern::ArrayInfo HI_ArrayAccessPattern::getArrayInfo(Value* targ
         res_array_info.sub_element_num[i] = res_array_info.sub_element_num[i-1] * res_array_info.dim_size[i-1];
     }
 
+    if (auto arg_v = dyn_cast<Argument>(target))
+    {
+        res_array_info.sub_element_num[num_dims] = res_array_info.sub_element_num[num_dims-1] * res_array_info.dim_size[num_dims-1];
+        res_array_info.dim_size[num_dims] = 100000000; // set to nearly infinite
+        res_array_info.num_dims ++;
+        res_array_info.isArgument = 1;
+    }
+
     res_array_info.elementType = tmp_type;
     res_array_info.target = target;
     return res_array_info;
@@ -296,7 +293,7 @@ HI_ArrayAccessPattern::ArrayInfo HI_ArrayAccessPattern::getArrayInfo(Value* targ
 // find the array declaration in the function F and trace the accesses to them
 void HI_ArrayAccessPattern::findMemoryDeclarationin(Function *F, bool isTopFunction)
 {
-    *ArrayLog << "checking the BRAM information in Function: " << F->getName() << "\n";
+    *ArrayLog << "\n\nchecking the BRAM information in Function: " << F->getName() << "\n";
 
     // for top function in HLS, arrays in interface may involve BRAM
     if (isTopFunction)
@@ -317,8 +314,7 @@ void HI_ArrayAccessPattern::findMemoryDeclarationin(Function *F, bool isTopFunct
     }
     else
     {
-         *ArrayLog << " is not function " << "\n";
-         return;
+        *ArrayLog << " is not top function " << "\n";
     }
     
     // for general function in HLS, arrays in functions are usually declared with alloca instruction
@@ -350,4 +346,13 @@ std::string HI_ArrayAccessPattern::demangeFunctionName(std::string mangled_name)
             int len; iss >> len; while (len--) {char tc;iss>>tc;demangled_name+=tc;}
         }
     return demangled_name;
+}
+
+
+int HI_ArrayAccessPattern::getPartitionFor(HI_ArrayAccessPattern::HI_AccessInfo access, int partition_factor, int partition_dimension)
+{
+    int res = -1;
+    res = access.index[partition_dimension-1]%partition_factor;
+    
+    return res;
 }

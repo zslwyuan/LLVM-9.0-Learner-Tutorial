@@ -32,3 +32,6 @@ add_subdirectory(HI_IntstructionMoveBackward)
 add_subdirectory(HI_HLSDuplicateInstRm)
 add_subdirectory(HI_AggressiveLSR_MUL)
 add_subdirectory(HI_ArrayAccessPattern)
+add_subdirectory(HI_WithDirectiveTimingResourceEvaluation)
+add_subdirectory(HI_StringProcess)
+

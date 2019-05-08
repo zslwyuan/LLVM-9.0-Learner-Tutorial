@@ -1,0 +1,22 @@
+call -1
+ret -1
+br -1
+phi -1
+getelementptr 0
+icmp 
+alloca
+store
+load
+sext
+add
+sitofp
+fmul
+fadd
+fdiv
+sub
+bitcast
+zext
+unreachable
+fsub
+uitofp
+trunc 0
