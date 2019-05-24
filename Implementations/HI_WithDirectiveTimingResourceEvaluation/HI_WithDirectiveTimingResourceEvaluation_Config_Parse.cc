@@ -12,22 +12,29 @@ using namespace llvm;
 void HI_WithDirectiveTimingResourceEvaluation::Parse_Config()
 {
     std::string  tmp_s;  
+    std::string  tmpStr_forParsing;
     while ( getline(*config_file,tmp_s) )
     {    
         tmp_s = removeExtraSpace(tmp_s);
         std::stringstream iss(tmp_s);    
         std::string param_name;
         iss >> param_name ; //  get the name of parameter
-        iss.ignore(1, ' ');iss.ignore(1, '=');iss.ignore(1, ' ');
+        
         switch (hash_(param_name.c_str()))
         {
             case hash_compile_time("clock"):
+                consumeEqual(iss);
                 iss >> clock_period_str;
                 clock_period = std::stod(clock_period_str);
                 break;
 
             case hash_compile_time("HLS_lib_path"):
+                consumeEqual(iss);
                 iss >> HLS_lib_path;
+                break;
+
+            case hash_compile_time("array_partition"):
+                parseArrayPartition(iss);
                 break;
 
             default:
@@ -256,7 +263,61 @@ HI_WithDirectiveTimingResourceEvaluation::inst_timing_resource_info HI_WithDirec
 }
 
 
+void HI_WithDirectiveTimingResourceEvaluation::parseArrayPartition(std::stringstream &iss)
+{
+    HI_PragmaInfo ans_pragma;  
+    ans_pragma.HI_PragmaInfoType = HI_PragmaInfo::arrayPartition_Pragma;
+    while (!iss.eof())
+    {
+        std::string arg_name;
+        std::string tmp_val;
+        iss >> arg_name ; //  get the name of parameter
+        switch (hash_(arg_name.c_str()))
+        {
+            case hash_compile_time("variable"):
+                consumeEqual(iss);
+                iss >> tmp_val;
+                ans_pragma.target = (tmp_val);
+                break;
 
+            case hash_compile_time("dim"):
+                consumeEqual(iss);
+                iss >> tmp_val;
+                ans_pragma.dim = std::stoi(tmp_val);
+                break;
+
+            case hash_compile_time("factor"):
+                consumeEqual(iss);
+                iss >> tmp_val;
+                ans_pragma.partition_factor = std::stoi(tmp_val);
+                break;
+
+            default:
+                print_error("Wrong argument for array partitioning.");
+                break;
+        }
+    }
+    PragmaInfo_List.push_back(ans_pragma);
+    // 
+
+}
+
+// match the configuration and the corresponding declaration of memory (array)
+void HI_WithDirectiveTimingResourceEvaluation::matchArrayAndConfiguration(Value* target)
+{
+    for (auto& pragma : PragmaInfo_List)
+    {
+        if (pragma.HI_PragmaInfoType == HI_PragmaInfo::arrayPartition_Pragma)
+        {
+            if (target->getName() == pragma.target)
+            {
+                assert(arrayDirectives.find(target)==arrayDirectives.end() && "The target should be not in arrayDirectives list.\n") ;
+                pragma.targetArray = target;
+                arrayDirectives[target] = pragma;
+            }
+        }
+    }
+}
 
 
 // int HI_WithDirectiveTimingResourceEvaluation::get_N_DSP(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)

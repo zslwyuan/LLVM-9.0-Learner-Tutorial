@@ -17,15 +17,17 @@ void HI_NoDirectiveTimingResourceEvaluation::Parse_Config()
         std::stringstream iss(tmp_s);    
         std::string param_name;
         iss >> param_name ; //  get the name of parameter
-        iss.ignore(1, ' ');iss.ignore(1, '=');iss.ignore(1, ' ');
+        
         switch (hash_(param_name.c_str()))
         {
             case hash_compile_time("clock"):
+                consumeEqual(iss);
                 iss >> clock_period_str;
                 clock_period = std::stod(clock_period_str);
                 break;
 
             case hash_compile_time("HLS_lib_path"):
+                consumeEqual(iss);
                 iss >> HLS_lib_path;
                 break;
 

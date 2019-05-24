@@ -27,13 +27,31 @@ hash_t hash_(char const* str)
     return ret;  
 }  
 
+
 std::string removeExtraSpace(std::string tmp_s)
 {
     // remove extra space from the line
+    if (tmp_s.find("=")!=std::string::npos)
+        findAndReplaceAll(tmp_s,"="," = ");
+
     while (tmp_s.find("  ")!=std::string::npos)
     {
         tmp_s=tmp_s.replace(tmp_s.find("  "),2," ");
     }
+    while (tmp_s.find("  =")!=std::string::npos)
+    {
+        tmp_s=tmp_s.replace(tmp_s.find("  ="),3," =");
+    }
+    while (tmp_s.find("=  ")!=std::string::npos)
+    {
+        tmp_s=tmp_s.replace(tmp_s.find("=  "),3,"= ");
+    }
+
+    while (tmp_s.find("\n")!=std::string::npos)
+        tmp_s=tmp_s.replace(tmp_s.find(" \n"),2,"\n");
+    while (tmp_s.find("\t")!=std::string::npos)
+        tmp_s=tmp_s.replace(tmp_s.find(" \t"),2,"\t");
+
     while (tmp_s.find("\n")!=std::string::npos)
         tmp_s=tmp_s.replace(tmp_s.find("\n"),1,"");
     while (tmp_s.find("\t")!=std::string::npos)
@@ -42,3 +60,24 @@ std::string removeExtraSpace(std::string tmp_s)
     
 }
 
+void consumeEqual(std::stringstream &iss)
+{
+    iss.ignore(1, ' ');
+    iss.ignore(1, '=');
+    iss.ignore(1, ' ');
+}
+
+void findAndReplaceAll(std::string & data, std::string toSearch, std::string replaceStr)
+{
+	// Get the first occurrence
+	size_t pos = data.find(toSearch);
+ 
+	// Repeat till end is reached
+	while( pos != std::string::npos)
+	{
+		// Replace this occurrence of Sub String
+		data.replace(pos, toSearch.size(), replaceStr);
+		// Get the next occurrence from the current position
+		pos =data.find(toSearch, pos + replaceStr.size());
+	}
+}

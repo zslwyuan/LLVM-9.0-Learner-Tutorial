@@ -89,7 +89,8 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
             
             if ( I->getOpcode()==Instruction::Load || I->getOpcode()==Instruction::Store )
             {
-                *Evaluating_log << "------- A Memory Access Instruction: " << *I <<" is found, do the scheduling for it\n";
+                *Evaluating_log << "----------- A Memory Access Instruction: " << *I <<" is found,\n-----------  information fot this access is:  " 
+                                << getAccessInfoForAccessInst(I) << "\n-----------  do the scheduling for it\n";
                 cur_InstructionCriticalPath[I] = scheduleBRAMAccess(I, B, latest_timing);  
                 AccessesList.push_back(I);
             }
@@ -125,7 +126,10 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
 
             // (3) get the maximum CP among instructions and take it as the CP of block
             if (cur_InstructionCriticalPath[I] > max_critical_path) max_critical_path = cur_InstructionCriticalPath[I];
-            *Evaluating_log << "--------- Evaluated Instruction critical path for Instruction: <<" << *I <<">> and its CP is :"<< cur_InstructionCriticalPath[I] << " the resource cost is: " << (Chained?(resourceBase(0,0,0,clock_period)):(getInstructionResource(I)+PHI_LUT_Num) ) << " + reg_FF: [" << FF_Num.FF << "] ";
+            *Evaluating_log << "--------- Evaluated Instruction critical path for Instruction: <<" << *I <<">> and its CP is :"
+                            << cur_InstructionCriticalPath[I] << " the resource cost is: " 
+                            << (Chained?(resourceBase(0,0,0,clock_period)):(getInstructionResource(I)+PHI_LUT_Num) ) 
+                            << " + reg_FF: [" << FF_Num.FF << "] ";
             if (Chained)
                 *Evaluating_log << "(Chained))";
             else            
@@ -152,3 +156,4 @@ bool HI_WithDirectiveTimingResourceEvaluation::BlockContain(BasicBlock *B, Instr
 {
     return I->getParent() == B;
 }
+

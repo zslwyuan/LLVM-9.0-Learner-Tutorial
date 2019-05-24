@@ -14,8 +14,16 @@
 #include <unistd.h>
 #include <string>
 #include <fstream>
-
-
+#include <iostream>
+#include <fstream>
+#include <ios>
+#include <stdlib.h>
+#include <iostream>
+#include <string>
+#include <cctype>
+#include <algorithm>
+#include <sstream>
+#include <vector>
 
 typedef std::uint64_t hash_t;  
     
@@ -30,7 +38,11 @@ inline bool exists_test (const std::string& name) {
 
 hash_t hash_(char const* str);
 
+void findAndReplaceAll(std::string & data, std::string toSearch, std::string replaceStr);
+
 std::string removeExtraSpace(std::string tmp_s);
+
+void consumeEqual(std::stringstream &iss);
 
 constexpr hash_t hash_compile_time(char const* str, hash_t last_value = basis)  
 {  

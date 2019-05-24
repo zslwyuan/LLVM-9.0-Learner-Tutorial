@@ -58,8 +58,8 @@
 #include "polly/ScopInfo.h"
 #include "HI_InstructionFiles.h"
 #include <set>
-#include  <iostream>
-#include  <fstream>
+#include <iostream>
+#include <fstream>
 #include <ios>
 #include <stdlib.h>
 #include <iostream>
@@ -89,7 +89,7 @@ public:
         BRAM_log = new raw_fd_ostream(BRAM_log_name, ErrInfo, sys::fs::F_None);
         top_function_name = std::string(top_function);
         FF_log = new raw_fd_ostream("FF_LOG", ErrInfo, sys::fs::F_None);
-        ArrayLog = new raw_fd_ostream("Array_Log", ErrInfo, sys::fs::F_None);
+        ArrayLog = new raw_fd_ostream("Array_Log_EvalSchel", ErrInfo, sys::fs::F_None);
         // get the configureation from the file, e.g. clock period
         Parse_Config();
 
@@ -144,21 +144,21 @@ public:
 
     class timingBase;
     class resourceBase;
+    class HI_PragmaInfo;
 
     // set the dependence of Passes
     void getAnalysisUsage(AnalysisUsage &AU) const;
 
-    // parse the file to get configuration
-    void Parse_Config();
-
-    // load the timing and resource information for the instructions
-    void Load_Instruction_Info();
-
     virtual bool runOnModule(Module &M); 
 
+    std::set<Value*> ArrayValueVisited;
+    std::set<Instruction*> Inst_AccessRelated;
 
+    raw_ostream *ArrayLog;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////// Declaration related to timing and resource evaluation of Basic Block/Loop/Function ////////////////////  
-
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // check whether the block is in some loops
     bool isInLoop(BasicBlock *BB); 
@@ -330,8 +330,9 @@ public:
     std::string clock_period_str = "10.0";
 
     std::string HLS_lib_path = "";
-
-//////////////////// Declaration related to timing and resource of instructions ////////////////////  
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////// Declaration related to timing and resource of instructions ////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////  
 
     // A unit class to store the information of timing and resource for instruction
     class inst_timing_resource_info
@@ -693,13 +694,18 @@ public:
     // check whether the three operations can be chained into a AMA operation
     bool isAMApossible(Instruction *PredI,Instruction *I);
 
+//////////////////////////////////////////////////////////////////////////////////////
 //////////////////// Declaration related to Memory Access Tracing ////////////////////  
- 
+////////////////////////////////////////////////////////////////////////////////////// 
+
     // record which target arrays the instruction may access
     std::map<Instruction*,std::vector<Value*>> Access2TargetMap;
 
     // record that in the basic block, which instruction access which array at which cycle
-    std::map<Value*, std::map<BasicBlock*,std::vector<std::pair<int,Instruction*>>>> target2LastAccessCycleInBlock;
+    std::map<Value*, std::map<BasicBlock*,std::vector<std::pair<std::pair<int, int>,Instruction*>>>> target2LastAccessCycleInBlock;
+                                                                       //  the first int is for time slot 
+                                                                       //  and the second int is for partition
+
 
     // record the access take place in which cycle
     std::map<std::pair<Instruction*,Value*>,timingBase> scheduledAccess_timing;
@@ -740,6 +746,7 @@ public:
     // for load instructions, HLS will reuse the register for the data
     bool checkLoadOpRegisterReusable(Instruction* Load_I, int time_point);
 
+    // handle the information of memory access for the function
     void ArrayAccessCheckForFunction(Function *F);
 
     class ArrayInfo;
@@ -754,13 +761,25 @@ public:
     // check the memory access in the function
     void TraceMemoryAccessinFunction(Function &F);
 
+    // if it is a memory access instruction, calculate the array access offset for it.
     bool ArrayAccessOffset(Instruction *I, ScalarEvolution *SE, bool isTopFunction);
 
     const SCEV* findTheActualStartValue(const SCEVAddRecExpr *S);
 
+    // generate AccessInformation according to the target and the initial access
     HI_AccessInfo getAccessInfoFor(Value* target, int initial_offset);
 
+    // get the exact access information for a specific load or store information
+    HI_AccessInfo getAccessInfoForAccessInst(Instruction* Load_or_Store);
+
+    // get the targer partition according to the specific memory access information
     int getPartitionFor(HI_AccessInfo access, int partition_factor, int partition_dimension);
+
+    // get the targer partition according to the specific memory access instruction
+    int getPartitionFor(Instruction* access, int partition_factor, int partition_dimension);
+
+    // get the targer partition according to the specific memory access instruction
+    int getPartitionFor(Instruction* access);
 
     class ArrayInfo
     {
@@ -934,18 +953,76 @@ public:
         return stream;
     }
 
+    // record the array informtiion
     std::map<Value*, ArrayInfo> Target2ArrayInfo;
 
-    std::map<Instruction*, HI_AccessInfo> Inst2AccessInfo;
+    // according to the address instruction (ptr+offset), get the access information
+    std::map<Instruction*, HI_AccessInfo> AddressInst2AccessInfo;
 
+    // get the array information, including the dimension, type and size
     ArrayInfo getArrayInfo(Value* target);
 
-    Function* TargeFunction;
+/////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////// Parse the configuration for the program //////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
 
-    std::set<Value*> ArrayValueVisited;
-    std::set<Instruction*> Inst_AccessRelated;
+    std::map<Value*, HI_PragmaInfo> arrayDirectives;
+    std::map<BasicBlock*, HI_PragmaInfo> LoopDirectives;
+    std::vector<HI_PragmaInfo> PragmaInfo_List;
 
-    raw_ostream *ArrayLog;
+    class HI_PragmaInfo
+    {
+        public:
+            enum pragmaType {arrayPartition_Pragma, loopUnroll_Pragma, loopPipeline_Pragma, unkown_Pragma};
+            pragmaType HI_PragmaInfoType = unkown_Pragma;
+            std::string target;
+            int II, dim, unroll_factor, partition_factor;
+            Value* targetArray;
+            BasicBlock* targetLoop;
+
+            HI_PragmaInfo()
+            {
+                II = -1; 
+                unroll_factor = -1;
+                partition_factor = -1;
+                HI_PragmaInfoType = unkown_Pragma;
+                targetArray = nullptr;
+                targetLoop = nullptr;
+                target = "";
+            }
+            HI_PragmaInfo(const HI_PragmaInfo &input)
+            {
+                II = input.II; 
+                unroll_factor = input.unroll_factor;
+                partition_factor = input.partition_factor;
+                targetArray = input.targetArray;
+                targetLoop = input.targetLoop;
+                HI_PragmaInfoType = input.HI_PragmaInfoType;
+                target = input.target;
+            }
+            HI_PragmaInfo& operator=(const HI_PragmaInfo &input)
+            {
+                II = input.II; 
+                unroll_factor = input.unroll_factor;
+                partition_factor = input.partition_factor;
+                targetArray = input.targetArray;
+                targetLoop = input.targetLoop;
+                HI_PragmaInfoType = input.HI_PragmaInfoType;
+                target = input.target;
+            }
+    };
+
+    // Pass for simple evluation of the latency of the top function, without considering HLS directives
+    void Parse_Config();
+
+    // load the timing and resource information for the instructions
+    void Load_Instruction_Info();
+
+    // parse the argument for array partitioning
+    void parseArrayPartition(std::stringstream &iss);
+
+    // match the configuration and the corresponding declaration of memory (array)
+    void matchArrayAndConfiguration(Value* target);
 
 };
 

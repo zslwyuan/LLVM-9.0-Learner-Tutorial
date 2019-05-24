@@ -1,2 +1,2 @@
 The HI_ArrayAccessPattern pass is used to analyze the access pattern of arrays in the source code
-Here, I assume that for each iteration and specific, the access pattern are the same.
+Here, I assume that for each iteration and specific array, the access pattern are the same.
