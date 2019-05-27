@@ -122,7 +122,11 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 
       --- SCEV, Scalar Evolution Interpretation (AddRec, Add, Unknown, Constant), Array Access Pattern
 
-**Experiment 14**: (WIP) Based on the IR file, evaluate the resource and timing of the Window/Buffer/Filter in HLS 
+**Experiment 14**: (WIP) Evaluation of timing and resource considering HLS directives **[PASS CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations/HI_WithDirectiveTimingResourceEvaluation)** 
+
+      --- Array Partitioning, Loop Pipelining, Loop Unrolling
+
+**Experiment 15**: (WIP) Based on the IR file, evaluate the resource and timing of the Window/Buffer/Filter in HLS 
 
       --- IR transformation, Timing/Resource Evaluation for special structures on FPGA
 	
