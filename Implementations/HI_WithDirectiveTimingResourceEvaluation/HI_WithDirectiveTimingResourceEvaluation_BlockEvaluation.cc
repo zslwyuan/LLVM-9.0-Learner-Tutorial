@@ -90,7 +90,10 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
             if ( I->getOpcode()==Instruction::Load || I->getOpcode()==Instruction::Store )
             {
                 *Evaluating_log << "----------- A Memory Access Instruction: " << *I <<" is found,\n-----------  information fot this access is:  " 
-                                << getAccessInfoForAccessInst(I) << "\n-----------  do the scheduling for it\n";
+                                << getAccessInfoForAccessInst(I) 
+                                << "\n-----------  the access is to partition #" << getPartitionFor(I) << ""
+                                << "\n-----------  do the scheduling for it\n";
+                                
                 cur_InstructionCriticalPath[I] = scheduleBRAMAccess(I, B, latest_timing);  
                 AccessesList.push_back(I);
             }

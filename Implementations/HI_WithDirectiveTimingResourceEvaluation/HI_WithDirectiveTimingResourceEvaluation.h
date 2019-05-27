@@ -762,12 +762,12 @@ public:
     void TraceMemoryAccessinFunction(Function &F);
 
     // if it is a memory access instruction, calculate the array access offset for it.
-    bool ArrayAccessOffset(Instruction *I, ScalarEvolution *SE, bool isTopFunction);
+    void TryArrayAccessProcess(Instruction *I, ScalarEvolution *SE);
 
     const SCEV* findTheActualStartValue(const SCEVAddRecExpr *S);
 
     // generate AccessInformation according to the target and the initial access
-    HI_AccessInfo getAccessInfoFor(Value* target, int initial_offset);
+    HI_AccessInfo getAccessInfoFor(Value* target, Instruction* access, int initial_offset);
 
     // get the exact access information for a specific load or store information
     HI_AccessInfo getAccessInfoForAccessInst(Instruction* Load_or_Store);
@@ -825,6 +825,7 @@ public:
             int sub_element_num[10];
             int index[10];
             int num_dims;
+            int partition = -1;
             bool isArgument = 0;
             Type* elementType;
             Value* target;
@@ -838,6 +839,7 @@ public:
                 num_dims = input.num_dims;
                 target = input.target;
                 isArgument = input.isArgument;
+                partition = input.partition;
                 for (int i=0;i<10;i++)
                 {
                     dim_size[i] = -1;
@@ -874,6 +876,7 @@ public:
                 num_dims = input.num_dims;
                 target = input.target;
                 isArgument = input.isArgument;
+                partition = input.partition;
                 for (int i=0;i<10;i++)
                 {
                     dim_size[i] = -1;
@@ -908,7 +911,7 @@ public:
 
     friend raw_ostream& operator<< (raw_ostream& stream, const ArrayInfo& tb)
     {
-        stream << "ArrayInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
+        stream << "ArrayInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", " ;
         for (int i = 0; i<tb.num_dims; i++)
         {
             stream << "dim-" << i << "-size=" << tb.dim_size[i] << ", ";
@@ -925,7 +928,7 @@ public:
 
     friend raw_ostream& operator<< (raw_ostream& stream, const HI_AccessInfo& tb)
     {
-        stream << "HI_AccessInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
+        stream << "HI_AccessInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";// ", partition=" << tb.partition << ", ";
         for (int i = 0; i<tb.num_dims; i++)
         {
             stream << "dim-" << i << "-size=" << tb.dim_size[i] << ", ";
@@ -985,6 +988,7 @@ public:
                 II = -1; 
                 unroll_factor = -1;
                 partition_factor = -1;
+                dim = -1;
                 HI_PragmaInfoType = unkown_Pragma;
                 targetArray = nullptr;
                 targetLoop = nullptr;
@@ -994,6 +998,7 @@ public:
             {
                 II = input.II; 
                 unroll_factor = input.unroll_factor;
+                dim = input.dim;
                 partition_factor = input.partition_factor;
                 targetArray = input.targetArray;
                 targetLoop = input.targetLoop;
@@ -1004,6 +1009,7 @@ public:
             {
                 II = input.II; 
                 unroll_factor = input.unroll_factor;
+                dim = input.dim;
                 partition_factor = input.partition_factor;
                 targetArray = input.targetArray;
                 targetLoop = input.targetLoop;
@@ -1011,6 +1017,16 @@ public:
                 target = input.target;
             }
     };
+
+    friend bool operator==(HI_PragmaInfo lhs, HI_PragmaInfo rhs)
+    {
+        if (lhs.HI_PragmaInfoType != rhs.HI_PragmaInfoType) return false;
+        if (lhs.II != rhs.II) return false;
+        if (lhs.unroll_factor != rhs.unroll_factor) return false;
+        if (lhs.partition_factor != rhs.partition_factor) return false;        
+        if (lhs.dim != rhs.dim) return false;
+        return true;
+    }
 
     // Pass for simple evluation of the latency of the top function, without considering HLS directives
     void Parse_Config();
