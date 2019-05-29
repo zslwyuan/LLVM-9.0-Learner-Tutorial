@@ -793,6 +793,7 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
         else
         {
             print_warning("WARNING: The predecessor of load instruction should be IntToPtrInst.");
+            llvm::errs() << "InstructionEvaluation:796" << *loadI << " in Block: " << loadI->getParent()->getName() << " of Function: " << loadI->getParent()->getParent()->getName()  << "\n";
         }
         return res;
     }

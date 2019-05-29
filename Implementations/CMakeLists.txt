@@ -34,4 +34,4 @@ add_subdirectory(HI_AggressiveLSR_MUL)
 add_subdirectory(HI_ArrayAccessPattern)
 add_subdirectory(HI_WithDirectiveTimingResourceEvaluation)
 add_subdirectory(HI_StringProcess)
-
+add_subdirectory(HI_FunctionInstantiation)

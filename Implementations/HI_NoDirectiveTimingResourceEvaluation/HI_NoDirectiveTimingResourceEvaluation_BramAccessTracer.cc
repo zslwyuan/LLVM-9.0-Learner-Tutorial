@@ -38,11 +38,6 @@ void HI_NoDirectiveTimingResourceEvaluation::findMemoryDeclarationin(Function *F
             }
         }
     }
-    else
-    {
-         *BRAM_log << " is not function " << "\n";
-         return;
-    }
     
     // for general function in HLS, arrays in functions are usually declared with alloca instruction
     for (auto &B: *F)
@@ -173,6 +168,9 @@ void HI_NoDirectiveTimingResourceEvaluation::TraceAccessForTarget(Value *cur_nod
 // schedule the access to potential target (since an instructon may use the address for different target (e.g. address comes from PHINode), we need to schedule all of them)
 HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::scheduleBRAMAccess(Instruction *access, BasicBlock *cur_block, HI_NoDirectiveTimingResourceEvaluation::timingBase cur_Timing)
 {
+    if (Access2TargetMap.find(access) == Access2TargetMap.end())
+        llvm::errs() << "BramAccessTracer:171" << *access << " in Block: " << access->getParent()->getName() << " of Function: " << access->getParent()->getParent()->getName()  << "\n";
+        
     assert(Access2TargetMap.find(access) != Access2TargetMap.end() && "The access should be recorded in the BRAM access info.\n");
     timingBase res(0,0,1,clock_period);
     for (auto target : Access2TargetMap[access])

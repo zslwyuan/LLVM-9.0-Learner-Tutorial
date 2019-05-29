@@ -18,6 +18,11 @@ using namespace llvm;
 
 bool HI_NoDirectiveTimingResourceEvaluation::runOnModule(Module &M) // The runOnFunction declaration will overide the virtual one in ModulePass, which will be executed for each Function.
 {    
+
+    *Evaluating_log << " ======================= the module begin =======================\n";
+    *Evaluating_log << M;
+    *Evaluating_log << " ======================= the module end =======================\n";
+    
     TraceMemoryDeclarationinModule(M);
 
     AnalyzeFunctions(M);

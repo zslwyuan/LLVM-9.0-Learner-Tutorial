@@ -713,6 +713,9 @@ public:
     // register number for target array
     std::vector<Instruction*> AccessesList;
 
+    // alias of array from functions to subfunctions
+    std::map<Value*, Value*> Alias2Target;
+
     // Trace Memory Declaration in Module
     void TraceMemoryDeclarationinModule(Module &M);
 

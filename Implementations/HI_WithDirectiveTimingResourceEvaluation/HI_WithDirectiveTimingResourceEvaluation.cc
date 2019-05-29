@@ -18,6 +18,10 @@ using namespace llvm;
 
 bool HI_WithDirectiveTimingResourceEvaluation::runOnModule(Module &M) // The runOnFunction declaration will overide the virtual one in ModulePass, which will be executed for each Function.
 {    
+    *Evaluating_log << " ======================= the module begin =======================\n";
+    *Evaluating_log << M;
+    *Evaluating_log << " ======================= the module end =======================\n";
+
     TraceMemoryDeclarationinModule(M);
 
     AnalyzeFunctions(M);
@@ -71,21 +75,7 @@ void HI_WithDirectiveTimingResourceEvaluation::getAnalysisUsage(AnalysisUsage &A
 }
 
 
-std::string HI_WithDirectiveTimingResourceEvaluation::demangeFunctionName(std::string mangled_name)
-{
-    std::string demangled_name;
 
-    // demangle the function
-    if (mangled_name.find("_Z")==std::string::npos)
-        demangled_name = mangled_name;
-    else
-        {
-            std::stringstream iss(mangled_name);
-            iss.ignore(1, '_');iss.ignore(1, 'Z');
-            int len; iss >> len; while (len--) {char tc;iss>>tc;demangled_name+=tc;}
-        }
-    return demangled_name;
-}
 
 void HI_WithDirectiveTimingResourceEvaluation::AnalyzeFunctions(Module &M)
 {

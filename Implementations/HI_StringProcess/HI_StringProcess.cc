@@ -81,3 +81,19 @@ void findAndReplaceAll(std::string & data, std::string toSearch, std::string rep
 		pos =data.find(toSearch, pos + replaceStr.size());
 	}
 }
+
+std::string demangeFunctionName(std::string mangled_name)
+{
+    std::string demangled_name;
+
+    // demangle the function
+    if (mangled_name.find("_Z")==std::string::npos)
+        demangled_name = mangled_name;
+    else
+        {
+            std::stringstream iss(mangled_name);
+            iss.ignore(1, '_');iss.ignore(1, 'Z');
+            int len; iss >> len; while (len--) {char tc;iss>>tc;demangled_name+=tc;}
+        }
+    return demangled_name;
+}

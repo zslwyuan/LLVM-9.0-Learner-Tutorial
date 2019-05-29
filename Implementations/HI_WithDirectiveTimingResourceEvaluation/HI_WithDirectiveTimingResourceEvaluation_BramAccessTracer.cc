@@ -58,6 +58,7 @@ void HI_WithDirectiveTimingResourceEvaluation::findMemoryDeclarationin(Function 
             {
                 TraceAccessForTarget(allocI,allocI);
                 Target2ArrayInfo[allocI]=getArrayInfo(allocI);
+                matchArrayAndConfiguration(allocI);
                 *ArrayLog << Target2ArrayInfo[allocI] << "\n";
             }
         }
