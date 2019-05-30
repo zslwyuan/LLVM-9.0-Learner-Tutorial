@@ -53,10 +53,10 @@ void HI_NoDirectiveTimingResourceEvaluation::getLoopBlockMap(Function* F)
     for(LoopInfo::iterator i=LI->begin(),e=LI->end();i!=e;++i)
     {
         Loop* L = *i;
-        *Evaluating_log << "--------- Loop: " << L->getName() <<" contains:\n ";
+        *Evaluating_log << "--------- Loop: " << L->getName() << " address: " << L->getHeader() <<" contains:\n ";
         for (auto BinL : L->getBlocks())
         {
-            *Evaluating_log << "------------- Block: " << BinL->getName() <<" \n";
+            *Evaluating_log << "------------- Block: " << BinL->getName() << " address: " << BinL  <<" \n";
             std::vector<BasicBlock*> *tmp_vec_block;
             std::vector<Loop*> *tmp_vec_loop;
             
@@ -98,8 +98,8 @@ Loop* HI_NoDirectiveTimingResourceEvaluation::getInnerUnevaluatedLoop(Loop* oute
     Loop* tmp_inner_Loop = NULL;
     for (auto tmp_Loop: *outerL) // find the most inner unevaluated loop
     {
-        *Evaluating_log << "--------- checking sub-loop: " << tmp_Loop->getName() <<" -> dep = " << tmp_Loop->getLoopDepth() << " ";
-        if (LoopEvaluated.find(tmp_Loop) != LoopEvaluated.end())
+        *Evaluating_log << "--------- checking sub-loop: " << tmp_Loop->getName() << " address:" << tmp_Loop->getHeader() <<" -> dep = " << tmp_Loop->getLoopDepth() << " ";
+        if (LoopEvaluated.find(tmp_Loop->getHeader()) != LoopEvaluated.end())
             *Evaluating_log << " which is evaluated.\n";
         else
             *Evaluating_log << " which is NOT evaluated.\n";
@@ -110,7 +110,7 @@ Loop* HI_NoDirectiveTimingResourceEvaluation::getInnerUnevaluatedLoop(Loop* oute
         Loop* tmp_inner_Sub_Loop = getInnerUnevaluatedLoop(tmp_Loop);
         if (tmp_inner_Sub_Loop)
         {
-            if (tmp_inner_Sub_Loop->getLoopDepth() > dep && LoopEvaluated.find(tmp_inner_Sub_Loop) == LoopEvaluated.end())
+            if (tmp_inner_Sub_Loop->getLoopDepth() > dep && LoopEvaluated.find(tmp_inner_Sub_Loop->getHeader()) == LoopEvaluated.end())
             {
                 dep = tmp_inner_Sub_Loop->getLoopDepth();
                 tmp_inner_Loop = tmp_inner_Sub_Loop; //  the sub-sub-...-loop could be the most inner loop
@@ -119,7 +119,7 @@ Loop* HI_NoDirectiveTimingResourceEvaluation::getInnerUnevaluatedLoop(Loop* oute
         }
         else
         {
-            if (tmp_Loop->getLoopDepth() > dep && LoopEvaluated.find(tmp_Loop) == LoopEvaluated.end())
+            if (tmp_Loop->getLoopDepth() > dep && LoopEvaluated.find(tmp_Loop->getHeader()) == LoopEvaluated.end())
             {
                 dep = tmp_Loop->getLoopDepth();
                 tmp_inner_Loop = tmp_Loop; //  no the sub-sub-...-loop could be the most inner loop but current sub-loop could be
@@ -130,14 +130,14 @@ Loop* HI_NoDirectiveTimingResourceEvaluation::getInnerUnevaluatedLoop(Loop* oute
     auto tmp_Loop =  outerL;
     if (tmp_inner_Loop == NULL) // all sub-loops are evaluated, check the loop itself.
     {
-        *Evaluating_log << "--------- checking loop itself: " << tmp_Loop->getName() <<" -> dep = " << tmp_Loop->getLoopDepth() << " ";
-        if (LoopEvaluated.find(tmp_Loop) != LoopEvaluated.end())
+        *Evaluating_log << "--------- checking loop itself: " << tmp_Loop->getName() << " address:" << tmp_Loop->getHeader() <<" -> dep = " << tmp_Loop->getLoopDepth() << " ";
+        if (LoopEvaluated.find(tmp_Loop->getHeader()) != LoopEvaluated.end())
             *Evaluating_log << " which is evaluated.\n";
         else
             *Evaluating_log << " which is NOT evaluated.\n";
         
         // larger depth means more inner
-        if (tmp_Loop->getLoopDepth() > dep && LoopEvaluated.find(tmp_Loop) == LoopEvaluated.end())
+        if (tmp_Loop->getLoopDepth() > dep && LoopEvaluated.find(tmp_Loop->getHeader()) == LoopEvaluated.end())
         {
             dep = tmp_Loop->getLoopDepth();
             tmp_inner_Loop = tmp_Loop;
@@ -158,10 +158,11 @@ Loop* HI_NoDirectiveTimingResourceEvaluation::getInnerUnevaluatedLoop(Loop* oute
 HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::analyzeOuterLoop(Loop* outerL)
 {
     *Evaluating_log << "\n Evaluating Outer Loop Latency for Loop " << outerL->getName() <<":\n";
-    if (LoopLatency.find(outerL->getName()) != LoopLatency.end())
+    *Evaluating_log << "outerL->getHeader() == " << outerL->getHeader() << "\n";
+    if (LoopLatency.find(outerL->getHeader()) != LoopLatency.end())
     {
-        *Evaluating_log << "Done evaluation outer Loop Latency for Loop " << outerL->getName() << " and its latency is " << LoopLatency[outerL->getName()] <<" cycles.\n\n\n";
-        return LoopLatency[outerL->getName()];
+        *Evaluating_log << "Done evaluation outer Loop Latency for Loop " << outerL->getName() << " and its latency is " << LoopLatency[outerL->getHeader()] <<" cycles.\n\n\n";
+        return LoopLatency[outerL->getHeader()];
     }
     Loop *cur_Loop;
     timingBase outerL_latency (-1,-1,1,clock_period);
@@ -217,18 +218,22 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
         // (4) mark the blocks in loop with the loop latency, so later processing can regard this loop as an integration    
         BlockVisited.clear();
         MarkBlock_traversFromHeaderToExitingBlocks(tmp_total_latency, cur_Loop, tmp_LoopHeader);
-        LoopLatency[cur_Loop->getName()] = tmp_total_latency;
-        LoopResource[cur_Loop->getName()] = resourceAccumulator;
-        LoopEvaluated.insert(cur_Loop);
+        LoopLatency[cur_Loop->getHeader()] = tmp_total_latency;
+        LoopResource[cur_Loop->getHeader()] = resourceAccumulator;
+
+        *Evaluating_log << "inserted Loop Evaluated address: " << cur_Loop->getHeader() << "\n";
+
+        LoopEvaluated.insert(cur_Loop->getHeader());
         
         *Evaluating_log << "Trip Count for Loop " << cur_Loop->getName() << " is " << SE->getSmallConstantMaxTripCount(cur_Loop) <<"\n";
-        *Evaluating_log << "Done evaluation Loop Latency for Loop " << cur_Loop->getName() << " and its latency is " << tmp_total_latency <<" cycles and its resource cost is: " << LoopResource[cur_Loop->getName()] << ".\n\n\n";
-
+        *Evaluating_log << "Done evaluation Loop Latency for Loop " << cur_Loop->getName() << " and its latency is " << tmp_total_latency <<" cycles and its resource cost is: " << LoopResource[cur_Loop->getHeader()] << ".\n\n\n";
+        Evaluating_log->flush();
         // (1) iteratively handle the most inner loop
         cur_Loop = getInnerUnevaluatedLoop(outerL);
     }
     outerL_latency = tmp_total_latency; // finally, we will get the latency of outer loop in the last iteration
-    *Evaluating_log << "Done evaluation outer Loop Latency for Loop " << outerL->getName() << " and its latency is " << outerL_latency <<" cycles and its resource cost is: " << LoopResource[outerL->getName()] << ".\n\n\n";
+    *Evaluating_log << "Done evaluation outer Loop Latency for Loop " << outerL->getName() << " and its latency is " << outerL_latency <<" cycles and its resource cost is: " << LoopResource[outerL->getHeader()] << ".\n\n\n";
+    Evaluating_log->flush();
     assert(outerL_latency.latency > -0.5 && "The latency for a loop should be not be negative");
     return outerL_latency*1;
 }
@@ -258,15 +263,15 @@ void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyResourceEvaluation_trave
         // (3a) -- If it is a block in sub-loops, regard the loop as intergration and update the critical path if necessary (max(ori_CP, lastStateCP + LoopLatency)).
         Loop* tmp_SubLoop = Block2EvaluatedLoop[curBlock];
         *Evaluating_log << " which is evluated in Loop " << tmp_SubLoop->getName() <<" ";
-        *Evaluating_log << " LoopLatency =  " << LoopLatency[tmp_SubLoop->getName()] <<" ";
-        timingBase try_critical_path = tmp_critical_path + LoopLatency[tmp_SubLoop->getName()];  // first, get the critical path to the end of sub-loop
+        *Evaluating_log << " LoopLatency =  " << LoopLatency[tmp_SubLoop->getHeader()] <<" ";
+        timingBase try_critical_path = tmp_critical_path + LoopLatency[tmp_SubLoop->getHeader()];  // first, get the critical path to the end of sub-loop
         *Evaluating_log << " NewCP =  " << try_critical_path <<" ";
         bool checkFlag = false;         
        
         if (tmp_SubLoop_CriticalPath.find(tmp_SubLoop) == tmp_SubLoop_CriticalPath.end() ) 
         {  
-            assert(LoopResource.find(tmp_SubLoop->getName())!=LoopResource.end());
-            resourceAccumulator = resourceAccumulator + LoopResource[tmp_SubLoop->getName()];
+            assert(LoopResource.find(tmp_SubLoop->getHeader())!=LoopResource.end());
+            resourceAccumulator = resourceAccumulator + LoopResource[tmp_SubLoop->getHeader()];
             checkFlag = true;
         }
         else if (try_critical_path > tmp_SubLoop_CriticalPath[tmp_SubLoop]) checkFlag = true;

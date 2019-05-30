@@ -60,7 +60,7 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     *Evaluating_log << "---- Function " << F->getName() << " includes "<<Function2OuterLoops[F].size()<<" following most outer loop(s):\n-------";
     for (auto tmpL : Function2OuterLoops[F])
     {
-        *Evaluating_log << " Loop:" << tmpL->getName() << "(lat=" << LoopLatency[tmpL->getName()] << ") ";
+        *Evaluating_log << " Loop:" << tmpL->getName() << "(lat=" << LoopLatency[tmpL->getHeader()] << ") ";
     }
     *Evaluating_log << "\n---- Function " << F->getName() << " includes following block(s) out of loops:\n-------";
     for (auto &B_it : *F)
@@ -114,7 +114,7 @@ void HI_NoDirectiveTimingResourceEvaluation::analyzeFunction_traverseFromEntryTo
         
         if (tmp_LoopCriticalPath_inFunc.find(tmp_OuterLoop) == tmp_LoopCriticalPath_inFunc.end() ) 
         {
-            resourceAccumulator = resourceAccumulator + LoopResource[tmp_OuterLoop->getName()] ;
+            resourceAccumulator = resourceAccumulator + LoopResource[tmp_OuterLoop->getHeader()] ;
             checkFlag = true;
         }
         else if (try_critical_path > tmp_LoopCriticalPath_inFunc[tmp_OuterLoop]) checkFlag = true;  
@@ -199,37 +199,46 @@ void HI_NoDirectiveTimingResourceEvaluation::analyzeFunction_traverseFromEntryTo
 int HI_NoDirectiveTimingResourceEvaluation::getFunctionStageNum(HI_NoDirectiveTimingResourceEvaluation::timingBase tmp_critical_path, Function *F, BasicBlock* curBlock)
 {
 
-    // (1) Mark the block visited, as a step of typical DFS
-    Func_BlockVisited.insert(curBlock);
-    timingBase latency_CurBlock = BlockLatencyResourceEvaluation(curBlock); // first, get the latency of the current block
+    // // (1) Mark the block visited, as a step of typical DFS
+    // Func_BlockVisited.insert(curBlock);
+    // timingBase latency_CurBlock = BlockLatencyResourceEvaluation(curBlock); // first, get the latency of the current block
     
-    std::string Block_name = curBlock->getName();
+    // std::string Block_name = curBlock->getName();
 
-    for (auto &I : *curBlock)
+    // for (auto &I : *curBlock)
+    // {
+    //     if (auto call_I = dyn_cast<CallInst>(&I))
+    //     {
+    //         if (call_I->getCalledFunction()->getName().find("llvm.")!=std::string::npos)
+    //             continue;
+    //         latency_CurBlock = latency_CurBlock - FunctionLatency[call_I->getCalledFunction()]; latency_CurBlock.latency++;
+    //     }
+    // }
+
+    // timingBase try_critical_path = tmp_critical_path + latency_CurBlock*1;
+
+    // // (2) get the longest STATE path from entry to the specific block
+    // int CP = (try_critical_path*1).latency;
+    // for (auto B : successors(curBlock))
+    // {
+    //     if (F == B->getParent() && Func_BlockVisited.find(B) == Func_BlockVisited.end())
+    //     {                 
+    //         int tmp = getFunctionStageNum(try_critical_path*1, F, B);
+    //         if (tmp > CP)            
+    //             CP = tmp;            
+    //     }
+    // }        
+
+    // Func_BlockVisited.erase(curBlock);
+
+    // return CP;
+
+    int res = 0;
+    for (auto &B : *F)
     {
-        if (auto call_I = dyn_cast<CallInst>(&I))
-        {
-            latency_CurBlock = latency_CurBlock - FunctionLatency[call_I->getCalledFunction()]; latency_CurBlock.latency++;
-        }
+        res = res + getStageNumOfBlock(&B);
     }
-
-    timingBase try_critical_path = tmp_critical_path + latency_CurBlock*1;
-
-    // (2) get the longest STATE path from entry to the specific block
-    int CP = (try_critical_path*1).latency;
-    for (auto B : successors(curBlock))
-    {
-        if (F == B->getParent() && Func_BlockVisited.find(B) == Func_BlockVisited.end())
-        {                 
-            int tmp = getFunctionStageNum(try_critical_path*1, F, B);
-            if (tmp > CP)            
-                CP = tmp;            
-        }
-    }        
-
-    Func_BlockVisited.erase(curBlock);
-
-    return CP;
+    return res;
 }
 
 // return the resource cost of the function

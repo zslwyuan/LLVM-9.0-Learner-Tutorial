@@ -182,7 +182,7 @@ public:
     std::map<Loop*, int> Loop_id;
 
     // the latency of each loop
-    std::map<std::string, timingBase> LoopLatency;
+    std::map<BasicBlock*, timingBase> LoopLatency;
 
     // the latency of each block
     std::map<BasicBlock*, timingBase> BlockLatency;
@@ -191,7 +191,7 @@ public:
     std::map<Function*, timingBase> FunctionLatency;
 
     // the resource of each loop
-    std::map<std::string, resourceBase> LoopResource;
+    std::map<BasicBlock*, resourceBase> LoopResource;
 
     // the resource of each block
     std::map<BasicBlock*, resourceBase> BlockResource;
@@ -202,7 +202,7 @@ public:
     // record whether the component is evaluated
     std::set<BasicBlock*> BlockEvaluated;
     std::set<BasicBlock*> Func_BlockEvaluated;
-    std::set<Loop*> LoopEvaluated;
+    std::set<BasicBlock*> LoopEvaluated;
     std::set<Function*> FunctionEvaluated;
     std::set<Instruction*> InstructionEvaluated;
     std::set<Instruction*> Instruction_FFAssigned;
@@ -256,6 +256,9 @@ public:
     // Instruction Schedule
     std::map<Instruction*, std::pair<BasicBlock*,int>> Inst_Schedule;
 
+    // record the latest operand of each instruction
+    std::map<Instruction*,Instruction*> Inst2LatestOperand;
+
     // record when the register for the result of Instruction can be release
     std::map<Instruction*, std::pair<BasicBlock*,int>> RegRelease_Schedule;    
 
@@ -282,6 +285,18 @@ public:
 
     // get how many state needed for the application
     int getTotalStateNum(Module &M);
+
+    // get the number of stage arrive the instruction
+    int getStageTo(Instruction *I);
+
+    /*
+        get the latency of functions in the path to the instruction
+    */
+    int getFunctionLatencyInPath(Instruction *I);
+
+    // get the number of stage in the block
+    int getStageNumOfBlock(BasicBlock *B);
+
 
     // get the function critical path by traversing the blocks based on DFS and compute the resource cost
     void analyzeFunction_traverseFromEntryToExiting(timingBase tmp_critical_path, Function *F, BasicBlock* curBlock, resourceBase &resourceAccumulator);

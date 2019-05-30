@@ -221,7 +221,11 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
         result = get_inst_TimingInfo_result("getelementptr",-1,-1,clock_period_str);
         return result;
     }
-
+    else if (ReturnInst *retI = dyn_cast<ReturnInst>(I))
+    {
+        result.latency = 0;
+        return result;
+    }
 
     result.latency = 1;
     return result;
