@@ -39,6 +39,7 @@ include_directories(./
 ../../Implementations/HI_ArrayAccessPattern
 ../../Implementations/HI_WithDirectiveTimingResourceEvaluation
 ../../Implementations/HI_StringProcess
+../../Implementations/HI_FunctionInstantiation
 )
 
 link_directories("../LLVM_Learner_Libs")
@@ -72,6 +73,7 @@ HI_AggressiveLSR_MUL
 HI_ArrayAccessPattern
 HI_WithDirectiveTimingResourceEvaluation
 HI_StringProcess
+HI_FunctionInstantiation
 ) #link llvm component 
 
 target_link_libraries(${Outputname} ${Polly_LIBRARIES})

@@ -71,6 +71,7 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
                             {
                                 cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] ;
                                 latest_timing = cur_InstructionCriticalPath[I_Pred];
+                                Inst2LatestOperand[I] = I_Pred;
                             }
                             Chained = 1;
                         }
@@ -81,6 +82,7 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
                             {
                                 cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] + tmp_I_latency;        
                                 latest_timing = cur_InstructionCriticalPath[I_Pred];
+                                Inst2LatestOperand[I] = I_Pred;
                             }
                         }
                     }                
@@ -142,6 +144,15 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
             Evaluating_log->flush();
         }
     }
+    else
+    {   
+        for (Instruction &rI : *B)
+        {
+            Instruction* I = &rI;
+            Inst_Schedule[I] = std::pair<BasicBlock*,int>(B,0);
+        }
+    }
+
 
     InstructionCriticalPath_inBlock[B] = cur_InstructionCriticalPath;
 
@@ -160,3 +171,58 @@ bool HI_WithDirectiveTimingResourceEvaluation::BlockContain(BasicBlock *B, Instr
     return I->getParent() == B;
 }
 
+
+
+/*
+    get the latency of functions in the path to the instruction
+*/
+int HI_WithDirectiveTimingResourceEvaluation::getFunctionLatencyInPath(Instruction *I)
+{
+    int res = 0;
+
+    if (CallInst *callI = dyn_cast<CallInst>(I))
+    {
+        res = FunctionLatency[callI->getCalledFunction()].latency;
+    }
+
+    if (Inst2LatestOperand.find(I) == Inst2LatestOperand.end())
+        return res;
+
+    Instruction* preI = Inst2LatestOperand[I];
+
+    if (preI->getParent() != I->getParent())
+        return res;
+
+    return res + getFunctionLatencyInPath(preI);
+}
+
+// get the number of stage arrive the instruction
+int HI_WithDirectiveTimingResourceEvaluation::getStageTo(Instruction *I)
+{
+    assert(Inst_Schedule.find(I)!=Inst_Schedule.end());
+    int instruction_latency = getInstructionLatency(I).latency;
+    if (instruction_latency == -1)
+        return Inst_Schedule[I].second + 1 - getFunctionLatencyInPath(I);
+    else
+        return Inst_Schedule[I].second + instruction_latency - getFunctionLatencyInPath(I);
+}
+
+
+// get the number of stage in the block
+int HI_WithDirectiveTimingResourceEvaluation::getStageNumOfBlock(BasicBlock *B)
+{
+    *Evaluating_log << "checking BLOCK:\n" << *B << "\n";
+    int max_stage_num = -1;
+    if (BlockLatency[B].latency == 0 && BlockLatency[B].timing < 0.00001)
+        return 0;
+    for (auto &I : *B)
+    {
+        *Evaluating_log << "checking instruction: [" << I << "]\n";
+        int stage_to_inst = getStageTo(&I);
+        if (stage_to_inst > max_stage_num)
+            max_stage_num = stage_to_inst;
+    }
+    *Evaluating_log << "checking BLOCK: " << B->getName() << " #stage=" << max_stage_num << "\n";
+    assert(max_stage_num>=0);
+    return max_stage_num;
+} 

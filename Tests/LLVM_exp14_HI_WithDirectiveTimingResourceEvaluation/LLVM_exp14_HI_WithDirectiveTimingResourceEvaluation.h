@@ -99,4 +99,6 @@
 #include "HI_AggressiveLSR_MUL.h"
 #include "HI_ArrayAccessPattern.h"
 #include "HI_WithDirectiveTimingResourceEvaluation.h"
+#include "HI_StringProcess.h"
+#include "HI_FunctionInstantiation.h"
 // #include "X86TargetMachine.h"

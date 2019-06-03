@@ -117,6 +117,8 @@ void HI_WithDirectiveTimingResourceEvaluation::AnalyzeFunctions(Module &M)
 
 void HI_WithDirectiveTimingResourceEvaluation::analyzeTopFunction(Module &M)
 {
+    *Evaluating_log << "======================================\n                    analyze Top Function \n======================================\n";
+    
     int state_total_num = getTotalStateNum(M);
     int LUT_needed_by_FSM = LUT_for_FSM(state_total_num);
     int FF_needed_by_FSM = state_total_num;
@@ -168,6 +170,16 @@ void HI_WithDirectiveTimingResourceEvaluation::TraceMemoryDeclarationinModule(Mo
 
 int HI_WithDirectiveTimingResourceEvaluation::getTotalStateNum(Module &M)
 {
+
+    *Evaluating_log << "================================\n              printing schedule \n==================================\n";
+    for (auto it : Inst_Schedule)
+    {
+        *Evaluating_log << "inst: [" << *it.first << "] in Block: [" << it.second.first ->getName() << "] #cycle: [" <<  it.second.second << "]\n";
+    }
+    Evaluating_log->flush();
+    *Evaluating_log << "================================\n              counting stage num \n==================================\n";
+    
+
     int state_total = 0;
     for (auto &F : M)
     {

@@ -182,7 +182,7 @@ public:
     std::map<Loop*, int> Loop_id;
 
     // the latency of each loop
-    std::map<std::string, timingBase> LoopLatency;
+    std::map<BasicBlock*, timingBase> LoopLatency;
 
     // the latency of each block
     std::map<BasicBlock*, timingBase> BlockLatency;
@@ -191,7 +191,7 @@ public:
     std::map<Function*, timingBase> FunctionLatency;
 
     // the resource of each loop
-    std::map<std::string, resourceBase> LoopResource;
+    std::map<BasicBlock*, resourceBase> LoopResource;
 
     // the resource of each block
     std::map<BasicBlock*, resourceBase> BlockResource;
@@ -202,7 +202,7 @@ public:
     // record whether the component is evaluated
     std::set<BasicBlock*> BlockEvaluated;
     std::set<BasicBlock*> Func_BlockEvaluated;
-    std::set<Loop*> LoopEvaluated;
+    std::set<BasicBlock*> LoopEvaluated;
     std::set<Function*> FunctionEvaluated;
     std::set<Instruction*> InstructionEvaluated;
     std::set<Instruction*> Instruction_FFAssigned;
@@ -256,14 +256,17 @@ public:
     // Instruction Schedule
     std::map<Instruction*, std::pair<BasicBlock*,int>> Inst_Schedule;
 
+    // record the latest operand of each instruction
+    std::map<Instruction*,Instruction*> Inst2LatestOperand;
+
     // record when the register for the result of Instruction can be release
     std::map<Instruction*, std::pair<BasicBlock*,int>> RegRelease_Schedule;    
 
     // record whether the result reg of the instruction I has been reused
     std::set<Instruction*> I_RegReused;    
 
-    // demangle the name of functions
-    std::string demangeFunctionName(std::string mangled_name);
+    // // demangle the name of functions
+    // std::string demangeFunctionName(std::string mangled_name);
 
     // get the latency of functions in the module  and compute the resource cost
     void AnalyzeFunctions(Module &M);
@@ -282,6 +285,18 @@ public:
 
     // get how many state needed for the application
     int getTotalStateNum(Module &M);
+
+    // get the number of stage arrive the instruction
+    int getStageTo(Instruction *I);
+
+    /*
+        get the latency of functions in the path to the instruction
+    */
+    int getFunctionLatencyInPath(Instruction *I);
+
+    // get the number of stage in the block
+    int getStageNumOfBlock(BasicBlock *B);
+
 
     // get the function critical path by traversing the blocks based on DFS and compute the resource cost
     void analyzeFunction_traverseFromEntryToExiting(timingBase tmp_critical_path, Function *F, BasicBlock* curBlock, resourceBase &resourceAccumulator);
@@ -767,7 +782,11 @@ public:
     // if it is a memory access instruction, calculate the array access offset for it.
     void TryArrayAccessProcess(Instruction *I, ScalarEvolution *SE);
 
+    // get the initial index of the array access in the loop
     const SCEV* findTheActualStartValue(const SCEVAddRecExpr *S);
+
+    // get the index incremental value of the array access in the loop
+    const SCEV* findTheIncrementalIndex(const SCEVAddRecExpr *S);
 
     // generate AccessInformation according to the target and the initial access
     HI_AccessInfo getAccessInfoFor(Value* target, Instruction* access, int initial_offset);
@@ -914,7 +933,7 @@ public:
 
     friend raw_ostream& operator<< (raw_ostream& stream, const ArrayInfo& tb)
     {
-        stream << "ArrayInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", " ;
+        stream << "ArrayInfo for: << (" << tb.target << ") " << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", " ;
         for (int i = 0; i<tb.num_dims; i++)
         {
             stream << "dim-" << i << "-size=" << tb.dim_size[i] << ", ";
@@ -981,10 +1000,11 @@ public:
         public:
             enum pragmaType {arrayPartition_Pragma, loopUnroll_Pragma, loopPipeline_Pragma, unkown_Pragma};
             pragmaType HI_PragmaInfoType = unkown_Pragma;
-            std::string target;
+            std::string targetStr,scopeStr;
             int II, dim, unroll_factor, partition_factor;
             Value* targetArray;
             BasicBlock* targetLoop;
+            Function* ScopeFunc;
 
             HI_PragmaInfo()
             {
@@ -995,7 +1015,9 @@ public:
                 HI_PragmaInfoType = unkown_Pragma;
                 targetArray = nullptr;
                 targetLoop = nullptr;
-                target = "";
+                ScopeFunc = nullptr;
+                targetStr = "";
+                scopeStr = "";
             }
             HI_PragmaInfo(const HI_PragmaInfo &input)
             {
@@ -1006,7 +1028,9 @@ public:
                 targetArray = input.targetArray;
                 targetLoop = input.targetLoop;
                 HI_PragmaInfoType = input.HI_PragmaInfoType;
-                target = input.target;
+                targetStr = input.targetStr;
+                scopeStr = input.scopeStr;
+                ScopeFunc = input.ScopeFunc;
             }
             HI_PragmaInfo& operator=(const HI_PragmaInfo &input)
             {
@@ -1017,7 +1041,9 @@ public:
                 targetArray = input.targetArray;
                 targetLoop = input.targetLoop;
                 HI_PragmaInfoType = input.HI_PragmaInfoType;
-                target = input.target;
+                targetStr = input.targetStr;
+                scopeStr = input.scopeStr;
+                ScopeFunc = input.ScopeFunc;
             }
     };
 
@@ -1028,6 +1054,8 @@ public:
         if (lhs.unroll_factor != rhs.unroll_factor) return false;
         if (lhs.partition_factor != rhs.partition_factor) return false;        
         if (lhs.dim != rhs.dim) return false;
+        if (lhs.scopeStr != rhs.scopeStr) return false;
+        if (lhs.targetStr != rhs.targetStr) return false;
         return true;
     }
 
@@ -1042,6 +1070,9 @@ public:
 
     // match the configuration and the corresponding declaration of memory (array)
     void matchArrayAndConfiguration(Value* target);
+
+    // find which function the value is located in
+    Function* getFunctionOfValue(Value* target);
 
 };
 

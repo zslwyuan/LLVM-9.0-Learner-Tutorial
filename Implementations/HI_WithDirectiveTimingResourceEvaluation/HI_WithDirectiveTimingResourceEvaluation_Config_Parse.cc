@@ -277,7 +277,13 @@ void HI_WithDirectiveTimingResourceEvaluation::parseArrayPartition(std::stringst
             case hash_compile_time("variable"):
                 consumeEqual(iss);
                 iss >> tmp_val;
-                ans_pragma.target = (tmp_val);
+                ans_pragma.targetStr = (tmp_val);
+                break;
+
+            case hash_compile_time("scope"):
+                consumeEqual(iss);
+                iss >> tmp_val;
+                ans_pragma.scopeStr = (tmp_val);
                 break;
 
             case hash_compile_time("dim"):
@@ -309,14 +315,40 @@ void HI_WithDirectiveTimingResourceEvaluation::matchArrayAndConfiguration(Value*
     {
         if (pragma.HI_PragmaInfoType == HI_PragmaInfo::arrayPartition_Pragma)
         {
-            if (target->getName() == pragma.target)
+            if (target->getName() == pragma.targetStr)
             {
+                Function *F = getFunctionOfValue(target);
+                assert(F && "the parent function of the value should be found.");
+                if (demangeFunctionName(F->getName()) != pragma.scopeStr )
+                {   
+                    continue;
+                }
                 assert(arrayDirectives.find(target)==arrayDirectives.end() && "The target should be not in arrayDirectives list.\n") ;
                 pragma.targetArray = target;
+                pragma.ScopeFunc = F;
                 arrayDirectives[target] = pragma;
             }
         }
     }
+}
+
+// find which function the value is located in
+Function* HI_WithDirectiveTimingResourceEvaluation::getFunctionOfValue(Value* target)
+{
+    
+    if (auto I = dyn_cast<Instruction>(target))
+    {
+        return I->getParent()->getParent();
+    }
+    else if (auto A = dyn_cast<Argument>(target))
+    {
+        return A->getParent();
+    }
+    else
+    {
+        return nullptr;
+    }
+    
 }
 
 

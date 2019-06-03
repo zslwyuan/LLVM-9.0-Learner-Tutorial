@@ -111,9 +111,14 @@ int main(int argc, char **argv) {
   PM1.add(hi_hlsduplicateinstrm);
   print_info("Enable HI_HLSDuplicateInstRm Pass");
 
-  auto hi_arrayaccesspattern = new HI_ArrayAccessPattern("HI_ArrayAccessPattern",top_str);
-  PM.add(hi_arrayaccesspattern);
-  print_info("Enable HI_ArrayAccessPattern Pass");
+  auto hi_functioninstantiation = new HI_FunctionInstantiation("HI_FunctionInstantiation",top_str);
+  PM1.add(hi_functioninstantiation);
+  print_info("Enable HI_FunctionInstantiation Pass");
+
+
+  // auto hi_arrayaccesspattern = new HI_ArrayAccessPattern("HI_ArrayAccessPattern",top_str);
+  // PM.add(hi_arrayaccesspattern);
+  // print_info("Enable HI_ArrayAccessPattern Pass");
 
 
   // PM.add(createCorrelatedValuePropagationPass());

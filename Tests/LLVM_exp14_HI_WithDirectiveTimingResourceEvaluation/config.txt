@@ -1,3 +1,3 @@
 clock = 10
 HLS_lib_path = ../../../HLS_Data_Lib/
-array_partition variable=A dim=1 factor=3
+array_partition variable=A dim=1 factor=2 scope=f1

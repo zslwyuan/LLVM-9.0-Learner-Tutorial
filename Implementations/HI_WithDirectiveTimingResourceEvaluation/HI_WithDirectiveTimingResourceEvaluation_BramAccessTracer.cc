@@ -35,8 +35,9 @@ void HI_WithDirectiveTimingResourceEvaluation::findMemoryDeclarationin(Function 
                 PointerType *tmp_PtrType = dyn_cast<PointerType>(it->getType());
                 if (tmp_PtrType->getElementType()->isArrayTy())
                 {
-                    TraceAccessForTarget(it,it);
+                    *ArrayLog << "  get array information of [" << it->getName() << "] from argument and its address=" << it << "\n";
                     Target2ArrayInfo[it]=getArrayInfo(it);
+                    TraceAccessForTarget(it,it);                    
                     matchArrayAndConfiguration(it);
                     *ArrayLog << Target2ArrayInfo[it] << "\n";
                 }
@@ -56,8 +57,9 @@ void HI_WithDirectiveTimingResourceEvaluation::findMemoryDeclarationin(Function 
         {
             if (AllocaInst *allocI = dyn_cast<AllocaInst>(&I))
             {
-                TraceAccessForTarget(allocI,allocI);
+                *ArrayLog << "  get array information of [" << *allocI << "] from allocaInst and its address=" << allocI << "\n";
                 Target2ArrayInfo[allocI]=getArrayInfo(allocI);
+                TraceAccessForTarget(allocI,allocI);
                 matchArrayAndConfiguration(allocI);
                 *ArrayLog << Target2ArrayInfo[allocI] << "\n";
             }
@@ -166,6 +168,7 @@ void HI_WithDirectiveTimingResourceEvaluation::TraceAccessForTarget(Value *cur_n
                         if (i==j)
                         {
                             // go into the sub-function to trace the accesses to the target
+                            Alias2Target[arg_it] = ori_node;
                             TraceAccessForTarget(arg_it,ori_node);
                             break;
                         }                    
@@ -580,6 +583,24 @@ void HI_WithDirectiveTimingResourceEvaluation::TryArrayAccessProcess(Instruction
                             {
                                 assert(target && "There should be an PtrToInt Instruction for the addition operation.\n");
                             }
+
+                            if (Target2ArrayInfo.find(target) == Target2ArrayInfo.end())
+                            {
+                                if (Alias2Target.find(target) != Alias2Target.end()) // it could be argument. We need to trace back to get its original array declaration
+                                {
+                                    target = Alias2Target[target];
+                                }
+                                else
+                                {
+                                    llvm::errs() << "ERRORS: cannot find target [" << *target << "] in Target2ArrayInfo and its address=" 
+                                                 << target << "\n";
+                                    assert(Target2ArrayInfo.find(target) != Target2ArrayInfo.end() 
+                                                && Alias2Target.find(target) != Alias2Target.end()
+                                                && "Fail to find the array inforamtion for the target.");
+                                }
+                            }
+
+                            
                             *ArrayLog << " -----> access target info: " << Target2ArrayInfo[target] << "\n";         
                             ArrayLog->flush();               
                         }
@@ -606,7 +627,23 @@ void HI_WithDirectiveTimingResourceEvaluation::TryArrayAccessProcess(Instruction
                 {
                     assert(target && "There should be an PtrToInt Instruction for the addition operation.\n");
                 }
-                
+
+                if (Target2ArrayInfo.find(target) == Target2ArrayInfo.end())
+                {
+                    if (Alias2Target.find(target) != Alias2Target.end()) // it could be argument. We need to trace back to get its original array declaration
+                    {
+                        target = Alias2Target[target];
+                    }
+                    else
+                    {
+                        llvm::errs() << "ERRORS: cannot find target [" << *target << "] in Target2ArrayInfo and its address=" 
+                                        << target << "\n";
+                        assert(Target2ArrayInfo.find(target) != Target2ArrayInfo.end() 
+                                    && Alias2Target.find(target) != Alias2Target.end()
+                                    && "Fail to find the array inforamtion for the target.");
+                    }
+                }
+
                 *ArrayLog << " -----> access target info: " << Target2ArrayInfo[target] << "\n";         
                 ArrayLog->flush();     
             }
@@ -632,6 +669,8 @@ HI_WithDirectiveTimingResourceEvaluation::HI_AccessInfo HI_WithDirectiveTimingRe
     return res;
 }
 
+
+// get the initial index of the array access in the loop
 const SCEV * HI_WithDirectiveTimingResourceEvaluation::findTheActualStartValue(const SCEVAddRecExpr *S)
 {
     if (const SCEVAddExpr *start_V = dyn_cast<SCEVAddExpr>(S->getOperand(0)))
@@ -645,7 +684,25 @@ const SCEV * HI_WithDirectiveTimingResourceEvaluation::findTheActualStartValue(c
     else
     {
         if (const SCEVAddRecExpr *SARE = dyn_cast<SCEVAddRecExpr>(S->getOperand(0)))
-            findTheActualStartValue(SARE);
+            return findTheActualStartValue(SARE);
+    }
+}
+
+// get the index incremental value of the array access in the loop
+const SCEV * HI_WithDirectiveTimingResourceEvaluation::findTheIncrementalIndex(const SCEVAddRecExpr *S)
+{
+    if (const SCEVAddExpr *start_V = dyn_cast<SCEVAddExpr>(S->getOperand(0)))
+    {
+        return start_V;
+    }
+    else if (const SCEVUnknown *start_V_unknown = dyn_cast<SCEVUnknown>(S->getOperand(0)))
+    {
+        return start_V_unknown;
+    }
+    else
+    {
+        if (const SCEVAddRecExpr *SARE = dyn_cast<SCEVAddRecExpr>(S->getOperand(0)))
+            return findTheIncrementalIndex(SARE);
     }
 }
 
@@ -800,6 +857,11 @@ int HI_WithDirectiveTimingResourceEvaluation::getPartitionFor(Instruction* acces
     }
     else
     {
+        llvm::errs() << "handling access: " << *access << " (addr=" <<access << ") include following targets:  \n";
+        for (auto target : targetVec)
+        {
+            llvm::errs() << "    " << *target << " (addr=" <<target << ") \n";
+        }
         assert(false && "TODO: handle access to multiple potential targets.\n");
     }
 
