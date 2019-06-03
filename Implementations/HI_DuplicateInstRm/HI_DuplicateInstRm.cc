@@ -34,6 +34,8 @@ bool HI_DuplicateInstRm::runOnFunction(Function &F) // The runOnModule declarati
                 Instruction *dupI = checkDuplicationInBlock(&B,&I);
                 if ( dupI != nullptr)
                 {
+                    if (dupI->getType() != I.getType())
+                        continue;
                     *RemoveLog <<"duplicated: " << I << " -------  " << *dupI <<"\n";
                     *RemoveLog <<"Remove: " << *dupI <<"\n";
                     dupI->replaceAllUsesWith(&I);

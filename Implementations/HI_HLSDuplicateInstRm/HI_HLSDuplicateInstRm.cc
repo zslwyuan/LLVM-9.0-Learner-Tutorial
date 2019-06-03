@@ -34,8 +34,12 @@ bool HI_HLSDuplicateInstRm::runOnFunction(Function &F) // The runOnModule declar
                 Instruction *dupI = checkDuplicationInBlock(&B,&I);
                 if ( dupI != nullptr)
                 {
+                    if (dupI->getType() != I.getType())
+                        continue;
                     *RemoveLog <<"duplicated: " << I << " -------  " << *dupI <<"\n";
                     *RemoveLog <<"Remove: " << *dupI <<"\n";
+                    *RemoveLog <<"Block: \n" <<  B <<"\n";
+                    RemoveLog->flush(); 
                     dupI->replaceAllUsesWith(&I);
                     dupI->eraseFromParent();
                     duplicationInBlock = 1;

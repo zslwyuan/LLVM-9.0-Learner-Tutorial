@@ -553,6 +553,10 @@ void HI_WithDirectiveTimingResourceEvaluation::TryArrayAccessProcess(Instruction
         {
             *ArrayLog << *I << " --> is add rec Affine Add: " << *SARE  << " it operand (0) " << *SARE->getOperand(0)  << " it operand (1) " << *SARE->getOperand(1) << "\n";
             *ArrayLog << " -----> intial offset expression: " << *findTheActualStartValue(SARE) <<"\n";
+            bool incChecker = false;
+            assert(findTheIncrementalIndex(SARE) && "the incremental index should be found.");
+            incChecker = false;
+            *ArrayLog << " -----> inccremental expression: " << *findTheIncrementalIndex(SARE) <<"\n";
             ArrayLog->flush();
             const SCEV *initial_expr_tmp = findTheActualStartValue(SARE);
             int initial_const = -1;
@@ -691,13 +695,43 @@ const SCEV * HI_WithDirectiveTimingResourceEvaluation::findTheActualStartValue(c
 // get the index incremental value of the array access in the loop
 const SCEV * HI_WithDirectiveTimingResourceEvaluation::findTheIncrementalIndex(const SCEVAddRecExpr *S)
 {
+
+
+    // if (const SCEVAddRecExpr *SARE = dyn_cast<SCEVAddRecExpr>(S->getOperand(0)))
+    // {
+    //     const SCEV * res = findTheIncrementalIndex(SARE,sonIsInnerMost);
+    //     if (sonIsInnerMost)
+    //     {
+    //         sonIsInnerMost = false;
+    //         return dyn_cast<SCEV>(S->getOperand(1));
+    //     }
+    //     else
+    //     {
+    //         return res;
+    //     }
+        
+    // }
+    // else if (const SCEVAddExpr *start_V = dyn_cast<SCEVAddExpr>(S->getOperand(0)))
+    // {
+    //     sonIsInnerMost = true;
+    //     return nullptr;
+    // }
+    // else if (const SCEVUnknown *start_V_unknown = dyn_cast<SCEVUnknown>(S->getOperand(0)))
+    // {
+    //     sonIsInnerMost = true;
+    //     return nullptr;
+    // }
+    // else
+    // {
+    //     assert(false && "the function should not reach here!!");
+    // }
     if (const SCEVAddExpr *start_V = dyn_cast<SCEVAddExpr>(S->getOperand(0)))
     {
-        return start_V;
+        return dyn_cast<SCEV>(S->getOperand(1));
     }
     else if (const SCEVUnknown *start_V_unknown = dyn_cast<SCEVUnknown>(S->getOperand(0)))
     {
-        return start_V_unknown;
+        return dyn_cast<SCEV>(S->getOperand(1));
     }
     else
     {
