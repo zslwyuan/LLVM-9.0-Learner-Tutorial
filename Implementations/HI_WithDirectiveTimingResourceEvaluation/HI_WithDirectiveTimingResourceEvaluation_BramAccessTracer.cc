@@ -187,19 +187,20 @@ void HI_WithDirectiveTimingResourceEvaluation::TraceAccessForTarget(Value *cur_n
 // schedule the access to potential target (since an instructon may use the address for different target (e.g. address comes from PHINode), we need to schedule all of them)
 HI_WithDirectiveTimingResourceEvaluation::timingBase 
 HI_WithDirectiveTimingResourceEvaluation::scheduleBRAMAccess(Instruction *access, BasicBlock *cur_block, 
-                                                             HI_WithDirectiveTimingResourceEvaluation::timingBase cur_Timing)
+                                                             HI_WithDirectiveTimingResourceEvaluation::timingBase cur_Timing,
+                                                             int target_partition)
 {
     assert(Access2TargetMap.find(access) != Access2TargetMap.end() && "The access should be recorded in the BRAM access info.\n");
     timingBase res(0,0,1,clock_period);
     for (auto target : Access2TargetMap[access])
     {        
         *BRAM_log << "\n\n\n sceduling access instruction: " << *access << " for the target [" << target->getName() << "]" << " of Block:" << cur_block->getName() <<"\n";
-        timingBase targetTiming = handleBRAMAccessFor(access, target, cur_block, cur_Timing);        
+        timingBase targetTiming = handleBRAMAccessFor(access, target, cur_block, cur_Timing, target_partition);        
         if (access->getOpcode()==Instruction::Store)
         {
             *BRAM_log << " sceduled access Store instruction: " << *access << 
                         " for the target ["  << target->getName() << 
-                        "] in its partition #" << getPartitionFor(access) << 
+                        "] in its partition #" << target_partition << 
                         " at cycle #" << targetTiming.latency << 
                         " of Block:" << cur_block->getName() << "\n";
         }
@@ -207,7 +208,7 @@ HI_WithDirectiveTimingResourceEvaluation::scheduleBRAMAccess(Instruction *access
         {
             *BRAM_log << " sceduled access Load instruction: " << *access << 
                         " for the target [" << target->getName() << 
-                        "] in its partition #" << getPartitionFor(access) << 
+                        "] in its partition #" << target_partition << 
                         " at cycle #" << targetTiming.latency-1 << 
                         " of Block:" << cur_block->getName() << "\n";
         }
@@ -223,11 +224,12 @@ HI_WithDirectiveTimingResourceEvaluation::scheduleBRAMAccess(Instruction *access
 HI_WithDirectiveTimingResourceEvaluation::timingBase 
 HI_WithDirectiveTimingResourceEvaluation::handleBRAMAccessFor(Instruction *access, Value *target, 
                                                               BasicBlock *cur_block, 
-                                                              HI_WithDirectiveTimingResourceEvaluation::timingBase cur_Timing)
+                                                              HI_WithDirectiveTimingResourceEvaluation::timingBase cur_Timing,
+                                                              int target_partition)
 {
-    if (scheduledAccess_timing.find(std::pair<Instruction*,Value*>(access, target)) != scheduledAccess_timing.end())
+    if (scheduledAccess_timing.find(std::pair<Instruction*,std::pair<Value*, int>>(access, std::pair<Value*, int>(target, target_partition))) != scheduledAccess_timing.end())
     {
-        return scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)]; 
+        return scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*, int>>(access, std::pair<Value*, int>(target, target_partition))]; 
     }
 
     std::string LoadOrStore;
@@ -237,14 +239,14 @@ HI_WithDirectiveTimingResourceEvaluation::handleBRAMAccessFor(Instruction *acces
         LoadOrStore = "load";   
 
     // if the access can take place at cur_Timing, schedule and record it
-    if (checkBRAMAvailabilty(access, target, LoadOrStore, cur_block, cur_Timing))
+    if (checkBRAMAvailabilty(access, target, LoadOrStore, cur_block, cur_Timing, target_partition))
     {        
         *BRAM_log << "    the access instruction: " << *access << " for the target [" << target->getName() << "] can be scheduled in cycle #" <<cur_Timing.latency << " of Block:" << cur_block->getName() <<"\n";
         *BRAM_log << "    cur_timing is " << cur_Timing << " opTiming is " << getInstructionLatency(access) << " ";
-        scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)] = cur_Timing + getInstructionLatency(access);
-        *BRAM_log << "resultTiming is "<< scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)] << "\n";
-        insertBRAMAccessInfo(target, cur_block, cur_Timing.latency, access);
-        return scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)];
+        scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*, int>>(access, std::pair<Value*, int>(target, target_partition))] = cur_Timing + getInstructionLatency(access);
+        *BRAM_log << "resultTiming is "<< scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*, int>>(access, std::pair<Value*, int>(target, target_partition))] << "\n";
+        insertBRAMAccessInfo(target, cur_block, cur_Timing.latency, access, target_partition);
+        return scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*, int>>(access, std::pair<Value*, int>(target, target_partition))];
     }
     else
     {
@@ -254,12 +256,12 @@ HI_WithDirectiveTimingResourceEvaluation::handleBRAMAccessFor(Instruction *acces
             *BRAM_log << "    the access instruction: " << *access << " for the target [" << target->getName() << "] CANNOT be scheduled in cycle #" <<cur_Timing.latency << " of Block:" << cur_block->getName() <<"\n";
             cur_Timing.latency++;
             cur_Timing.timing=0;
-            if (checkBRAMAvailabilty(access, target, LoadOrStore, cur_block, cur_Timing))
+            if (checkBRAMAvailabilty(access, target, LoadOrStore, cur_block, cur_Timing, target_partition))
             {
                 *BRAM_log << "    the access instruction: " << *access << " for the target [" << target->getName() << "] can be scheduled in cycle #" <<cur_Timing.latency << " of Block:" << cur_block->getName() <<"\n";
-                scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)] = cur_Timing + getInstructionLatency(access);
-                insertBRAMAccessInfo(target, cur_block, cur_Timing.latency, access);
-                return scheduledAccess_timing[std::pair<Instruction*,Value*>(access, target)];
+                scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*, int>>(access, std::pair<Value*, int>(target, target_partition))] = cur_Timing + getInstructionLatency(access);
+                insertBRAMAccessInfo(target, cur_block, cur_Timing.latency, access, target_partition);
+                return scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*, int>>(access, std::pair<Value*, int>(target, target_partition))];
             }
             BRAM_log->flush();
         }
@@ -271,7 +273,10 @@ HI_WithDirectiveTimingResourceEvaluation::handleBRAMAccessFor(Instruction *acces
 // TODO: insert the information of array partition here
 // check whether the access to target array can be scheduled in a specific cycle
 // TODO: map access operator to 
-bool HI_WithDirectiveTimingResourceEvaluation::checkBRAMAvailabilty(Instruction* access, Value *target, std::string StoreOrLoad, BasicBlock *cur_block, HI_WithDirectiveTimingResourceEvaluation::timingBase cur_Timing)
+bool HI_WithDirectiveTimingResourceEvaluation::checkBRAMAvailabilty(Instruction* access, Value *target, std::string StoreOrLoad, 
+                                                                    BasicBlock *cur_block, 
+                                                                    HI_WithDirectiveTimingResourceEvaluation::timingBase cur_Timing,
+                                                                    int target_partition)
 {
     *BRAM_log << "       checking the access to the target [" << target->getName() << "] in cycle #" << cur_Timing.latency << " of Block:" << cur_block->getName() <<"  --> ";
     timingBase opTiming =  getInstructionLatency(access); // get_inst_TimingInfo_result(StoreOrLoad.c_str(),-1,-1,clock_period_str);
@@ -299,32 +304,36 @@ bool HI_WithDirectiveTimingResourceEvaluation::checkBRAMAvailabilty(Instruction*
         *BRAM_log << " No access for the target in the block yet\n";
         return true;
     }
+    
+
     int cnt = 0;
-    int target_partition = getPartitionFor(access);
     for (auto lat_Inst_pair : target2LastAccessCycleInBlock[target][cur_block])
     {
         if (lat_Inst_pair.first.first == cur_Timing.latency && lat_Inst_pair.first.second == target_partition )
             cnt ++;
     }
-    *BRAM_log << cnt << " access(es) in this cycle\n";
+    
+    *BRAM_log << "for partition #" << target_partition << ": " << cnt << " access(es) in this cycle\n";
     // consider the number of BRAM port (currently it is a constant (2). Later, consider array partitioning)
-    if (cnt < 2)
-        return true;
-    return false;
+    if (cnt>= 2)
+        return false;
+    
+
+    return true;
 }
 
 // record the schedule information
-void HI_WithDirectiveTimingResourceEvaluation::insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int cur_latency, Instruction* access)
+void HI_WithDirectiveTimingResourceEvaluation::insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int cur_latency, Instruction* access, int target_partition)
 {
     *BRAM_log << "       inserting the access to the target [" << target->getName() 
-              << "] in its partition #" << getPartitionFor(access) 
+              << "] in its partition #" << target_partition
               << " in cycle #" << cur_latency 
               << " of Block:" << cur_block->getName() << "  --> ";
     if (target2LastAccessCycleInBlock.find(target) == target2LastAccessCycleInBlock.end())
     {
         std::map<BasicBlock*,std::vector<std::pair<std::pair<int, int>,Instruction*>>> tmp_map;
         std::vector<std::pair<std::pair<int, int>,Instruction*>> tmp_vec;
-        tmp_vec.push_back(std::pair<std::pair<int, int>,Instruction*>(std::pair<int, int>(cur_latency,getPartitionFor(access)),access));
+        tmp_vec.push_back(std::pair<std::pair<int, int>,Instruction*>(std::pair<int, int>(cur_latency,target_partition),access));
         tmp_map[cur_block] = tmp_vec;
         target2LastAccessCycleInBlock[target] = tmp_map;
         *BRAM_log << "(new map new vector)\n";
@@ -333,13 +342,13 @@ void HI_WithDirectiveTimingResourceEvaluation::insertBRAMAccessInfo(Value *targe
     if (target2LastAccessCycleInBlock[target].find(cur_block) == target2LastAccessCycleInBlock[target].end())
     {
         std::vector<std::pair<std::pair<int, int>,Instruction*>> tmp_vec;
-        tmp_vec.push_back(std::pair<std::pair<int, int>,Instruction*>(std::pair<int, int>(cur_latency,getPartitionFor(access)),access));
+        tmp_vec.push_back(std::pair<std::pair<int, int>,Instruction*>(std::pair<int, int>(cur_latency,target_partition),access));
         target2LastAccessCycleInBlock[target][cur_block] = tmp_vec;
         *BRAM_log << "(new vector)\n";
         return;
     }
     *BRAM_log << "(existed vector)\n";
-    target2LastAccessCycleInBlock[target][cur_block].push_back(std::pair<std::pair<int, int>,Instruction*>(std::pair<int, int>(cur_latency,getPartitionFor(access)),access));
+    target2LastAccessCycleInBlock[target][cur_block].push_back(std::pair<std::pair<int, int>,Instruction*>(std::pair<int, int>(cur_latency, target_partition),access));
 }
 
 
@@ -551,16 +560,23 @@ void HI_WithDirectiveTimingResourceEvaluation::TryArrayAccessProcess(Instruction
     {
         if (SARE->isAffine())
         {
+
+            int initial_const = -1, inc_const = -1;
+            
             *ArrayLog << *I << " --> is add rec Affine Add: " << *SARE  << " it operand (0) " << *SARE->getOperand(0)  << " it operand (1) " << *SARE->getOperand(1) << "\n";
             *ArrayLog << " -----> intial offset expression: " << *findTheActualStartValue(SARE) <<"\n";
-            bool incChecker = false;
-            assert(findTheIncrementalIndex(SARE) && "the incremental index should be found.");
-            incChecker = false;
-            *ArrayLog << " -----> inccremental expression: " << *findTheIncrementalIndex(SARE) <<"\n";
+            
+            
+            const SCEVConstant *IncrementalIndex = dyn_cast<SCEVConstant>(findTheIncrementalIndex(SARE));
+            assert(IncrementalIndex && "the incremental index should be found.");
+            inc_const = IncrementalIndex->getAPInt().getSExtValue();
+            
+            *ArrayLog << " -----> inccremental value: " << inc_const <<"\n";
             ArrayLog->flush();
             const SCEV *initial_expr_tmp = findTheActualStartValue(SARE);
-            int initial_const = -1;
+
             Value* target = nullptr;
+            
 
             // the actual start value is (pointer + offset)
             if (auto initial_expr_add = dyn_cast<SCEVAddExpr>(initial_expr_tmp))
@@ -654,7 +670,7 @@ void HI_WithDirectiveTimingResourceEvaluation::TryArrayAccessProcess(Instruction
 
             assert(initial_const >= 0 && "the initial offset should be found.\n");
             assert(target && "the target array should be found.\n");
-            AddressInst2AccessInfo[I] = getAccessInfoFor(target, I, initial_const);
+            AddressInst2AccessInfo[I] = getAccessInfoFor(target, I, initial_const, inc_const);
             *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[I] << "\n\n\n";
             ArrayLog->flush();
         }
@@ -663,13 +679,15 @@ void HI_WithDirectiveTimingResourceEvaluation::TryArrayAccessProcess(Instruction
 }
 
 
-HI_WithDirectiveTimingResourceEvaluation::HI_AccessInfo HI_WithDirectiveTimingResourceEvaluation::getAccessInfoFor(Value* target, Instruction* access, int initial_offset)
+HI_WithDirectiveTimingResourceEvaluation::HI_AccessInfo HI_WithDirectiveTimingResourceEvaluation::getAccessInfoFor(Value* target, Instruction* access, int initial_offset, int inc_const)
 {
     HI_AccessInfo res(Target2ArrayInfo[target]);
     for (int i=0;i<res.num_dims;i++)
     {
         res.index[i] = (initial_offset / res.sub_element_num[i]) % res.dim_size[i];
     }
+    res.inc_index = inc_const;
+    res.initial_offset = initial_offset;
     return res;
 }
 
@@ -696,7 +714,7 @@ const SCEV * HI_WithDirectiveTimingResourceEvaluation::findTheActualStartValue(c
 const SCEV * HI_WithDirectiveTimingResourceEvaluation::findTheIncrementalIndex(const SCEVAddRecExpr *S)
 {
 
-
+    return dyn_cast<SCEV>(S->getOperand(1));
     // if (const SCEVAddRecExpr *SARE = dyn_cast<SCEVAddRecExpr>(S->getOperand(0)))
     // {
     //     const SCEV * res = findTheIncrementalIndex(SARE,sonIsInnerMost);
@@ -725,19 +743,19 @@ const SCEV * HI_WithDirectiveTimingResourceEvaluation::findTheIncrementalIndex(c
     // {
     //     assert(false && "the function should not reach here!!");
     // }
-    if (const SCEVAddExpr *start_V = dyn_cast<SCEVAddExpr>(S->getOperand(0)))
-    {
-        return dyn_cast<SCEV>(S->getOperand(1));
-    }
-    else if (const SCEVUnknown *start_V_unknown = dyn_cast<SCEVUnknown>(S->getOperand(0)))
-    {
-        return dyn_cast<SCEV>(S->getOperand(1));
-    }
-    else
-    {
-        if (const SCEVAddRecExpr *SARE = dyn_cast<SCEVAddRecExpr>(S->getOperand(0)))
-            return findTheIncrementalIndex(SARE);
-    }
+    // if (const SCEVAddExpr *start_V = dyn_cast<SCEVAddExpr>(S->getOperand(0)))
+    // {
+    //     return dyn_cast<SCEV>(S->getOperand(1));
+    // }
+    // else if (const SCEVUnknown *start_V_unknown = dyn_cast<SCEVUnknown>(S->getOperand(0)))
+    // {
+    //     return dyn_cast<SCEV>(S->getOperand(1));
+    // }
+    // else
+    // {
+    //     if (const SCEVAddRecExpr *SARE = dyn_cast<SCEVAddRecExpr>(S->getOperand(0)))
+    //         return findTheIncrementalIndex(SARE);
+    // }
 }
 
 // check the memory access in the function
@@ -866,9 +884,8 @@ int HI_WithDirectiveTimingResourceEvaluation::getPartitionFor(Instruction* acces
 }
 
 // get the targer partition for the specific memory access instruction
-int HI_WithDirectiveTimingResourceEvaluation::getPartitionFor(Instruction* access)
+std::vector<int> HI_WithDirectiveTimingResourceEvaluation::getPartitionFor(Instruction* access)
 {
-    int res = -1;
     int partition_factor = -1, partition_dimension = -1;
     
     auto &targetVec = Access2TargetMap[access];
@@ -899,11 +916,28 @@ int HI_WithDirectiveTimingResourceEvaluation::getPartitionFor(Instruction* acces
         assert(false && "TODO: handle access to multiple potential targets.\n");
     }
 
-
-    res = getAccessInfoForAccessInst(access).index[partition_dimension-1]%partition_factor;
-    return res;
+    HI_AccessInfo tmp_res = getAccessInfoForAccessInst(access);
+    std::vector<int> partitions;
+    
+    for (int tmp_offset = tmp_res.initial_offset; ; tmp_offset += tmp_res.inc_index)
+    {
+        int cur_dim_index = (tmp_offset / tmp_res.sub_element_num[partition_dimension-1] % tmp_res.sub_element_num[partition_dimension]);
+        if (!tryRecordPartition(partitions, cur_dim_index %partition_factor))
+            break;
+    }
+    
+    return partitions;
 }
 
+// try to record a partition as a potential target
+bool HI_WithDirectiveTimingResourceEvaluation::tryRecordPartition(std::vector<int> &partitions, int try_target)
+{
+    for (auto val : partitions)
+        if (val == try_target)
+            return false;
+    partitions.push_back(try_target);
+    return true;
+}
 
 void HI_WithDirectiveTimingResourceEvaluation::ArrayAccessCheckForFunction(Function *F)
 {

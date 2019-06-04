@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
   
 
   // Create a pass manager and fill it with the passes we want to run.
-  legacy::PassManager PM,PM1;
+  legacy::PassManager PM,PM1,PM11;
   LLVMTargetRef T;
   ModulePassManager MPM;
 
@@ -108,11 +108,13 @@ int main(int argc, char **argv) {
 
   // don't remove chained operations
   auto hi_hlsduplicateinstrm = new HI_HLSDuplicateInstRm("HLSrmInsts");
-  PM1.add(hi_hlsduplicateinstrm);
+  PM11.add(hi_hlsduplicateinstrm);
   print_info("Enable HI_HLSDuplicateInstRm Pass");
 
+  
+
   auto hi_functioninstantiation = new HI_FunctionInstantiation("HI_FunctionInstantiation",top_str);
-  PM1.add(hi_functioninstantiation);
+  PM11.add(hi_functioninstantiation);
   print_info("Enable HI_FunctionInstantiation Pass");
 
 
@@ -135,6 +137,7 @@ int main(int argc, char **argv) {
   WriteBitcodeToFile(*Mod, OS1);
   OS1.flush();
 
+  PM11.run(*Mod);
 
   // auto hi_duplicateinstrm1 = new HI_DuplicateInstRm("rmInsts");
   // PM.add(hi_duplicateinstrm1);

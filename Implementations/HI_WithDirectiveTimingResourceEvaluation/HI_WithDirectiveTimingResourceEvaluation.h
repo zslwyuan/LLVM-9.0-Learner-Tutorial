@@ -723,7 +723,7 @@ public:
 
 
     // record the access take place in which cycle
-    std::map<std::pair<Instruction*,Value*>,timingBase> scheduledAccess_timing;
+    std::map<std::pair<Instruction*,std::pair<Value*, int>>,timingBase> scheduledAccess_timing;
 
     // register number for target array
     std::vector<Instruction*> AccessesList;
@@ -747,16 +747,16 @@ public:
     void TraceAccessForTarget(Value *cur_node,Value *ori_node);
 
     // check whether the access to target array can be scheduled in a specific cycle
-    bool checkBRAMAvailabilty(Instruction* access, Value *target, std::string StoreOrLoad, BasicBlock *cur_block, timingBase cur_Timing);
+    bool checkBRAMAvailabilty(Instruction* access, Value *target, std::string StoreOrLoad, BasicBlock *cur_block, timingBase cur_Timing, int target_partition);
 
     // schedule the access to potential target (since an instructon may use the address for different target (e.g. address comes from PHINode), we need to schedule all of them)
-    timingBase scheduleBRAMAccess(Instruction *access, BasicBlock *cur_block,  timingBase cur_Timing);
+    timingBase scheduleBRAMAccess(Instruction *access, BasicBlock *cur_block,  timingBase cur_Timing, int target_partition);
 
     // schedule the access to specific target for the instruction
-    timingBase handleBRAMAccessFor(Instruction *access, Value *target, BasicBlock *cur_block,  timingBase cur_Timing);
+    timingBase handleBRAMAccessFor(Instruction *access, Value *target, BasicBlock *cur_block,  timingBase cur_Timing, int target_partition);
     
     // record the schedule information
-    void insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int cur_latency, Instruction* access);
+    void insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int cur_latency, Instruction* access, int target_partition);
 
     // evaluate the number of LUT needed by the BRAM Mux
     resourceBase BRAM_MUX_Evaluate();
@@ -789,7 +789,7 @@ public:
     const SCEV* findTheIncrementalIndex(const SCEVAddRecExpr *S);
 
     // generate AccessInformation according to the target and the initial access
-    HI_AccessInfo getAccessInfoFor(Value* target, Instruction* access, int initial_offset);
+    HI_AccessInfo getAccessInfoFor(Value* target, Instruction* access, int initial_offset, int inc_const);
 
     // get the exact access information for a specific load or store information
     HI_AccessInfo getAccessInfoForAccessInst(Instruction* Load_or_Store);
@@ -801,7 +801,9 @@ public:
     int getPartitionFor(Instruction* access, int partition_factor, int partition_dimension);
 
     // get the targer partition according to the specific memory access instruction
-    int getPartitionFor(Instruction* access);
+    std::vector<int> getPartitionFor(Instruction* access);
+
+    bool tryRecordPartition(std::vector<int> &partitions, int try_target);
 
     class ArrayInfo
     {
@@ -849,6 +851,8 @@ public:
             int num_dims;
             int partition = -1;
             bool isArgument = 0;
+            int inc_index = -1;
+            int initial_offset = -1;
             Type* elementType;
             Value* target;
             HI_AccessInfo()
@@ -862,6 +866,8 @@ public:
                 target = input.target;
                 isArgument = input.isArgument;
                 partition = input.partition;
+                inc_index = input.inc_index;
+                initial_offset = input.initial_offset;
                 for (int i=0;i<10;i++)
                 {
                     dim_size[i] = -1;
@@ -899,6 +905,8 @@ public:
                 target = input.target;
                 isArgument = input.isArgument;
                 partition = input.partition;
+                inc_index = input.inc_index;
+                initial_offset = input.initial_offset;
                 for (int i=0;i<10;i++)
                 {
                     dim_size[i] = -1;

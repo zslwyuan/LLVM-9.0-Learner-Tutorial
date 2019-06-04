@@ -91,12 +91,20 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
             
             if ( I->getOpcode()==Instruction::Load || I->getOpcode()==Instruction::Store )
             {
-                *Evaluating_log << "----------- A Memory Access Instruction: " << *I <<" is found,\n-----------  information fot this access is:  " 
-                                << getAccessInfoForAccessInst(I) 
-                                << "\n-----------  the access is to partition #" << getPartitionFor(I) << ""
-                                << "\n-----------  do the scheduling for it\n";
-                                
-                cur_InstructionCriticalPath[I] = scheduleBRAMAccess(I, B, latest_timing);  
+                std::vector<int> target_partitions = getPartitionFor(I);
+                timingBase latest_schedule_access(0,0,1,clock_period);
+                for (auto target_partition : target_partitions)
+                {
+                    *Evaluating_log << "----------- A Memory Access Instruction: " << *I <<" is found,\n-----------  information fot this access is:  " 
+                                    << getAccessInfoForAccessInst(I) 
+                                    << "\n-----------  the access is to partition #" << target_partition << ""
+                                    << "\n-----------  do the scheduling for it\n";
+                                    
+                    timingBase tmp_schedule = scheduleBRAMAccess(I, B, latest_timing, target_partition);  
+                    if (tmp_schedule > latest_schedule_access)
+                        latest_schedule_access = tmp_schedule;
+                }
+                cur_InstructionCriticalPath[I] = latest_schedule_access;
                 AccessesList.push_back(I);
             }
             
