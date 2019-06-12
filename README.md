@@ -130,7 +130,7 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 
       --- IR transformation, Timing/Resource Evaluation for special structures on FPGA
 	
-      
+## Updates will be delayed for 2 months because I am occupied by my internship. Contact me if help is needed.
 
 
 ***
