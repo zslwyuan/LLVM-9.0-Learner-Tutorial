@@ -1,10 +1,10 @@
 # LLVM-9.0-Learner-Tutorial
 
-A blog for LLVM(v9.0.0) beginner, step by step, with detailed documents and comments. This blog records the way I learn LLVM and finnaly accomplish a complete project with it. Therefore, I will keep updating this blog according to the progress of my project. Currently, my target is **to implement a source code optimizer for FPGA High-Level Synthesis (HLS) and to help some one else get familiar with LLVM and HLS**. I am happy to discuss and any suggestion will be welcome ^_^ (tliang@ust.hk). ~If this blog is useful for you, a STAR will be encouragement to me. LOL~
+A blog for LLVM(v9.0.0) beginner, step by step, with detailed documents and comments. This blog records the way I learn LLVM and finnaly accomplish a complete project with it. Therefore, I will keep updating this blog according to the progress of my project. Currently, my target is to implement a source code optimizer. I am happy to discuss and any suggestion will be welcome ^_^ (tliang@ust.hk). ~If this blog is useful for you, a STAR will be encouragement to me. LOL~
 
 LLVM is very interesting tool but it is also upsetting for beginners (e.g. me). In this blog, I begin with the simplest pass construction and invocation, trying to explain the usage of some functions, types and variables. A complete project will be built gradually. I just hope this github can help some people like me to understand and handle LLVM better.  PS: **Clang** provides user with **Python-APIs**, hence some people may use python to handle/analyze/transform the source code. An example project can be found **[here](https://github.com/zslwyuan/Hi-DMM)**.
 
-Please note that all the experiments are built with **LLVM-9.0.0**. In this blog, I tend to make the passes standalone, which means that they can be called in a main source code, but do not implement in the way which requires users compile the pass into dynamic library, re-make the LLVM source code and invoke the pass by "opt" command in the terminal. I think it might not be flexible, convenient and portable for development and testing. **Visual Studio Code** is the suggested editor since you can trace the functions and variables in LLVM very easily with VScode.
+Please note that all the experiments are built with **LLVM-9.0.0**.  In this blog, I tend to make the passes standalone, which means that they can be called in a main source code, but do not implement in the way which requires users compile the pass into dynamic library, re-make the LLVM source code and invoke the pass by "opt" command in the terminal. I think it might not be flexible, convenient and portable for development and testing. **Visual Studio Code** is the suggested editor since you can trace the functions and variables in LLVM very easily with VScode.
 
 
 ## Category:
@@ -99,11 +99,12 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
       --- Front-End Operation, AST Consumer, Visit Nodes in AST, Clang, Template Detection
 
 
-**Experiment 11**: (Patch-Applied) Hack on Clang to properly map arbitary precision integer ap\_int<X> in source code for VivadoHLS into iX in IR generation  (Front-end Operation: CodeGen) **[TEST CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Tests/LLVM_expAPINT_test)**
+**Experiment 11**: (Patch-Applied) Hack on Clang to properly map arbitary precision integer ap\_int<X> in source code for VivadoHLS into iX in IR generation  (Front-end Operation: CodeGen) **[TEST CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Tests/LLVM_expAPINT_test)**. Since a patch for LLVM-9 necessary for this tutorial is still under the review of LLVM, **[complete source code of LLVM for this tutorial](https://github.com/zslwyuan/LLVM-9-for-Light-HLS)** can be downloaded via github in case that you cannot make the patch work properly. 
 
       --- CodeGen Operation, AST Consumer, Visit Nodes in AST, Clang
       --- The original way I implement is too ugly and I applied the patch which Erich Keane shared via maillist clang-cfe.
       --- The patch, under review: https://reviews.llvm.org/D59105 , is developed by Erich Keane, Compiler Engineer, Intel Corporation. (Thanks Erich!^_^)
+
 
 **Experiment 12**: Based on the library collected from VivadoHLS synthesis result, a Pass for more accurate evaluation of timing and resource is implemented. (Analysis Pass) **[PASS CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations/HI_NoDirectiveTimingResourceEvaluation)** 
 
@@ -122,15 +123,11 @@ Please note that all the experiments are built with **LLVM-9.0.0**. In this blog
 
       --- SCEV, Scalar Evolution Interpretation (AddRec, Add, Unknown, Constant), Array Access Pattern
 
-**Experiment 14**: (WIP) Evaluation of timing and resource considering HLS directives **[PASS CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations/HI_WithDirectiveTimingResourceEvaluation)** 
-
-      --- Array Partitioning, Loop Pipelining, Loop Unrolling
-
-**Experiment 15**: (WIP) Based on the IR file, evaluate the resource and timing of the Window/Buffer/Filter in HLS 
+**Experiment 14**: (WIP) Based on the IR file, evaluate the resource and timing of the Window/Buffer/Filter in HLS 
 
       --- IR transformation, Timing/Resource Evaluation for special structures on FPGA
 	
-## Updates will be delayed for 2 months because I am occupied by my internship and thesis writing. Contact me if help is needed.
+      
 
 
 ***
