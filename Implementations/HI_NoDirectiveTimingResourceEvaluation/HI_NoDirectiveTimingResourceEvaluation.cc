@@ -76,7 +76,7 @@ void HI_NoDirectiveTimingResourceEvaluation::getAnalysisUsage(AnalysisUsage &AU)
 }
 
 
-std::string HI_NoDirectiveTimingResourceEvaluation::demangeFunctionName(std::string mangled_name)
+std::string HI_NoDirectiveTimingResourceEvaluation::demangleFunctionName(std::string mangled_name)
 {
     std::string demangled_name;
 
@@ -139,7 +139,7 @@ void HI_NoDirectiveTimingResourceEvaluation::analyzeTopFunction(Module &M)
     {
         std::string mangled_name = F.getName();
         std::string demangled_name;
-        demangled_name = demangeFunctionName(mangled_name);
+        demangled_name = demangleFunctionName(mangled_name);
         mangled_name = "find function " + mangled_name + "and its demangled name is : " + demangled_name;
         print_info(mangled_name.c_str());
         if (demangled_name == top_function_name)
@@ -172,7 +172,7 @@ void HI_NoDirectiveTimingResourceEvaluation::TraceMemoryDeclarationinModule(Modu
             continue;
         std::string mangled_name = F.getName();
         std::string demangled_name;
-        demangled_name = demangeFunctionName(mangled_name);
+        demangled_name = demangleFunctionName(mangled_name);
         findMemoryDeclarationin(&F, demangled_name == top_function_name);        
     }
 }

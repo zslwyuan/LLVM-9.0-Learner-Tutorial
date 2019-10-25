@@ -1,5 +1,5 @@
-#ifndef _HI_ArrayAccessPattern
-#define _HI_ArrayAccessPattern
+#ifndef _HI_IR2SourceCode
+#define _HI_IR2SourceCode
 // related headers should be included.
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
@@ -245,259 +245,101 @@
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <memory>
 #include <utility>
+#include <sys/time.h>
 
 
 using namespace llvm;
 
-class HI_ArrayAccessPattern : public FunctionPass {
+class HI_IR2SourceCode : public ModulePass {
 public:
-    HI_ArrayAccessPattern(const char* ArrayLog_Name, std::string _top_function_name) : FunctionPass(ID), top_function_name(_top_function_name)
+    HI_IR2SourceCode(const char* IR2Src_Log_Name, std::map<std::string, std::string> &_IRLoop2LoopLabel, std::map<std::string, std::vector<int>> &IRFunc2BeginLine, std::map<std::string, int> &IRLoop2OriginTripCount,
+                     bool DEBUG=false) : 
+                                ModulePass(ID), IRLoop2LoopLabel(_IRLoop2LoopLabel), IRFunc2BeginLine(IRFunc2BeginLine), IRLoop2OriginTripCount(IRLoop2OriginTripCount), DEBUG(DEBUG)
     {
-        ArrayLog = new raw_fd_ostream(ArrayLog_Name, ErrInfo, sys::fs::F_None);
+        Instruction_Counter = 0;
+        Function_Counter = 0;
+        BasicBlock_Counter = 0;
+        Loop_Counter = 0;
+        callCounter = 0;
+        IR2Src_Log = new raw_fd_ostream(IR2Src_Log_Name, ErrInfo, sys::fs::F_None);
         tmp_stream = new raw_string_ostream(tmp_stream_str);
     } // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
 
-    ~HI_ArrayAccessPattern()
+    ~HI_IR2SourceCode()
     {
-        ArrayLog->flush(); delete ArrayLog;
+        IR2Src_Log->flush(); delete IR2Src_Log;
         tmp_stream->flush(); delete tmp_stream;
     }
 
-    virtual bool doInitialization(Module &M)
+    virtual bool doInitialization(llvm::Module &M)
     {
-        print_status("Initilizing HI_ArrayAccessPattern pass.");  
+        print_status("Initilizing HI_IR2SourceCode pass.");  
+        
+
         return false;
     }
 
-    // virtual bool doFinalization(Module &M)
+    bool DEBUG = 0;
+
+    // virtual bool doFinalization(llvm::Module &M)
     // {
     //     return false;
     // }
 
     void getAnalysisUsage(AnalysisUsage &AU) const;
-    virtual bool runOnFunction(Function &M);
+    virtual bool runOnModule(llvm::Module &M);
     static char ID;
 
-    class ArrayInfo;
-    class HI_AccessInfo;
+    void traceInstructionSourceCode(Function &F);
 
-    // find the array access in the function F and trace the accesses to them
-    void findMemoryAccessin(Function *F);
+    void traceLoopSourceCode(LoopInfo &LI, ScalarEvolution &SE, Function &F);
 
-    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
-    void TraceAccessForTarget(Value *cur_node);
+    void traceBasicBlockSourceCode(LoopInfo &LI, Function &F);
 
-    // check the memory access in the function
-    void TraceMemoryAccessinFunction(Function &F);
+    void traceFunctionSourceCode(Function &F);
 
-    bool ArrayAccessOffset(Instruction *I, ScalarEvolution *SE, bool isTopFunction);
+    void traceModuleMetadata(llvm::Module &M);
 
-    void findMemoryDeclarationin(Function *F, bool isTopFunction);
+    void mappingLoopIR2LoopLabel(llvm::Module &M);
 
-    std::string demangleFunctionName(std::string mangled_name);
-
-    const SCEV* findTheActualStartValue(const SCEVAddRecExpr *S);
-
-    HI_AccessInfo getAccessInfoFor(Value* target, int initial_offset);
-
-    int getPartitionFor(HI_AccessInfo access, int partition_factor, int partition_dimension);
-
-    class ArrayInfo
-    {
-        public:
-            int dim_size[10];
-            int sub_element_num[10];
-            int num_dims;
-            bool isArgument = 0;
-            Type* elementType;
-            Value* target;
-            ArrayInfo()
-            {
-                num_dims = -1;
-            }
-            ArrayInfo(const ArrayInfo &input)
-            {
-                elementType = input.elementType;
-                num_dims = input.num_dims;
-                target = input.target;
-                isArgument = input.isArgument;
-                for (int i=0;i<num_dims;i++)
-                    dim_size[i] = input.dim_size[i];
-                for (int i=0;i<num_dims;i++)
-                    sub_element_num[i] = input.sub_element_num[i];
-            }
-            ArrayInfo& operator=(const ArrayInfo &input)
-            {
-                elementType = input.elementType;
-                num_dims = input.num_dims;
-                target = input.target;
-                isArgument = input.isArgument;
-                for (int i=0;i<num_dims;i++)
-                    dim_size[i] = input.dim_size[i];
-                for (int i=0;i<num_dims;i++)
-                    sub_element_num[i] = input.sub_element_num[i];
-            }
-    };
-
-    class HI_AccessInfo
-    {
-        public:
-            int dim_size[10];
-            int sub_element_num[10];
-            int index[10];
-            int num_dims;
-            bool isArgument = 0;
-            Type* elementType;
-            Value* target;
-            HI_AccessInfo()
-            {
-                num_dims = -1;
-            }
-            HI_AccessInfo(const HI_AccessInfo &input)
-            {
-                elementType = input.elementType;
-                num_dims = input.num_dims;
-                target = input.target;
-                isArgument = input.isArgument;
-                for (int i=0;i<10;i++)
-                {
-                    dim_size[i] = -1;
-                    sub_element_num[i] = -1;
-                    index[i] = -1;
-                }
-                for (int i=0;i<num_dims;i++)
-                    dim_size[i] = input.dim_size[i];
-                for (int i=0;i<num_dims;i++)
-                    sub_element_num[i] = input.sub_element_num[i];
-                for (int i=0;i<num_dims;i++)
-                    index[i] = input.index[i];
-            }
-            HI_AccessInfo(const ArrayInfo &input)
-            {
-                elementType = input.elementType;
-                num_dims = input.num_dims;
-                target = input.target;
-                isArgument = input.isArgument;
-                for (int i=0;i<10;i++)
-                {
-                    dim_size[i] = -1;
-                    sub_element_num[i] = -1;
-                    index[i] = -1;
-                }
-                for (int i=0;i<num_dims;i++)
-                    dim_size[i] = input.dim_size[i];
-                for (int i=0;i<num_dims;i++)
-                    sub_element_num[i] = input.sub_element_num[i];
-            }
-            HI_AccessInfo& operator=(const HI_AccessInfo &input)
-            {
-                elementType = input.elementType;
-                num_dims = input.num_dims;
-                target = input.target;
-                isArgument = input.isArgument;
-                for (int i=0;i<10;i++)
-                {
-                    dim_size[i] = -1;
-                    sub_element_num[i] = -1;
-                    index[i] = -1;
-                }
-                for (int i=0;i<num_dims;i++)
-                    dim_size[i] = input.dim_size[i];
-                for (int i=0;i<num_dims;i++)
-                    sub_element_num[i] = input.sub_element_num[i];
-                for (int i=0;i<num_dims;i++)
-                    index[i] = input.index[i];
-            }
-            HI_AccessInfo& operator=(const ArrayInfo &input)
-            {
-                elementType = input.elementType;
-                num_dims = input.num_dims;
-                target = input.target;
-                isArgument = input.isArgument;
-                for (int i=0;i<10;i++)
-                {
-                    dim_size[i] = -1;
-                    sub_element_num[i] = -1;
-                    index[i] = -1;
-                }
-                for (int i=0;i<num_dims;i++)
-                    dim_size[i] = input.dim_size[i];
-                for (int i=0;i<num_dims;i++)
-                    sub_element_num[i] = input.sub_element_num[i];
-            }
-    };
-
-    friend raw_ostream& operator<< (raw_ostream& stream, const ArrayInfo& tb)
-    {
-        stream << "ArrayInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
-        for (int i = 0; i<tb.num_dims; i++)
-        {
-            stream << "dim-" << i << "-size=" << tb.dim_size[i] << ", ";
-        }
-
-        for (int i = 0; i<tb.num_dims; i++)
-        {
-            stream << "dim-" << i << "-subnum=" << tb.sub_element_num[i] << ", ";
-        }
-        stream << "] ";
-        //timing="<<tb.timing<<"] ";
-        return stream;
-    }
-
-    friend raw_ostream& operator<< (raw_ostream& stream, const HI_AccessInfo& tb)
-    {
-        stream << "HI_AccessInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
-        for (int i = 0; i<tb.num_dims; i++)
-        {
-            stream << "dim-" << i << "-size=" << tb.dim_size[i] << ", ";
-        }
-
-        for (int i = 0; i<tb.num_dims; i++)
-        {
-            stream << "dim-" << i << "-subnum=" << tb.sub_element_num[i] << ", ";
-        }
-
-        for (int i = 0; i<tb.num_dims; i++)
-        {
-            stream << "dim-" << i << "-index=" << tb.index[i] << ", ";
-        }
-
-        stream << "representation: " << tb.target->getName() << "[";
-
-        for (int i = tb.num_dims-1; i>0; i--)
-        {
-            stream <<  tb.index[i] << "][";
-        }
-        stream <<  tb.index[0] << "]   ";
-        stream << "] ";
-        //timing="<<tb.timing<<"] ";
-        return stream;
-    }
-
-    std::map<Value*, ArrayInfo> Target2ArrayInfo;
-
-    std::map<Instruction*, HI_AccessInfo> Inst2AccessInfo;
-
-    ArrayInfo getArrayInfo(Value* target);
+    int callCounter;
+    int Instruction_Counter;
+    int Function_Counter;
+    int BasicBlock_Counter;
+    int Loop_Counter;
 
     std::string top_function_name;
 
     Function* TargeFunction;
 
-    std::set<Value*> ArrayValueVisited;
-    std::set<Instruction*> Inst_AccessRelated;
-    
+    std::map<Instruction*, int> Inst2Line;
+    std::map<BasicBlock*, std::pair<int,int>> Block2Line;
+    std::map<BasicBlock*, std::string> Block2Path;
+    std::map<BasicBlock*, std::pair<int,int>> Loop2Line;
+    std::map<BasicBlock*, std::string> Loop2Path;
+    std::map<Function*, std::pair<int,int>> Function2Line;
+    std::map<Function*, std::string> Function2Path;
+    std::map<std::string, std::string> &IRLoop2LoopLabel;
+    std::map<std::string, int> &IRLoop2OriginTripCount;
+    std::map<std::string, std::vector<int>> &IRFunc2BeginLine;
+
     std::error_code ErrInfo;
-    raw_ostream *ArrayLog;
+    raw_ostream *IR2Src_Log;
 
     raw_string_ostream *tmp_stream;
     std::string tmp_stream_str;
 
+    
+/// Timer
+
+    struct timeval tv_begin;
+    struct timeval tv_end;
 };
 
 

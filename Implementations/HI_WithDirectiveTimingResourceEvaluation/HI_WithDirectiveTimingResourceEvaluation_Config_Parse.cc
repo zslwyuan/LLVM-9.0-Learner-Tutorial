@@ -319,7 +319,7 @@ void HI_WithDirectiveTimingResourceEvaluation::matchArrayAndConfiguration(Value*
             {
                 Function *F = getFunctionOfValue(target);
                 assert(F && "the parent function of the value should be found.");
-                if (demangeFunctionName(F->getName()) != pragma.scopeStr )
+                if (demangleFunctionName(F->getName()) != pragma.scopeStr )
                 {   
                     continue;
                 }

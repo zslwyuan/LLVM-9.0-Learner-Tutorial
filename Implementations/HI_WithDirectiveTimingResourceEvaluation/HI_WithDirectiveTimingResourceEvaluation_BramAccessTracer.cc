@@ -945,7 +945,7 @@ void HI_WithDirectiveTimingResourceEvaluation::ArrayAccessCheckForFunction(Funct
     {
         for (auto &I : B)
         {
-            TryArrayAccessProcess(&I, SE /*, demangeFunctionName(F->getName()) == top_function_name*/);
+            TryArrayAccessProcess(&I, SE /*, demangleFunctionName(F->getName()) == top_function_name*/);
         }
     }
 }

@@ -26,7 +26,7 @@ bool HI_FunctionInstantiation::runOnModule(Module &M) // The runOnModule declara
     {
         if (F.getName().find("llvm.")!=std::string::npos)
             continue;
-        if (demangeFunctionName(F.getName().str()) == topFunctionName)
+        if (demangleFunctionName(F.getName().str()) == topFunctionName)
         {
             *FuncInitiationLog << "Find the top function: [" << topFunctionName << "] and begin BFS.\n";
             BFS_check_and_initiate(&F, &M);

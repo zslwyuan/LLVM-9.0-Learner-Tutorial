@@ -43,6 +43,8 @@ include_directories(./ ../../Implementations/
 ../../Implementations/HI_WithDirectiveTimingResourceEvaluation
 ../../Implementations/HI_StringProcess
 ../../Implementations/HI_FunctionInstantiation
+../../Implementations/HI_LoopUnroll
+../../Implementations/HI_IR2SourceCode
 )
 
 add_subdirectory(../../Implementations ./building)

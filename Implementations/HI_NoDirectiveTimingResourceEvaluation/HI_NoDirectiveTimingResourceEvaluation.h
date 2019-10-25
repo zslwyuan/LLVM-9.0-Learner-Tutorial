@@ -266,7 +266,7 @@ public:
     std::set<Instruction*> I_RegReused;    
 
     // demangle the name of functions
-    std::string demangeFunctionName(std::string mangled_name);
+    std::string demangleFunctionName(std::string mangled_name);
 
     // get the latency of functions in the module  and compute the resource cost
     void AnalyzeFunctions(Module &M);

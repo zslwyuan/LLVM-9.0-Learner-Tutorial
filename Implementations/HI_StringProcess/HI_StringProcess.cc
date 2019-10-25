@@ -82,7 +82,7 @@ void findAndReplaceAll(std::string & data, std::string toSearch, std::string rep
 	}
 }
 
-std::string demangeFunctionName(std::string mangled_name)
+std::string demangleFunctionName(std::string mangled_name)
 {
     std::string demangled_name;
 
