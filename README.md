@@ -123,6 +123,10 @@ Please note that all the experiments are built with **LLVM-9.0.0**.  In this blo
 
       --- SCEV, Scalar Evolution Interpretation (AddRec, Add, Unknown, Constant), Array Access Pattern
 
+**Experiment 13d**: unroll the specifc loops according to the label set in the source code and the setting in the configuration file (Transformation Pass) **[PASS CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations/HI_LoopUnroll)**  **[TEST CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Tests/LLVM_exp13d_HI_LoopUnroll)** 
+
+      --- Loop Unrolling, Debug Information from Source Code
+
 **Experiment 14**: (WIP) Based on the IR file, evaluate the resource and timing of the Window/Buffer/Filter in HLS 
 
       --- IR transformation, Timing/Resource Evaluation for special structures on FPGA

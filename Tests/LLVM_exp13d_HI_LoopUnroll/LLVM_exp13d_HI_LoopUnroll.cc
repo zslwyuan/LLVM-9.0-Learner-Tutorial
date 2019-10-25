@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
 
 
 // extract information from IR code
-
+// map labels in source code to IR loops / functions...
   auto hi_ir2sourcecode = new HI_IR2SourceCode("HI_IR2SourceCode",IRLoop2LoopLabel, IRFunc2BeginLine,IRLoop2OriginTripCount);
   PM_pre.add(hi_ir2sourcecode);
   print_info("Enable HI_IR2SourceCode Pass");
