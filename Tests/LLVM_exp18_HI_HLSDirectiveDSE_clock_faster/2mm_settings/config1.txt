@@ -1,0 +1,4 @@
+clock = 20
+HLS_lib_path = ../../../HLS_Data_Lib/
+resource_limit DSP=50 FF=6000 LUT=6000 BRAM=100
+func_dataflow scope=kernel_2mm enable

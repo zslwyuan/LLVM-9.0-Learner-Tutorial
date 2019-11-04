@@ -44,6 +44,7 @@
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/LoopVersioning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include <sys/time.h>
 
 using namespace llvm;
 
@@ -199,6 +200,11 @@ public:
     raw_string_ostream *tmp_stream;
     std::string tmp_stream_str;
 
+    
+/// Timer
+
+    struct timeval tv_begin;
+    struct timeval tv_end;
 };
 
 

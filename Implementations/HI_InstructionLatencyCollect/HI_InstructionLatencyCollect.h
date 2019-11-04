@@ -44,6 +44,7 @@
 #include "polly/Options.h"
 #include "polly/ScopInfo.h"
 #include <set>
+#include <sys/time.h>
 
 using namespace llvm;
 

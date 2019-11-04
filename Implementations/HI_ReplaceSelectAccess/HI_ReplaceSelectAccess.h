@@ -250,26 +250,26 @@
 #include <cstdint>
 #include <memory>
 #include <utility>
-
+#include <sys/time.h>
 
 using namespace llvm;
 
 class HI_ReplaceSelectAccess : public FunctionPass {
 public:
-    HI_ReplaceSelectAccess(const char* AggrLSRLog_Name ) : FunctionPass(ID)
+    HI_ReplaceSelectAccess(const char* ReplaceSelectAccess_Log_Name, bool DEBUG=0 ) : FunctionPass(ID), DEBUG(DEBUG)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;
         BasicBlock_Counter = 0;
         Loop_Counter = 0;
         callCounter = 0;
-        AggrLSRLog = new raw_fd_ostream(AggrLSRLog_Name, ErrInfo, sys::fs::F_None);
+        ReplaceSelectAccess_Log = new raw_fd_ostream(ReplaceSelectAccess_Log_Name, ErrInfo, sys::fs::F_None);
         tmp_stream = new raw_string_ostream(tmp_stream_str);
     } // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
 
     ~HI_ReplaceSelectAccess()
     {
-        AggrLSRLog->flush(); delete AggrLSRLog;
+        ReplaceSelectAccess_Log->flush(); delete ReplaceSelectAccess_Log;
         tmp_stream->flush(); delete tmp_stream;
     }
 
@@ -286,38 +286,18 @@ public:
     //     return false;
     // }
 
+    bool DEBUG;
+
     void getAnalysisUsage(AnalysisUsage &AU) const;
     virtual bool runOnFunction(Function &M);
     static char ID;
 
-    // check whether the instruction is Multiplication suitable for LSR
-    // If suitable, process it
-    bool LSR_Mul(Instruction *I, ScalarEvolution *SE);
-
-    // find the array access in the function F and trace the accesses to them
-    void findMemoryAccessin(Function *F);
-
-    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
-    void TraceAccessForTarget(Value *cur_node);
-
-    // check the memory access in the function
-    void TraceMemoryAccessinFunction(Function &F);
-
-    // trace back to find the original PHI operator, bypassing SExt and ZExt operations
-    // according to which, we can generate new PHI node for the MUL operation
-    PHINode* byPassBack_BitcastOp_findPHINode(Value* cur_I_value);
-
-    // replace the original MUL with PHI and Add operator
-    void LSR_Process(Instruction *Mul_I, APInt start_val, APInt step_val);
-
-
-    bool LSR_Add(Instruction *I, ScalarEvolution *SE);
-
-    // find the instruction operand of the Mul operation
-    Instruction* find_Incremental_op(Instruction *Mul_I);
-
-    // find the constant operand of the Mul operation
-    ConstantInt* find_Constant_op(Instruction *Mul_I);
+    // check whether the instruction is a part of select-address-and-memory-access procedure
+    // If yes, transform it into memory-access-and-select-output 
+    bool checkOperandsAreAddress(Instruction *I);
+    bool checkUseInMemoryAccess(Instruction *I);
+    void From_SelectAccess_To_AccessSelect(Instruction *I);
+    Instruction* getAccessInst(Instruction *I);
 
     int callCounter;
     int Instruction_Counter;
@@ -335,10 +315,18 @@ public:
     std::set<Instruction*> isInstruction_PHI_Independent;
     
     std::error_code ErrInfo;
-    raw_ostream *AggrLSRLog;
+    raw_ostream *ReplaceSelectAccess_Log;
 
     raw_string_ostream *tmp_stream;
     std::string tmp_stream_str;
+
+
+    
+/// Timer
+
+    struct timeval tv_begin;
+    struct timeval tv_end;
+
 
 };
 

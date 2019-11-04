@@ -1,0 +1,1 @@
+HI_Mul2Shl will try to transform Multiplication with Constant into (2^x +- 2^y)

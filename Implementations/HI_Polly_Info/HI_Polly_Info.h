@@ -42,6 +42,8 @@
 #include "polly/LinkAllPasses.h"
 #include "polly/Options.h"
 #include "polly/ScopInfo.h"
+#include <sys/time.h>
+
 using namespace llvm;
 
 class HI_Polly_Info : public FunctionPass {
@@ -73,6 +75,11 @@ public:
     raw_ostream *Loop_out;
 
 
+    
+/// Timer
+
+    struct timeval tv_begin;
+    struct timeval tv_end;
 
 };
 #endif

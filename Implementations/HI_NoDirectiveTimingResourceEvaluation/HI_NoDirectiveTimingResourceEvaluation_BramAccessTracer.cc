@@ -6,7 +6,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "HI_print.h"
 #include "HI_NoDirectiveTimingResourceEvaluation.h"
-#include "polly/PolyhedralInfo.h"
 
 #include <stdio.h>
 #include <string>
@@ -28,10 +27,16 @@ void HI_NoDirectiveTimingResourceEvaluation::findMemoryDeclarationin(Function *F
         *BRAM_log << " is Top function " << "\n";
         for (auto it = F->arg_begin(),ie = F->arg_end(); it!=ie; ++it)
         {
+            // llvm::errs() << *it << "\n";
             if (it->getType()->isPointerTy())
             {
                 PointerType *tmp_PtrType = dyn_cast<PointerType>(it->getType());
+                // llvm::errs() << *(tmp_PtrType->getElementType()) << "\n";
                 if (tmp_PtrType->getElementType()->isArrayTy())
+                {
+                    TraceAccessForTarget(it,it);
+                }
+                else if (tmp_PtrType->getElementType()->isIntegerTy() || tmp_PtrType->getElementType()->isFloatingPointTy() ||tmp_PtrType->getElementType()->isDoubleTy() )
                 {
                     TraceAccessForTarget(it,it);
                 }
@@ -47,6 +52,16 @@ void HI_NoDirectiveTimingResourceEvaluation::findMemoryDeclarationin(Function *F
             if (AllocaInst *allocI = dyn_cast<AllocaInst>(&I))
             {
                 TraceAccessForTarget(allocI,allocI);
+            }
+        }
+    }
+    for (auto &B: *F)
+    {
+        for (auto &I: B)
+        {
+            if (I.getOpcode() == Instruction::Load || I.getOpcode() == Instruction::Store)
+            {
+                Block2AccessList[I.getParent()].push_back(&I);
             }
         }
     }
@@ -150,6 +165,7 @@ void HI_NoDirectiveTimingResourceEvaluation::TraceAccessForTarget(Value *cur_nod
                         if (i==j)
                         {
                             // go into the sub-function to trace the accesses to the target
+                            Alias2Target[arg_it] = ori_node;
                             TraceAccessForTarget(arg_it,ori_node);
                             break;
                         }                    
@@ -267,6 +283,13 @@ bool HI_NoDirectiveTimingResourceEvaluation::checkBRAMAvailabilty(Instruction* a
         *BRAM_log << " No access for the target in the block yet\n";
         return true;
     }
+
+    if (access->getOpcode() == Instruction::Load)
+    {
+        if (hasRAWHazard(access, cur_Timing.latency))
+            return false;
+    }
+
     int cnt = 0;
     for (auto lat_Inst_pair : target2LastAccessCycleInBlock[target][cur_block])
     {
@@ -487,4 +510,79 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
     }
     res.BRAM = width_factor * depth_factor;
     return res;
+}
+
+AliasResult HI_NoDirectiveTimingResourceEvaluation::HI_AAResult::alias(const MemoryLocation &LocA,
+                               const MemoryLocation &LocB) {
+  auto PtrA = LocA.Ptr;
+  auto PtrB = LocB.Ptr;
+
+  if (PtrA != PtrA) {
+    return NoAlias;
+  }
+
+  // Forward the query to the next analysis.
+  return AAResultBase::alias(LocA, LocB);
+}
+
+
+bool HI_NoDirectiveTimingResourceEvaluation::hasRAWHazard(Instruction *loadI, int cycle)
+{
+    assert(loadI->getOpcode() == Instruction::Load);
+    bool checkEnableFlag = false;
+    
+    for (auto preI : Block2AccessList[loadI->getParent()])
+    {
+        if (preI == loadI)
+        {
+            break;
+        }
+        if (getTargetFromInst(loadI) == getTargetFromInst(preI))
+        {
+            if (preI->getOpcode() == Instruction::Store)
+            {
+                // Redundant load with alias access should have been removed
+                // therefore, this could be potential conflict, reject the access
+                if (Inst_Schedule[preI].second >= cycle)
+                {
+                    *BRAM_log << "\nload instruction: " << *loadI << " RAW hazard with store instruction: " << *preI 
+                               << " at cycle#" << Inst_Schedule[preI].second << "\n";
+                    return true;
+                }
+            }                
+        }
+    }
+    return false;
+}
+
+
+Value* HI_NoDirectiveTimingResourceEvaluation::getTargetFromInst(Instruction* accessI)
+{
+    // assert(Access2TargetMap[accessI].size()==1 && "currently, we do not support 1-access-multi-target.");
+    if (Access2TargetMap[accessI].size()>1)
+    {
+        Value *reftarget = Access2TargetMap[accessI][0];
+        for (auto target:Access2TargetMap[accessI])
+        {   
+
+            Value *tmp_target = target, *tmp_reftarget = reftarget;
+            if (Alias2Target.find(target) != Alias2Target.end())
+                tmp_target = Alias2Target[target];
+            if (Alias2Target.find(reftarget) != Alias2Target.end())
+                tmp_reftarget = Alias2Target[reftarget];
+            if (tmp_target!=tmp_reftarget)
+            {
+                llvm::errs()  << *accessI << " has multi-targets: \n";
+                llvm::errs()  << *tmp_target << "  is different form " << *tmp_reftarget << "\n";
+                for (auto target:Access2TargetMap[accessI])
+                    llvm::errs()  <<  "    " <<*target << "\n";
+            }
+            assert(tmp_target==tmp_reftarget && "currently, we do not support 1-access-multi-target.");
+        }
+    }
+    Value* target = Access2TargetMap[accessI][0];
+    if (Alias2Target.find(target) == Alias2Target.end())
+        return target;
+    else
+        return Alias2Target[target];
 }

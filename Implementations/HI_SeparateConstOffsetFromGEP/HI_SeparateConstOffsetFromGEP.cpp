@@ -545,7 +545,7 @@ HI_SeparateConstOffsetFromGEP::accumulateByteOffset(GetElementPtrInst *GEP,
 
 void HI_SeparateConstOffsetFromGEP::lowerToSingleIndexGEPs(
     GetElementPtrInst *Variadic, int64_t AccumulativeByteOffset) {
-  *Sep_Log << "\nlowering GEP (lowerToSingleIndexGEPs): " << *Variadic << "\n";
+  if (DEBUG) *Sep_Log << "\nlowering GEP (lowerToSingleIndexGEPs): " << *Variadic << "\n";
   IRBuilder<> Builder(Variadic);
   Type *IntPtrTy = DL->getIntPtrType(Variadic->getType());
 
@@ -629,7 +629,7 @@ HI_SeparateConstOffsetFromGEP::lowerToArithmetics(GetElementPtrInst *Variadic,
   // don't create arithmetics for structure indices, as they are accumulated
   // in the constant offset index.
 
-  *Sep_Log << "\nlowering GEP (lowerToArithmetics): " << *Variadic << "\n";
+  if (DEBUG) *Sep_Log << "\nlowering GEP (lowerToArithmetics): " << *Variadic << "\n";
   for (unsigned I = 1, E = Variadic->getNumOperands(); I != E; ++I, ++GTI) {
     if (GTI.isSequential()) {
 
@@ -638,11 +638,11 @@ HI_SeparateConstOffsetFromGEP::lowerToArithmetics(GetElementPtrInst *Variadic,
       if (ConstantInt *CI = dyn_cast<ConstantInt>(Idx))
         if (CI->isZero())
           continue;
-      *Sep_Log << " --- handling Index " << *Idx << "\n";
-      *Sep_Log << " --- handling IndexedType " << *GTI.getIndexedType() << "\n";
-      *Sep_Log << " --- handling TypeAllocSize " << DL->getTypeAllocSize(GTI.getIndexedType()) << "\n";
-      *Sep_Log << " --- handling Length " << getLength(GTI.getIndexedType()) << "\n";
-      
+      if (DEBUG) *Sep_Log << " --- handling Index " << *Idx << "\n";
+      if (DEBUG) *Sep_Log << " --- handling IndexedType " << *GTI.getIndexedType() << "\n";
+      if (DEBUG) *Sep_Log << " --- handling TypeAllocSize " << DL->getTypeAllocSize(GTI.getIndexedType()) << "\n";
+      if (DEBUG) *Sep_Log << " --- handling Length " << getLength(GTI.getIndexedType()) << "\n";
+      if (DEBUG) Sep_Log->flush();
       APInt ElementSize = APInt(IntPtrTy->getIntegerBitWidth(),                   //HI-MODIFICATION: we don't need to calculate by byte in HLS
                                  getLength(GTI.getIndexedType()));
       // Scale the index by element size.
@@ -651,8 +651,9 @@ HI_SeparateConstOffsetFromGEP::lowerToArithmetics(GetElementPtrInst *Variadic,
           Idx = Builder.CreateShl(
               Idx, ConstantInt::get(IntPtrTy, ElementSize.logBase2()));
         } else {
-          *Sep_Log << "    --- IntPtrTy " << *IntPtrTy << "\n";
-          *Sep_Log << "    --- ElementSize " << ElementSize << "\n";
+          if (DEBUG) *Sep_Log << "    --- IntPtrTy " << *IntPtrTy << "\n";
+          if (DEBUG) *Sep_Log << "    --- ElementSize " << ElementSize << "\n";
+          if (DEBUG) Sep_Log->flush();
           Idx = Builder.CreateMul(Idx, ConstantInt::get(IntPtrTy, ElementSize));
         }
       }
@@ -670,8 +671,24 @@ HI_SeparateConstOffsetFromGEP::lowerToArithmetics(GetElementPtrInst *Variadic,
   }
 
   if (AccumulativeByteOffset != 0) {
-    tmp_ResultPtr = Builder.CreateAdd(
-        tmp_ResultPtr, ConstantInt::get(IntPtrTy, AccumulativeByteOffset));
+    if (tmp_ResultPtr)
+    {
+      tmp_ResultPtr = Builder.CreateAdd(
+          tmp_ResultPtr, ConstantInt::get(IntPtrTy, AccumulativeByteOffset));
+    }
+    else
+    {
+      tmp_ResultPtr = ConstantInt::get(IntPtrTy, AccumulativeByteOffset, true);
+    }
+    
+  }
+
+  if (DEBUG) *Sep_Log << "  Builder.CreateAdd(ResultPtr, tmp_ResultPtr) ResultPtr=" << ResultPtr << "  tmp_ResultPtr="<<tmp_ResultPtr <<"\n";
+  if (DEBUG) Sep_Log->flush();
+
+  if (!tmp_ResultPtr)
+  {
+    tmp_ResultPtr = ConstantInt::get(ResultPtr->getType(), 0, true);
   }
 
   ResultPtr = Builder.CreateAdd(ResultPtr, tmp_ResultPtr);
@@ -684,21 +701,21 @@ HI_SeparateConstOffsetFromGEP::lowerToArithmetics(GetElementPtrInst *Variadic,
 }
 
 bool HI_SeparateConstOffsetFromGEP::splitGEP(GetElementPtrInst *GEP) {
-  *Sep_Log << "\n================================================\nSplitting GEP : " << *GEP << "\n";
+  if (DEBUG) *Sep_Log << "\n================================================\nSplitting GEP : " << *GEP << "\n";
   // Skip vector GEPs.
   if (GEP->getType()->isVectorTy())
   {
-    *Sep_Log << *GEP << " isVectorTy\n";
+    if (DEBUG) *Sep_Log << *GEP << " isVectorTy\n";
     return false;
   }
 
-  // The backend can already nicely handle the case where all indices are
-  // constant.
-  if (GEP->hasAllConstantIndices())
-  {
-    *Sep_Log << *GEP << " hasAllConstantIndices\n";
-    return false;
-  }
+  // // Even if it has all constant indice, we need to lower it to get 
+  // the array partition for it
+  // if (GEP->hasAllConstantIndices())
+  // {
+  //   if (DEBUG) *Sep_Log << *GEP << " hasAllConstantIndices\n";
+  //   return false;
+  // }
 
   bool Changed = canonicalizeArrayIndicesToPointerSize(GEP);
 
@@ -707,9 +724,9 @@ bool HI_SeparateConstOffsetFromGEP::splitGEP(GetElementPtrInst *GEP) {
 
   if (!NeedsExtraction)
   {
-    *Sep_Log << *GEP << " does not Need Extraction\n";
-    *Sep_Log << " AccumulativeByteOffset = "<< AccumulativeByteOffset<< "\n";
-    *Sep_Log << " Enforce it to lowering GEP for test \n";    //HI-MODIFICATION: we don't need to calculate by byte in HLS
+    if (DEBUG) *Sep_Log << *GEP << " does not Need Extraction\n";
+    if (DEBUG) *Sep_Log << " AccumulativeByteOffset = "<< AccumulativeByteOffset<< "\n";
+    if (DEBUG) *Sep_Log << " Enforce it to lowering GEP for test \n";    //HI-MODIFICATION: we don't need to calculate by byte in HLS
  //   return Changed;   
   }
 
@@ -729,7 +746,7 @@ bool HI_SeparateConstOffsetFromGEP::splitGEP(GetElementPtrInst *GEP) {
                                    /*BaseGV=*/nullptr, AccumulativeByteOffset,
                                    /*HasBaseReg=*/true, /*Scale=*/0,
                                    AddrSpace)) {
-      *Sep_Log << *GEP << " is not LegalAddressingMode\n";
+      if (DEBUG) *Sep_Log << *GEP << " is not LegalAddressingMode\n";
       return Changed;
     }
   }
@@ -794,7 +811,7 @@ bool HI_SeparateConstOffsetFromGEP::splitGEP(GetElementPtrInst *GEP) {
     return true;
   }
 
-  *Sep_Log << *GEP << " is not beging LowerGEP\n";
+  if (DEBUG) *Sep_Log << *GEP << " is not beging LowerGEP\n";
 
   // No need to create another GEP if the accumulative byte offset is 0.
   if (AccumulativeByteOffset == 0)
@@ -1086,7 +1103,7 @@ unsigned int HI_SeparateConstOffsetFromGEP::getLength(Type *TY)
     }
     else
     {
-      *Sep_Log << "No ARRAY TYPE: " << *TY << "\n";
+      if (DEBUG) *Sep_Log << "No ARRAY TYPE: " << *TY << "\n";
       return 1;                      //HI-MODIFICATION: In HLS, data are not stored in bytes. regard it as one element
     }   
 }

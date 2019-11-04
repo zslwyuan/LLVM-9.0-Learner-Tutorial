@@ -1,8 +1,16 @@
-#ifndef _HI_InstructionFiles
-#define _HI_InstructionFiles
+#ifndef _HI_InstructionFiles_HI_NoDirectiveTimingResourceEvaluation
+#define _HI_InstructionFiles_HI_NoDirectiveTimingResourceEvaluation
 
 #include <string>
-const int instructionInfoNum = 31; // should refer to Instruction_list.h
+
+// WARNING!!!!!!!
+// WARNING!!!!!!!
+// when you modify this file, remember that there is another file you need to modify for HI_WithDirectiveTimingResourceEvaluation
+
+// WARNING!!!!!!!
+// WARNING!!!!!!!
+
+const int instructionInfoNum = 35; // should refer to Instruction_list.h
 
 // The instruction opcodes which are included in the path specified
 extern std::string instructionNames[100];

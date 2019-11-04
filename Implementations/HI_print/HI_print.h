@@ -6,6 +6,7 @@
 #include <string>
 #include <ios>
 #include <stdlib.h>
+#include <sys/time.h>
 
 // Helper method for converting the name of a LLVM type to a string
 

@@ -1,0 +1,2 @@
+Be careful!!!
+There could be "llvm.xxxx" functions called in the llvm IR, which should be filtered, otherwise, some passes (like ScalarEvolutionWrapperPass) will go wrong!!!

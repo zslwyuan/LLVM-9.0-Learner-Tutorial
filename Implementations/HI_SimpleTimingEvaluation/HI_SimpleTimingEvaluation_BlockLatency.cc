@@ -6,7 +6,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "HI_print.h"
 #include "HI_SimpleTimingEvaluation.h"
-#include "polly/PolyhedralInfo.h"
 
 #include <stdio.h>
 #include <string>

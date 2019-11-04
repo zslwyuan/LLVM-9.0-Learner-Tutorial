@@ -1,0 +1,9 @@
+clock = 10
+HLS_lib_path = ../../../HLS_Data_Lib/
+loop_unroll label=Loop_kernel_2mm_3 factor=11
+loop_unroll label=Loop_kernel_2mm_6 factor=16
+loop_pipeline label=Loop_kernel_2mm_6 II=5
+array_partition variable=A scope=kernel_2mm dim=1 factor=11
+array_partition variable=B scope=kernel_2mm dim=2 factor=11
+array_partition variable=C scope=kernel_2mm dim=2 factor=16
+array_partition variable=tmp scope=kernel_2mm dim=1 factor=16

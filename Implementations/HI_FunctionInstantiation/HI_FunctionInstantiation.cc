@@ -19,6 +19,8 @@ using namespace llvm;
  
 bool HI_FunctionInstantiation::runOnModule(Module &M) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
 {
+    print_status("Running HI_FunctionInstantiation pass."); 
+
     bool initiated = false;
     collectCallInsts(&M);
     initiated = FunctionShouldBeInitiated.size()>0;
@@ -42,10 +44,6 @@ bool HI_FunctionInstantiation::runOnModule(Module &M) // The runOnModule declara
 char HI_FunctionInstantiation::ID = 0;  // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
 
 void HI_FunctionInstantiation::getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<ScalarEvolutionWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.addRequired<LoopInfoWrapperPass>();
     AU.setPreservesCFG();
 }
 

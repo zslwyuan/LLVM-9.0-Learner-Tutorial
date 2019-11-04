@@ -3,10 +3,6 @@
 curr_path="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd $curr_path
 
-if [ ! -d ./TestLog ]
-then
-    mkdir TestLog
-fi
 rm ./TestLog/*
 
 for buildfile in `find -name build`

@@ -6,7 +6,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "HI_print.h"
 #include "HI_NoDirectiveTimingResourceEvaluation.h"
-#include "polly/PolyhedralInfo.h"
 
 #include <stdio.h>
 #include <string>
@@ -295,7 +294,7 @@ void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyResourceEvaluation_trave
             {
                 for (auto B : successors(ExitB))
                 {
-                    if (L->contains(B) && BlockVisited.find(B) == BlockVisited.end())
+                    if (L->contains(B) && BlockVisited.find(B) == BlockVisited.end() && !tmp_SubLoop->contains(B))
                     {
                         *Evaluating_log << "---- continue to traverser to Block: " << B->getName() <<" ";
                         LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(try_critical_path,L,B,resourceAccumulator);
@@ -342,7 +341,7 @@ void HI_NoDirectiveTimingResourceEvaluation::LoopLatencyResourceEvaluation_trave
             {
                 if (L->contains(B) && BlockVisited.find(B) == BlockVisited.end())
                 {                 
-                    *Evaluating_log << "---- continue to traverser to Block: " << B->getName() <<" ";
+                    *Evaluating_log << "---- continue to traverser from Block: " << curBlock->getName() << " to Block: " << B->getName() <<" ";
                     LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(try_critical_path,L,B,resourceAccumulator);
                 }
             }

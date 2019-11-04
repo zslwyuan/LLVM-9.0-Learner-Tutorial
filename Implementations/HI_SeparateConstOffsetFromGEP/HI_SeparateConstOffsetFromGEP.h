@@ -107,6 +107,7 @@
 #include <stdio.h>
 #include <string>
 #include <ios>
+#include <sys/time.h>
 
 #include "HI_print.h"
 
@@ -249,8 +250,8 @@ class HI_SeparateConstOffsetFromGEP : public FunctionPass {
 public:
   static char ID;
 
-  HI_SeparateConstOffsetFromGEP(const char* Sep_Log_Name, bool LowerGEP = false)
-      : FunctionPass(ID), LowerGEP(LowerGEP) {
+  HI_SeparateConstOffsetFromGEP(const char* Sep_Log_Name, bool LowerGEP = false, bool DEBUG=0)
+      : FunctionPass(ID), LowerGEP(LowerGEP), DEBUG(DEBUG) {
     Sep_Log = new raw_fd_ostream(Sep_Log_Name, ErrInfo, sys::fs::F_None);
   }
   ~HI_SeparateConstOffsetFromGEP()
@@ -275,6 +276,8 @@ public:
   bool runOnFunction(Function &F) override;
 
 private:
+
+  bool DEBUG;
   /// Tries to split the given GEP into a variadic base and a constant offset,
   /// and returns true if the splitting succeeds.
   bool splitGEP(GetElementPtrInst *GEP);
@@ -371,6 +374,13 @@ private:
   // record the information of the processing
   raw_ostream *Sep_Log;
   std::error_code ErrInfo;
+
+    
+/// Timer
+
+    struct timeval tv_begin;
+    struct timeval tv_end;
+
 };
 
 #endif

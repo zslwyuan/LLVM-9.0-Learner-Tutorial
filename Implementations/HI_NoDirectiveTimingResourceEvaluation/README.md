@@ -16,3 +16,6 @@ the latency of loop/block/function. For each instruction, HI_NoDirectiveTimingRe
 will inquiry the map variables to get the result of timing and resource.
 
 Besides, the chaining of operations for DSP utilization is considered.
+
+The memory hazard is not considered in this pass. The hazard is considered in HI_WithDirectiveTimingResourceEvaluation.
+This detection relies on SCEV.

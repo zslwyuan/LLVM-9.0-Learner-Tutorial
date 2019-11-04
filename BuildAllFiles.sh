@@ -22,7 +22,7 @@ do
         fi
         cd  build
         cmake ..
-        make -j4
+        make -j4 
         cd ../../
     fi
 done

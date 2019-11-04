@@ -250,13 +250,13 @@
 #include <cstdint>
 #include <memory>
 #include <utility>
-
+#include <sys/time.h>
 
 using namespace llvm;
 
 class HI_AggressiveLSR_MUL : public FunctionPass {
 public:
-    HI_AggressiveLSR_MUL(const char* AggrLSRLog_Name ) : FunctionPass(ID)
+    HI_AggressiveLSR_MUL(const char* AggrLSRLog_Name, bool DEBUG=0) : FunctionPass(ID), DEBUG(DEBUG)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;
@@ -273,7 +273,7 @@ public:
         tmp_stream->flush(); delete tmp_stream;
     }
 
-    virtual bool doInitialization(Module &M)
+    virtual bool doInitialization(llvm::Module &M)
     {
         print_status("Initilizing HI_AggressiveLSR_MUL pass.");  
         
@@ -289,6 +289,8 @@ public:
     void getAnalysisUsage(AnalysisUsage &AU) const;
     virtual bool runOnFunction(Function &M);
     static char ID;
+
+    bool DEBUG;
 
     // check whether the instruction is Multiplication suitable for LSR
     // If suitable, process it
@@ -339,7 +341,9 @@ public:
 
     raw_string_ostream *tmp_stream;
     std::string tmp_stream_str;
-
+    
+    struct timeval tv_begin;
+    struct timeval tv_end;
 };
 
 

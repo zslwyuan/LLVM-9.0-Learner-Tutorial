@@ -57,6 +57,8 @@
 #include <vector>
 #include <sstream>
 #include <queue>
+#include <sys/time.h>
+
 using namespace llvm;
 
 class HI_FunctionInstantiation : public ModulePass {
@@ -70,7 +72,8 @@ public:
 
     ~HI_FunctionInstantiation()
     {
-
+        FuncInitiationLog->flush();
+        delete FuncInitiationLog;
     }
 
     std::string topFunctionName;
@@ -81,7 +84,7 @@ public:
 
     void getAnalysisUsage(AnalysisUsage &AU) const;
 
-    virtual bool runOnModule(Module &M); 
+    bool runOnModule(llvm::Module &M); 
     static char ID;
 
 
@@ -89,11 +92,11 @@ public:
     void initiateFunctionFor(Instruction *CallI, Function *F);
 
     // collect the information of call instructions, mainly for checking the necessity of initiation
-    void collectCallInsts(Module *M);
+    void collectCallInsts(llvm::Module *M);
 
     void insertFunctionShouldBeInitiated(Function *F);
 
-    void BFS_check_and_initiate(Function *startF, Module *M);
+    void BFS_check_and_initiate(Function *startF, llvm::Module *M);
 
     void checkAndInitiateCallInstIn(Function *curF);
 
@@ -105,7 +108,7 @@ public:
 
     void replaceCallInst(Instruction *callI, Function* F);
 
-    void BFS_checkDeadFunction(Function *startF, Module *M);
+    void BFS_checkDeadFunction(Function *startF, llvm::Module *M);
 
     std::error_code ErrInfo;
     raw_ostream *FuncInitiationLog;
@@ -113,6 +116,11 @@ public:
     raw_string_ostream *tmp_stream;
     std::string tmp_stream_str;
 
+    
+/// Timer
+
+    struct timeval tv_begin;
+    struct timeval tv_end;
 };
 
 

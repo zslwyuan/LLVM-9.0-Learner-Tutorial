@@ -23,7 +23,7 @@ bool HI_FindFunctions::runOnModule(Module &M) // The runOnModule declaration wil
         *Function_Demangle << "Found function Definition named == " << GI->getName() << "\n"; // a Function class is inherited from Value class, which has a function to get the name of the value (function).
         std::string fname(GI->getName());
         if (fname[0]=='_')
-            *Function_Demangle << "     its demangeld name == " << DemangleFunctionName(GI->getName()) << "\n";
+            *Function_Demangle << "     its demangled name == " << DemangleFunctionName(GI->getName()) << "\n";
     }
 
     // find all the Call Instruction and demangle the called function name
@@ -43,7 +43,7 @@ bool HI_FindFunctions::runOnModule(Module &M) // The runOnModule declaration wil
                         if (fname[0]=='_')
                         {
                             *Function_Demangle << Call_I->getCalledFunction()->getName() << " **** " <<  DemangleFunctionName(fname) << "\n";
-                            *Function_Demangle << "     its demangeld name == " << DemangleFunctionName(fname) << "\n";
+                            *Function_Demangle << "     its demangled name == " << DemangleFunctionName(fname) << "\n";
                             Function_Demangle_Map[Call_I->getCalledFunction()->getName()] = DemangleFunctionName(fname);
                         }
                         Function_Checked.insert(Call_I->getCalledFunction());

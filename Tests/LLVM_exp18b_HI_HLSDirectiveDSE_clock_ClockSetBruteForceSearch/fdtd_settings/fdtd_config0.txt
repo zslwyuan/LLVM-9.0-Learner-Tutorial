@@ -1,0 +1,3 @@
+clock = 20
+HLS_lib_path = ../../../HLS_Data_Lib/
+resource_limit DSP=150 FF=10000 LUT=10000 BRAM=100

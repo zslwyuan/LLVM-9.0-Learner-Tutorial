@@ -38,6 +38,8 @@
 #include "llvm/Transforms/Utils/LoopVersioning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <string>
+#include <sys/time.h>
+
 using namespace llvm;
 
 class HI_LoopInFormationCollect : public LoopPass {
@@ -149,6 +151,11 @@ public:
         PM.add(optimizationremarkemitterwrapperpass);
     }
 
+    
+/// Timer
+
+    struct timeval tv_begin;
+    struct timeval tv_end;
 };
 
 

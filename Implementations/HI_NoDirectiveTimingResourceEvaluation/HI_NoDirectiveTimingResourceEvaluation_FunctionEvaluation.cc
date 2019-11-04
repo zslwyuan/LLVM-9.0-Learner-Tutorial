@@ -6,7 +6,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "HI_print.h"
 #include "HI_NoDirectiveTimingResourceEvaluation.h"
-#include "polly/PolyhedralInfo.h"
 
 #include <stdio.h>
 #include <string>
@@ -139,7 +138,7 @@ void HI_NoDirectiveTimingResourceEvaluation::analyzeFunction_traverseFromEntryTo
             {
                 for (auto B : successors(ExitB))
                 {
-                    if (F == B->getParent() && Func_BlockVisited.find(B) == Func_BlockVisited.end())
+                    if (F == B->getParent() && Func_BlockVisited.find(B) == Func_BlockVisited.end() && !tmp_OuterLoop->contains(B))
                     {
                         *Evaluating_log << "---- continue to traverser to Block: " << B->getName() <<"\n";
                         analyzeFunction_traverseFromEntryToExiting(try_critical_path, F, B, resourceAccumulator);
@@ -245,6 +244,8 @@ int HI_NoDirectiveTimingResourceEvaluation::getFunctionStageNum(HI_NoDirectiveTi
 HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::getFunctionResource(Function *F)
 {
     if (F->getName().find("llvm.")!=std::string::npos) // bypass the "llvm.xxx" functions..
+        return resourceBase(0,0,0,clock_period);
+    if (F->getName().find("HIPartitionMux")!=std::string::npos) // bypass the "llvm.xxx" functions..
         return resourceBase(0,0,0,clock_period);
     return FunctionResource[F];
 }

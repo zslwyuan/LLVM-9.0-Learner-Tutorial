@@ -250,7 +250,7 @@
 #include <cstdint>
 #include <memory>
 #include <utility>
-
+#include <sys/time.h>
 
 using namespace llvm;
 
@@ -498,6 +498,11 @@ public:
     raw_string_ostream *tmp_stream;
     std::string tmp_stream_str;
 
+    
+/// Timer
+
+    struct timeval tv_begin;
+    struct timeval tv_end;
 };
 
 

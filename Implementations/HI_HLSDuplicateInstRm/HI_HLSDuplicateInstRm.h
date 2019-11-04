@@ -53,12 +53,14 @@
 #include <set>
 #include <vector>
 #include <sstream>
+#include "llvm/Transforms/Utils/Local.h"
+#include <sys/time.h>
 
 using namespace llvm;
 
 class HI_HLSDuplicateInstRm : public FunctionPass {
 public:
-    HI_HLSDuplicateInstRm(const char* RemoveLog_Name ) : FunctionPass(ID) 
+    HI_HLSDuplicateInstRm(const char* RemoveLog_Name, bool DEBUG=0) : FunctionPass(ID) , DEBUG(DEBUG)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;
@@ -139,6 +141,8 @@ public:
     virtual bool runOnFunction(Function &M);
     static char ID;
 
+    bool DEBUG;
+
     // find whether there is duplication in the block for the instruction
     Instruction* checkDuplicationInBlock(BasicBlock *B, Instruction *I);
 
@@ -149,6 +153,8 @@ public:
     int Loop_Counter;
 
     Function* TargeFunction;
+
+    std::map<BasicBlock*,std::map<Instruction*, std::vector<Instruction*>>> Block2Inst2DupInst;
 
     std::map<Function*, int> Function_id;
     std::map<Instruction*, int> Instruction_id;
@@ -169,6 +175,11 @@ public:
     raw_string_ostream *tmp_stream;
     std::string tmp_stream_str;
 
+    
+/// Timer
+
+    struct timeval tv_begin;
+    struct timeval tv_end;
 };
 
 

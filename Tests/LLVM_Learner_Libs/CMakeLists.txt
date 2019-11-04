@@ -43,8 +43,20 @@ include_directories(./ ../../Implementations/
 ../../Implementations/HI_WithDirectiveTimingResourceEvaluation
 ../../Implementations/HI_StringProcess
 ../../Implementations/HI_FunctionInstantiation
-../../Implementations/HI_LoopUnroll
+../../Implementations/HI_ReplaceSelectAccess
 ../../Implementations/HI_IR2SourceCode
+../../Implementations/HI_LoopUnroll
+../../Implementations/HI_RemoveRedundantAccess
+../../Implementations/HI_LoopLabeler
+../../Implementations/HI_FunctionInterfaceInfo
+../../Implementations/HI_Mul2Shl
+../../Implementations/HI_MulOrderOpt
+../../Implementations/HI_MuxInsertionArrayPartition
+../../Implementations/HI_DSE_WithDirectiveTimingResourceEvaluation
+../../Implementations/HI_LoadALAP
+../../Implementations/HI_PragmaTargetExtraction
+../../Implementations/HI_ArraySensitiveToLoopLevel
+../../Implementations/HI_TopLoop2Func
 )
 
 add_subdirectory(../../Implementations ./building)

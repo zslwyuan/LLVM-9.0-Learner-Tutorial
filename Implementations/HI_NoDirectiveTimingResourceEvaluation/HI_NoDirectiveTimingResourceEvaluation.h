@@ -50,12 +50,9 @@
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/LoopVersioning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/ADT/SmallVector.h"
-#include "polly/PolyhedralInfo.h"
-#include "polly/DependenceInfo.h"
-#include "polly/LinkAllPasses.h"
-#include "polly/Options.h"
-#include "polly/ScopInfo.h"
 #include "HI_InstructionFiles.h"
 #include <set>
 #include  <iostream>
@@ -69,6 +66,8 @@
 #include <sstream>
 #include "ClockInfo.h"
 #include "HI_StringProcess.h"
+#include <sys/time.h>
+
 using namespace llvm;
 
 
@@ -677,9 +676,9 @@ public:
     // trace back to find the original operator, bypassing SExt and ZExt operations
     Instruction* byPassUnregisterOp(Instruction* cur_I);
 
-    Instruction* byPassBitcastOp(Instruction* cur_I);
+    Value* byPassBitcastOp(Instruction* cur_I);
 
-    Instruction* byPassBitcastOp(Value* cur_I_val);
+    Value* byPassBitcastOp(Value* cur_I_val);
 
     // evaluate the number of LUT needed by the PHI instruction
     resourceBase IndexVar_LUT(std::map<Instruction*, timingBase> &cur_InstructionCriticalPath, Instruction* I);
@@ -722,6 +721,11 @@ public:
     // register number for target array
     std::vector<Instruction*> AccessesList;
 
+    // alias of array from functions to subfunctions
+    std::map<Value*, Value*> Alias2Target;
+
+    std::map<BasicBlock*, std::vector<Instruction*>> Block2AccessList;
+
     // Trace Memory Declaration in Module
     void TraceMemoryDeclarationinModule(Module &M);
 
@@ -755,6 +759,28 @@ public:
     // for load instructions, HLS will reuse the register for the data
     bool checkLoadOpRegisterReusable(Instruction* Load_I, int time_point);
 
+    bool hasRAWHazard(Instruction *loadI, int cycle);
+
+    Value* getTargetFromInst(Instruction* accessI);
+    /*
+        get the access target from instruction
+    */
+    Value* getAccessTarget(Instruction* Load_or_Store);
+
+    class HI_AAResult : public AAResultBase<HI_AAResult> 
+    {
+    public:
+        explicit HI_AAResult() : AAResultBase() {}
+        HI_AAResult(HI_AAResult &&Arg) : AAResultBase(std::move(Arg)) {}
+
+        AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB);
+    };
+
+    
+/// Timer
+
+    struct timeval tv_begin;
+    struct timeval tv_end;
 };
 
 #endif

@@ -219,7 +219,7 @@ bool HI_LoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM)
     if (IRLoop2LoopLabel.find(tmp_loop_name) == IRLoop2LoopLabel.end())
     {
       llvm::errs() << "bypass loop without label tmp_loop_name=" << tmp_loop_name << "\n";
-//      assert(false && "bypass loop without label tmp_loop_name");
+      assert(false && "bypass loop without label tmp_loop_name. Each loop should has its own label. In the evaluation test, each loop will be set with label automatically while in other tests, the loops might need to be set with labels manually.");
       return false;
     }
     

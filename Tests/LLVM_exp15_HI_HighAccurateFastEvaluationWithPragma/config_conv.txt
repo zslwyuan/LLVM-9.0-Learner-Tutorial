@@ -1,0 +1,18 @@
+clock = 5
+HLS_lib_path = ../../../HLS_Data_Lib/
+loop_unroll label=Loop_convs_4 factor=5
+loop_unroll label=Loop_convs_12 factor=3
+loop_unroll label=Loop_convs_8 factor=5
+loop_unroll label=Loop_convs_3 factor=2
+loop_pipeline label=Loop_convs_11 II=4
+loop_pipeline label=Loop_convs_7 II=7
+loop_pipeline label=Loop_convs_3 II=14
+array_partition variable=filter0 scope=convs dim=1 factor=5 cyclic
+array_partition variable=filter2 scope=convs dim=1 factor=3 cyclic
+array_partition variable=filter1 scope=convs dim=1 factor=5 cyclic
+array_partition variable=filter0 scope=convs dim=2 factor=2 cyclic
+#array_port variable=input scope=convs port_num=2
+func_dataflow scope=convs enable
+local_array scope=convs variable=filter0 enable
+local_array scope=convs variable=filter1 enable
+local_array scope=convs variable=filter2 enable

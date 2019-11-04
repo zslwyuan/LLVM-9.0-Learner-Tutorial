@@ -1,0 +1,14 @@
+clock = 6
+HLS_lib_path = ../../../HLS_Data_Lib/
+  #array_partition variable=A dim=2 factor=4 scope=f block
+  #loop_unroll label=Loop_f_2 factor=4
+  #loop_unroll label=Loop_subf_2 factor=4
+  #loop_pipeline label=Loop_f_2 II=1
+loop_pipeline label=Loop_kernel_2mm_6 II=1
+loop_unroll label=Loop_kernel_2mm_5 factor=2
+loop_unroll label=Loop_kernel_2mm_6 factor=18
+array_partition variable=tmp dim=1 factor=18 scope=kernel_2mm cyclic
+array_partition variable=D dim=1 factor=2 scope=kernel_2mm cyclic
+array_partition variable=C dim=2 factor=18 scope=kernel_2mm cyclic
+loop_pipeline label=Loop_kernel_2mm_3 II=1
+loop_unroll label=Loop_kernel_2mm_3 factor=22

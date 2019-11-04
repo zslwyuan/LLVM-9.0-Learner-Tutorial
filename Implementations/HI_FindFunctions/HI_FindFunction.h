@@ -53,6 +53,8 @@
 #include <map>
 #include <cxxabi.h>
 #include "llvm/Demangle/Demangle.h"
+#include <sys/time.h>
+
 using namespace llvm;
 
 class HI_FindFunctions : public ModulePass {
@@ -68,8 +70,8 @@ public:
         delete Function_Demangle;
     }
     void getAnalysisUsage(AnalysisUsage &AU) const;
-    virtual bool runOnModule(Module &M);
-    virtual bool doInitialization(Module &M)
+    bool runOnModule(llvm::Module &M);
+    virtual bool doInitialization(llvm::Module &M)
     {
         print_status("Initilizing HI_FindFunctions pass.");
         Function_Checked.clear();
@@ -96,6 +98,11 @@ public:
     std::error_code ErrInfo;
     raw_ostream *Function_Demangle;
     std::map<std::string,std::string> Function_Demangle_Map;
+    
+/// Timer
+
+    struct timeval tv_begin;
+    struct timeval tv_end;
 };
 
 

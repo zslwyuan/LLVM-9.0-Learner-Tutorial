@@ -18,11 +18,20 @@ using namespace llvm;
  
 bool HI_DuplicateInstRm::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
 {
+    print_status("Running HI_DuplicateInstRm pass."); 
+
+    
     if (Function_id.find(&F)==Function_id.end())  // traverse functions and assign function ID
     {
         Function_id[&F] = ++Function_Counter;
     }
+
+    if (F.getName().find("llvm.") != std::string::npos)
+        return false;
+
+    *RemoveLog << F << "\n";
     bool removed = 0;
+//    std::set<Instruction*> checkI;
     for (BasicBlock &B : F) 
     {
         bool duplicationInBlock = 1;
@@ -31,6 +40,11 @@ bool HI_DuplicateInstRm::runOnFunction(Function &F) // The runOnModule declarati
             duplicationInBlock = 0;
             for (Instruction &I: B) 
             {
+                if (I.getOpcode() == Instruction::Load || I.getOpcode() == Instruction::Store || I.getOpcode() == Instruction::Call || I.getOpcode() == Instruction::Alloca || I.getOpcode() == Instruction::Br)
+                    continue;
+                // if (checkI.find(&I) != checkI.end())
+                //     continue;
+                // checkI.insert(&I);
                 Instruction *dupI = checkDuplicationInBlock(&B,&I);
                 if ( dupI != nullptr)
                 {
@@ -39,6 +53,7 @@ bool HI_DuplicateInstRm::runOnFunction(Function &F) // The runOnModule declarati
                     *RemoveLog <<"duplicated: " << I << " -------  " << *dupI <<"\n";
                     *RemoveLog <<"Remove: " << *dupI <<"\n";
                     dupI->replaceAllUsesWith(&I);
+                    // RecursivelyDeleteTriviallyDeadInstructions(dupI);
                     dupI->eraseFromParent();
                     duplicationInBlock = 1;
                     removed = 1;
@@ -46,6 +61,7 @@ bool HI_DuplicateInstRm::runOnFunction(Function &F) // The runOnModule declarati
                 }
             }
         }
+        
 
     }
     RemoveLog->flush(); 
@@ -57,9 +73,7 @@ bool HI_DuplicateInstRm::runOnFunction(Function &F) // The runOnModule declarati
 char HI_DuplicateInstRm::ID = 0;  // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
 
 void HI_DuplicateInstRm::getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
     AU.setPreservesCFG();
 }
@@ -69,10 +83,15 @@ Instruction* HI_DuplicateInstRm::checkDuplicationInBlock(BasicBlock *B, Instruct
     if (BranchInst *tmpI = dyn_cast<BranchInst>(I))
         return nullptr;
 
+    if (AllocaInst *tmpI =  dyn_cast<AllocaInst>(I))
+        return nullptr;
+
+    bool enableCheck = false;
     for (Instruction &tmpII: *B) 
     {
         Instruction *tmpI = &tmpII;
-        if ( tmpI != I )
+        
+        if ( enableCheck)
         {
             // check if they are the same
 
@@ -103,6 +122,7 @@ Instruction* HI_DuplicateInstRm::checkDuplicationInBlock(BasicBlock *B, Instruct
             if (sameOpcode && sameOperands)           
                 return tmpI;           
         }
+        enableCheck |= tmpI == I;
     }
     return nullptr;
 }

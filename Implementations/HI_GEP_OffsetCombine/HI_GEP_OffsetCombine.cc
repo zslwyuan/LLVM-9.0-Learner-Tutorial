@@ -6,7 +6,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "HI_print.h"
 #include "HI_GEP_OffsetCombine.h"
-#include "polly/PolyhedralInfo.h"
 
 #include <stdio.h>
 #include <string>
@@ -18,6 +17,7 @@ using namespace llvm;
 
 bool HI_GEP_OffsetCombine::runOnFunction(Function &F) 
 {
+    print_status("Running HI_GEP_OffsetCombine pass."); 
     if (F.getName().find("llvm.")!=std::string::npos)
     {
         return false;             
@@ -30,9 +30,6 @@ bool HI_GEP_OffsetCombine::runOnFunction(Function &F)
     if (DisableSeparateConstOffsetFromGEP)
         return false;
 
-    DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-    SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-    LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     // TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
     bool Changed = false;
     for (BasicBlock &B : F) 
@@ -40,7 +37,7 @@ bool HI_GEP_OffsetCombine::runOnFunction(Function &F)
         for (Instruction &I : B) 
         if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(&I))
         {
-            Changed |= 1;//splitGEP(GEP);
+            Changed |= 0;//splitGEP(GEP);
         }
     // No need to split GEP ConstantExprs because all its indices are constant
     // already.
@@ -53,10 +50,6 @@ char HI_GEP_OffsetCombine::ID = 0;  // the ID for pass should be initialized but
 // introduce the dependence of Pass
 void HI_GEP_OffsetCombine::getAnalysisUsage(AnalysisUsage &AU) const 
 {
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<ScalarEvolutionWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.addRequired<LoopInfoWrapperPass>();
     AU.setPreservesCFG();
     
 }

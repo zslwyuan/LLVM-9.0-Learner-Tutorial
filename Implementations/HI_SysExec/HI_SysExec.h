@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 #include <array>
+#include <sys/time.h>
 
 bool sysexec(const char* cmd);
 

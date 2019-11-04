@@ -18,19 +18,40 @@ using namespace llvm;
 
 bool HI_WithDirectiveTimingResourceEvaluation::runOnModule(Module &M) // The runOnFunction declaration will overide the virtual one in ModulePass, which will be executed for each Function.
 {    
-    *Evaluating_log << " ======================= the module begin =======================\n";
-    *Evaluating_log << M;
-    *Evaluating_log << " ======================= the module end =======================\n";
+    print_status("Running HI_WithDirectiveTimingResourceEvaluation pass.");  
+    gettimeofday (&tv_begin, NULL);
+    if (DEBUG) *Evaluating_log << " ======================= the module begin =======================\n";
+    if (DEBUG) *Evaluating_log << M;
+    if (DEBUG) *Evaluating_log << " ======================= the module end =======================\n";
 
-    TraceMemoryDeclarationinModule(M);
+    // analyze BRAM accesses in the module before any other analysis
+    TraceMemoryDeclarationAndAnalyzeAccessinModule(M);
 
+    // gettimeofday (&tv_end, NULL);
+    // print_status("done HI_WithDirectiveTimingResourceEvaluation TraceMemoryDeclarationAndAnalyzeAccessinModule: " 
+    //     + std::to_string((double)(tv_end.tv_sec-tv_begin.tv_sec)+(double)(tv_end.tv_usec-tv_begin.tv_usec)/1000000.0) + " s");
+
+
+    // analyze the timing and resource for the functions in the module
+    // by recursively analysis from the lowest subfunctions
     AnalyzeFunctions(M);
 
+    // gettimeofday (&tv_end, NULL);
+    // print_status("done HI_WithDirectiveTimingResourceEvaluation AnalyzeFunctions: " 
+    //     + std::to_string((double)(tv_end.tv_sec-tv_begin.tv_sec)+(double)(tv_end.tv_usec-tv_begin.tv_usec)/1000000.0) + " s");
+
+
+    // analyze and output the informaion of top function
     analyzeTopFunction(M);
+
+    // gettimeofday (&tv_end, NULL);
+    // print_status("done HI_WithDirectiveTimingResourceEvaluation analyzeTopFunction: " 
+    //     + std::to_string((double)(tv_end.tv_sec-tv_begin.tv_sec)+(double)(tv_end.tv_usec-tv_begin.tv_usec)/1000000.0) + " s");
 
     return false;
 }
 
+// check whether all the sub-function are evaluated
 bool HI_WithDirectiveTimingResourceEvaluation::CheckDependencyFesilility(Function &F)
 {
     for (auto &B : F)
@@ -39,7 +60,7 @@ bool HI_WithDirectiveTimingResourceEvaluation::CheckDependencyFesilility(Functio
             {
                 if (FunctionLatency.find(CI->getCalledFunction()) == FunctionLatency.end())
                 {
-                    if (CI->getCalledFunction()->getName().find("llvm.")!=std::string::npos)
+                    if (CI->getCalledFunction()->getName().find("llvm.")!=std::string::npos || CI->getCalledFunction()->getName().find("HIPartitionMux")!=std::string::npos)
                     {
                         timingBase tmp(0,0,1,clock_period);
                         FunctionLatency[CI->getCalledFunction()] = tmp;                    
@@ -55,28 +76,21 @@ char HI_WithDirectiveTimingResourceEvaluation::ID = 0;  // the ID for pass shoul
 
 // introduce the dependence of Pass
 void HI_WithDirectiveTimingResourceEvaluation::getAnalysisUsage(AnalysisUsage &AU) const {
+
     AU.setPreservesAll();
-    AU.addRequired<LoopInfoWrapperPass>();
+    // AU.addRequired<AAResultsWrapperPass>(); 
+    AU.addRequiredTransitive<LoopInfoWrapperPass>();
     AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
-    
-    // AU.addRequired<ScalarEvolutionWrapperPass>();
-    // AU.addRequired<LoopInfoWrapperPass>();
-    // AU.addPreserved<LoopInfoWrapperPass>();
-    AU.addRequired<LoopAccessLegacyAnalysis>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-    // AU.addPreserved<DominatorTreeWrapperPass>();
-    AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
-    // AU.addRequiredTransitive<polly::DependenceInfoWrapperPass>();
-    // AU.addRequired<LoopInfoWrapperPass>();
-    // AU.addRequiredTransitive<polly::ScopInfoWrapperPass>();
-    // AU.addRequired<polly::PolyhedralInfo>();
-    // AU.addPreserved<GlobalsAAWrapperPass>();
+    // AU.addRequired<LoopAccessLegacyAnalysis>();
+    // AU.addRequired<DominatorTreeWrapperPass>();
+    // AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
     
 }
 
 
 
-
+// analyze the timing and resource for the functions in the module
+// by recursively analysis from the lowest subfunctions
 void HI_WithDirectiveTimingResourceEvaluation::AnalyzeFunctions(Module &M)
 {
     bool all_processed = 0;
@@ -85,15 +99,15 @@ void HI_WithDirectiveTimingResourceEvaluation::AnalyzeFunctions(Module &M)
         all_processed = 1;
         for (auto &F : M)
         {   
-            *Evaluating_log << "CHECKING FUNCTION "<< F.getName() <<"\n";
-            Evaluating_log->flush();
+            if (DEBUG) *Evaluating_log << "CHECKING FUNCTION "<< F.getName() <<"\n";
+            if (DEBUG) Evaluating_log->flush();
             if (FunctionLatency.find(&F) != FunctionLatency.end())
             {
                 continue;
             }
             else
             {                
-                if (F.getName().find("llvm.")!=std::string::npos)
+                if (F.getName().find("llvm.")!=std::string::npos || F.getName().find("HIPartitionMux")!=std::string::npos)
                 {
                     timingBase tmp(0,0,1,clock_period);
                     FunctionLatency[&F] = tmp;       
@@ -102,9 +116,10 @@ void HI_WithDirectiveTimingResourceEvaluation::AnalyzeFunctions(Module &M)
                 all_processed = 0;
                 if (CheckDependencyFesilility(F))
                 {
-                    LAA = &getAnalysis<LoopAccessLegacyAnalysis>(F);
+                    // LAA = &getAnalysis<LoopAccessLegacyAnalysis>(F);
                     LI = &getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-                    SE = &getAnalysis<ScalarEvolutionWrapperPass>(F).getSE();  
+                    SE = &getAnalysis<ScalarEvolutionWrapperPass>(F).getSE(); 
+                    // AA = &getAnalysis<AAResultsWrapperPass>(F).getAAResults(); 
                     ArrayAccessCheckForFunction(&F);
                     getLoopBlockMap(&F);
                     analyzeFunction(&F);
@@ -115,12 +130,14 @@ void HI_WithDirectiveTimingResourceEvaluation::AnalyzeFunctions(Module &M)
     }
 }
 
+// analyze and output the informaion of top function
 void HI_WithDirectiveTimingResourceEvaluation::analyzeTopFunction(Module &M)
 {
-    *Evaluating_log << "======================================\n                    analyze Top Function \n======================================\n";
+    if (DEBUG) *Evaluating_log << "======================================\n                    analyze Top Function \n======================================\n";
     
     int state_total_num = getTotalStateNum(M);
-    int LUT_needed_by_FSM = LUT_for_FSM(state_total_num);
+    int LUT_needed_by_FSM = LUT_for_select(state_total_num);
+    if (DEBUG) *Evaluating_log << "total LUT for FSM: "<< LUT_needed_by_FSM << "\n";
     int FF_needed_by_FSM = state_total_num;
     for (auto &F : M)
     {
@@ -128,62 +145,79 @@ void HI_WithDirectiveTimingResourceEvaluation::analyzeTopFunction(Module &M)
         std::string demangled_name;
         demangled_name = demangleFunctionName(mangled_name);
         mangled_name = "find function " + mangled_name + "and its demangled name is : " + demangled_name;
-        print_info(mangled_name.c_str());
-        if (demangled_name == top_function_name)
+        if (F.getName().find(".") == std::string::npos && F.getName().find("HIPartitionMux")  == std::string::npos)
+                print_info(mangled_name.c_str());
+
+        if (demangled_name == top_function_name && F.getName().find(".") == std::string::npos)
         {
-            *Evaluating_log << "Top Function: "<< F.getName() <<" is found";
+            if (DEBUG) *Evaluating_log << "Top Function: "<< F.getName() <<" is found";
             topFunctionFound = 1;
             top_function_latency = analyzeFunction(&F).latency;
             
+            // The top function BRAM interface should be considered.
+            FunctionResource[&F] = FunctionResource[&F] + BRAMRelatedCostForTopFunction(F);
+            FuncName2Resource[F.getName()] = FunctionResource[&F]; // update the resource evaluation for top function
+
+            topFunction_resource = resourceBase(FunctionResource[&F].BRAM, 
+                                                FunctionResource[&F].DSP, 
+                                                FunctionResource[&F].FF + FF_needed_by_FSM, 
+                                                FunctionResource[&F].LUT +  LUT_needed_by_FSM,
+                                                clock_period);
+
             std::string printOut("");
-            FunctionResource[&F] = FunctionResource[&F] + BRAM_MUX_Evaluate();
             // print out the information of top function in terminal
             printOut = "Done latency evaluation of top function: [" + demangled_name + "] and its latency is " + std::to_string(top_function_latency) 
                                                                                     + " the state num is: " + std::to_string(state_total_num) 
                                                                                     + " and its resource cost is [DSP=" + std::to_string(FunctionResource[&F].DSP) 
-                                                                                    + ", FF=" + std::to_string(FunctionResource[&F].FF+FF_needed_by_FSM) 
+                                                                                    + ", FF=" + std::to_string(FunctionResource[&F].FF + FF_needed_by_FSM) 
                                                                                     + ", LUT=" + std::to_string(FunctionResource[&F].LUT +  LUT_needed_by_FSM) 
                                                                                     + ", BRAM=" + std::to_string(FunctionResource[&F].BRAM ) 
                                                                                     + "]";
-            *Evaluating_log << printOut << "\n";
+            if (DEBUG) *Evaluating_log << printOut << "\n";
             print_info(printOut);
         }
     }
 }
 
-void HI_WithDirectiveTimingResourceEvaluation::TraceMemoryDeclarationinModule(Module &M)
+// analyze BRAM accesses in the module before any other analysis
+void HI_WithDirectiveTimingResourceEvaluation::TraceMemoryDeclarationAndAnalyzeAccessinModule(Module &M)
 {
     for (auto &F : M)
     {
         
-        if (F.getName().find("llvm.")!=std::string::npos) // bypass the "llvm.xxx" functions..
+        if (F.getName().find("llvm.")!=std::string::npos || F.getName().find("HIPartitionMux")!=std::string::npos) // bypass the "llvm.xxx" functions..
             continue;
         std::string mangled_name = F.getName();
         std::string demangled_name;
         demangled_name = demangleFunctionName(mangled_name);
-        findMemoryDeclarationin(&F, demangled_name == top_function_name); 
-
+        findMemoryDeclarationAndAnalyzeAccessin(&F, demangled_name == top_function_name && F.getName().find(".") == std::string::npos); 
         TraceMemoryAccessinFunction(F);
+    }
 
+    for (auto target_array_pair : Target2ArrayInfo)
+    {
+        Target2PartitionBenefit[target_array_pair.first] = false;
     }
 }
 
 int HI_WithDirectiveTimingResourceEvaluation::getTotalStateNum(Module &M)
 {
 
-    *Evaluating_log << "================================\n              printing schedule \n==================================\n";
-    for (auto it : Inst_Schedule)
+    if (DEBUG)
     {
-        *Evaluating_log << "inst: [" << *it.first << "] in Block: [" << it.second.first ->getName() << "] #cycle: [" <<  it.second.second << "]\n";
+        if (DEBUG) *Evaluating_log << "================================\n              printing schedule \n==================================\n";
+        for (auto it : Inst_Schedule)
+        {
+            if (DEBUG) *Evaluating_log << "inst: [" << *it.first << "] in Block: [" << it.second.first ->getName() << "] #cycle: [" <<  it.second.second << "]\n";
+        }
+        if (DEBUG) Evaluating_log->flush();
+        if (DEBUG) *Evaluating_log << "================================\n              counting stage num \n==================================\n";
     }
-    Evaluating_log->flush();
-    *Evaluating_log << "================================\n              counting stage num \n==================================\n";
-    
 
     int state_total = 0;
     for (auto &F : M)
     {
-        if (F.getName().find("llvm.")!=std::string::npos) // bypass the "llvm.xxx" functions..
+        if (F.getName().find("llvm.")!=std::string::npos || F.getName().find("HIPartitionMux")!=std::string::npos) // bypass the "llvm.xxx" functions..
             continue;
         BasicBlock *Func_Entry = &(F.getEntryBlock()); //get the entry of the function
         timingBase origin_path_in_F(0,0,1,clock_period);
@@ -195,9 +229,17 @@ int HI_WithDirectiveTimingResourceEvaluation::getTotalStateNum(Module &M)
     return state_total + 2;  // TODO: check +2 is for function or module (reset/idle)
 }
 
-int HI_WithDirectiveTimingResourceEvaluation::LUT_for_FSM(int stateNum)
+
+// Calculate the LUT for state
+// based on regression model
+int HI_WithDirectiveTimingResourceEvaluation::LUT_for_select(int stateNum)
 {
     double x = stateNum;
     double y = -0.44444444444444475*x*x+10.555555555555559*x-14.11111111111112;
+    // if (y < x*5)
+    // {
+        y = x*5;
+    // }
     return round(y);
 }
+

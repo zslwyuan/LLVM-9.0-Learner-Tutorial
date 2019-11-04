@@ -31,6 +31,7 @@
 #include <vector>
 #include <sstream>
 #include "llvm/Support/raw_ostream.h"
+#include <sys/time.h>
 
 using namespace clang;
 
@@ -183,6 +184,12 @@ private:
     HI_APIntSrcAnalysis_Visitor Visitor; 
     CompilerInstance &CI;
     std::string parselog_name;
+
+    
+/// Timer
+
+    struct timeval tv_begin;
+    struct timeval tv_end;
 }; 
 
 

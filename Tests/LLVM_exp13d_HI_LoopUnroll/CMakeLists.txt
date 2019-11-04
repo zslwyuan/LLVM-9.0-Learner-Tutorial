@@ -39,6 +39,7 @@ include_directories(./
 ../../Implementations/HI_ArrayAccessPattern
 ../../Implementations/HI_FunctionInstantiation
 ../../Implementations/HI_StringProcess
+../../Implementations/HI_ReplaceSelectAccess
 ../../Implementations/HI_IR2SourceCode
 ../../Implementations/HI_LoopUnroll
 )
@@ -62,7 +63,19 @@ HI_print
 HI_DependenceList 
 HI_SysExec 
 HI_LoopInFormationCollect
+HI_Polly_Info HI_LoopDependenceAnalysis 
+HI_SimpleTimingEvaluation 
+HI_DuplicateInstRm 
+HI_VarWidthReduce 
+HI_SeparateConstOffsetFromGEP
+HI_NoDirectiveTimingResourceEvaluation
+HI_IntstructionMoveBackward
+HI_HLSDuplicateInstRm
+HI_AggressiveLSR_MUL
+HI_ArrayAccessPattern
+HI_FunctionInstantiation
 HI_StringProcess
+HI_ReplaceSelectAccess
 HI_IR2SourceCode
 HI_LoopUnroll
 ) #link llvm component 

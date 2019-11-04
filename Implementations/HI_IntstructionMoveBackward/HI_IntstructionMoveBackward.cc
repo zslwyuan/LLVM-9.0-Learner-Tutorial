@@ -18,12 +18,24 @@ using namespace llvm;
  
 bool HI_IntstructionMoveBackward::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
 {
+    print_status("Running HI_IntstructionMoveBackward pass."); 
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    LoopInfo      &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     bool changed = false;
 
     printDominatorTree(DT);
-    processedBlock.clear();
-    
+    processedBlock.clear(); 
+    isInstruction_PHI_dependent.clear();
+    isPHI_Instruction_dependent.clear();
+    for (auto &B : F)
+        for (auto &I : B)
+        {
+            if (auto PHI_I = dyn_cast<PHINode>(&I))
+            {
+                isPHI_Instruction_dependent.insert(&I);
+                isInstruction_PHI_dependent.insert(&I);
+            }
+        }
 
     // 1. loop to find the lowest node in Dominator Tree, which should not be preocessed previously, to process
     while (1)
@@ -49,7 +61,8 @@ bool HI_IntstructionMoveBackward::runOnFunction(Function &F) // The runOnModule 
                 BasicBlock *domB = node->getIDom()->getBlock();
                 for (Instruction *I : InstructionVec_forBackward)
                 {
-                    changed|=transferInstructionTo(I, domB);
+                    if (LI.getLoopFor(I->getParent()) == LI.getLoopFor(domB))
+                        changed|=transferInstructionTo(I, domB);
                 }
                 printFunction(&F);
                 BackwardLog->flush();
@@ -69,8 +82,6 @@ char HI_IntstructionMoveBackward::ID = 0;  // the ID for pass should be initiali
 
 void HI_IntstructionMoveBackward::getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<ScalarEvolutionWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
     AU.setPreservesCFG();
 }
@@ -78,14 +89,14 @@ void HI_IntstructionMoveBackward::getAnalysisUsage(AnalysisUsage &AU) const {
 // print out the graph of dominator tree
 void HI_IntstructionMoveBackward::printDominatorTree(DominatorTree &DT)
 {
-    *BackwardLog << "\n\n\n\n\n Printing Dominator Graph:\n";
+    if (DEBUG) *BackwardLog << "\n\n\n\n\n Printing Dominator Graph:\n";
     for (auto node = GraphTraits<DominatorTree *>::nodes_begin(&DT); node != GraphTraits<DominatorTree *>::nodes_end(&DT); ++node) 
     {
         BasicBlock *BB = node->getBlock();
         if (node->getIDom())
         {
             BasicBlock *PreBB = node->getIDom()->getBlock();
-            *BackwardLog << "Block: [" << PreBB->getName() <<"] dominates Block: [" << BB->getName() <<"].\n";
+            if (DEBUG) *BackwardLog << "Block: [" << PreBB->getName() <<"] dominates Block: [" << BB->getName() <<"].\n";
         }            
     }
     BackwardLog->flush();
@@ -94,7 +105,7 @@ void HI_IntstructionMoveBackward::printDominatorTree(DominatorTree &DT)
 // find the lowest unprocessed block in the dominator tree
 BasicBlock* HI_IntstructionMoveBackward::findUnprocessedLowestBlock(DominatorTree &DT)
 {
-    *BackwardLog << "findUnprocessedLowestBlock:\n";
+    if (DEBUG) *BackwardLog << "findUnprocessedLowestBlock:\n";
     for (auto node = GraphTraits<DominatorTree *>::nodes_begin(&DT); node != GraphTraits<DominatorTree *>::nodes_end(&DT); ++node) 
     {
         BasicBlock *BB = node->getBlock();
@@ -120,15 +131,15 @@ BasicBlock* HI_IntstructionMoveBackward::findUnprocessedLowestBlock(DominatorTre
 // find the instructions independent with the PHI nodes
 std::vector<Instruction*> HI_IntstructionMoveBackward::getInstructions_PhiIndependent(BasicBlock *cur_block)
 {
-    *BackwardLog << "\ngetInstructions_PhiIndependent\n";
-    isInstruction_PHI_Independent.clear();
+    if (DEBUG) *BackwardLog << "\ngetInstructions_PhiIndependent\n";
+    
 
     // mark those instruction dependent on the PHINodes
     for (auto &I : *cur_block)
     {
         if (auto PHI_I = dyn_cast<PHINode>(&I))
         {
-            isInstruction_PHI_Independent.insert(&I);
+            isInstruction_PHI_dependent.insert(&I);
         }
         else
         {
@@ -136,9 +147,10 @@ std::vector<Instruction*> HI_IntstructionMoveBackward::getInstructions_PhiIndepe
             if (cur_opcode == Instruction::Ret || cur_opcode == Instruction::Br || cur_opcode == Instruction::Switch || 
                 cur_opcode == Instruction::IndirectBr || cur_opcode == Instruction::Invoke || cur_opcode == Instruction::Resume || 
                 cur_opcode == Instruction::Unreachable || cur_opcode == Instruction::CleanupRet || cur_opcode == Instruction::CatchRet || 
-                cur_opcode == Instruction::CatchSwitch )
+                cur_opcode == Instruction::CatchSwitch || cur_opcode == Instruction::Store )
+                // || cur_opcode == Instruction::Load) // should Load be hoisted? some time actually it can be hoisted but VivadoHLS does not T_T I don't know why
             {
-                isInstruction_PHI_Independent.insert(&I);
+                isInstruction_PHI_dependent.insert(&I);
             }
             if (auto callI = dyn_cast<CallInst>(&I))
             {
@@ -148,11 +160,19 @@ std::vector<Instruction*> HI_IntstructionMoveBackward::getInstructions_PhiIndepe
                     {
                         if (tmpI->getParent()==cur_block)
                         {
-                            if (isInstruction_PHI_Independent.find(tmpI)!=isInstruction_PHI_Independent.end())
+                            if (isInstruction_PHI_dependent.find(tmpI)!=isInstruction_PHI_dependent.end())
                             {
-                                isInstruction_PHI_Independent.insert(&I);
+                                isInstruction_PHI_dependent.insert(&I);
                             }
                         }
+                    }
+                }
+                for (int i=0;i<callI->getNumArgOperands();i++)
+                {
+                    if (callI->getArgOperand(i)->getType()->isPointerTy())
+                    {
+                        isInstruction_PHI_dependent.insert(&I);
+                        break;
                     }
                 }
                 continue;
@@ -163,23 +183,31 @@ std::vector<Instruction*> HI_IntstructionMoveBackward::getInstructions_PhiIndepe
                 {
                     if (tmpI->getParent()==cur_block)
                     {
-                        if (isInstruction_PHI_Independent.find(tmpI)!=isInstruction_PHI_Independent.end())
+                        if (isInstruction_PHI_dependent.find(tmpI)!=isInstruction_PHI_dependent.end())
                         {
-                            isInstruction_PHI_Independent.insert(&I);
+                            isInstruction_PHI_dependent.insert(&I);
                         }
                     }
                 }
             }
+            // we can prove that 
+            // for (auto it = I.use_begin(), ie = I.use_end(); it!=ie; ++it )
+            // {
+            //     if (isPHI_Instruction_dependent.find(it)!=isPHI_Instruction_dependent.end())
+            //     {
+            //         isPHI_Instruction_dependent.insert(&I);
+            //     }
+            // }
         }        
     }
 
     std::vector<Instruction*> res;
-    *BackwardLog << "\n\n\n\n\n In block: " << cur_block->getName() << ", the following instructions are independent with the PHI";
+    if (DEBUG) *BackwardLog << "\n\n\n\n\n In block: " << cur_block->getName() << ", the following instructions are independent with the PHI";
     for (auto &I : *cur_block)
     {
-        if (isInstruction_PHI_Independent.find(&I)==isInstruction_PHI_Independent.end())
+        if (isInstruction_PHI_dependent.find(&I)==isInstruction_PHI_dependent.end() && isPHI_Instruction_dependent.find(&I)==isPHI_Instruction_dependent.end())
         {
-            *BackwardLog << I << "\n";         
+            if (DEBUG) *BackwardLog << I << "\n";         
             res.push_back(&I);
         }
     }
@@ -190,7 +218,7 @@ std::vector<Instruction*> HI_IntstructionMoveBackward::getInstructions_PhiIndepe
 // move the Instruction to another block
 bool HI_IntstructionMoveBackward::transferInstructionTo(Instruction* I, BasicBlock *To_B)
 {
-    *BackwardLog << "moving instruction: " << *I<< " from block: " << I->getParent()->getName() << " to block: " << To_B->getName() <<"\n" ;
+    if (DEBUG) *BackwardLog << "moving instruction: " << *I<< " from block: " << I->getParent()->getName() << " to block: " << To_B->getName() <<"\n" ;
     Instruction* BlockEnd_I = To_B->getTerminator();
     I->moveBefore(BlockEnd_I);
     return true;
@@ -198,6 +226,6 @@ bool HI_IntstructionMoveBackward::transferInstructionTo(Instruction* I, BasicBlo
 
 void HI_IntstructionMoveBackward::printFunction(Function* F)
 {
-    *BackwardLog << "\n\nThe Content of Function: " << F->getName() << " is \n" <<*F;
-    *BackwardLog << "\n";
+    if (DEBUG) *BackwardLog << "\n\nThe Content of Function: " << F->getName() << " is \n" <<*F;
+    if (DEBUG) *BackwardLog << "\n";
 }

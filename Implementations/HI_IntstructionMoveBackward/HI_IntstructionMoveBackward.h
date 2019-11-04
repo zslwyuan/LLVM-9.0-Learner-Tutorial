@@ -53,12 +53,13 @@
 #include <set>
 #include <vector>
 #include <sstream>
+#include <sys/time.h>
 
 using namespace llvm;
 
 class HI_IntstructionMoveBackward : public FunctionPass {
 public:
-    HI_IntstructionMoveBackward(const char* BackwardLog_Name ) : FunctionPass(ID) 
+    HI_IntstructionMoveBackward(const char* BackwardLog_Name, bool DEBUG=0 ) : FunctionPass(ID), DEBUG(DEBUG)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;
@@ -83,7 +84,7 @@ public:
         tmp_stream->flush(); delete tmp_stream;
     }
 
-    virtual bool doInitialization(Module &M)
+    virtual bool doInitialization(llvm::Module &M)
     {
         print_status("Initilizing HI_IntstructionMoveBackward pass.");  
         for (auto it : Block_Successors) 
@@ -104,6 +105,8 @@ public:
 
         return false;
     }
+
+    bool DEBUG;
 
     // virtual bool doFinalization(Module &M)
     // {
@@ -145,7 +148,8 @@ public:
     std::map<BasicBlock*, std::vector<BasicBlock*>*> Block_Successors;
     std::map<BasicBlock*, std::vector<BasicBlock*>*> Block_Predecessors;
 
-    std::set<Instruction*> isInstruction_PHI_Independent;
+    std::set<Value*> isInstruction_PHI_dependent;
+    std::set<Value*> isPHI_Instruction_dependent;
     
     std::error_code ErrInfo;
     raw_ostream *BackwardLog;
@@ -153,6 +157,11 @@ public:
     raw_string_ostream *tmp_stream;
     std::string tmp_stream_str;
 
+    
+/// Timer
+
+    struct timeval tv_begin;
+    struct timeval tv_end;
 };
 
 

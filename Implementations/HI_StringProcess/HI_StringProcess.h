@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <sstream>
 #include <vector>
+#include <sys/time.h>
 
 typedef std::uint64_t hash_t;  
     

@@ -18,7 +18,6 @@ using namespace llvm;
  
 bool HI_ArrayAccessPattern::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
 {
-    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
     
@@ -43,9 +42,7 @@ bool HI_ArrayAccessPattern::runOnFunction(Function &F) // The runOnModule declar
 char HI_ArrayAccessPattern::ID = 0;  // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
 
 void HI_ArrayAccessPattern::getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
     AU.setPreservesCFG();
 }

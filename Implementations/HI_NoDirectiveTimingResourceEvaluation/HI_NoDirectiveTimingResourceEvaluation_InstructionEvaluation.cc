@@ -6,7 +6,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "HI_print.h"
 #include "HI_NoDirectiveTimingResourceEvaluation.h"
-#include "polly/PolyhedralInfo.h"
 
 #include <stdio.h>
 #include <string>
@@ -23,7 +22,7 @@ using namespace llvm;
 HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::getInstructionLatency(Instruction *I)
 {
     timingBase result(0,0,1,clock_period);
-
+    // llvm::errs() << "       checking I: "  << *I << "\n";
     ////////////////////////////// Cast Operations /////////////////////////
     if (PtrToIntInst *PTI = dyn_cast<PtrToIntInst>(I)) // such operation like trunc/ext will not cost extra timing on FPGA
     {   
@@ -197,6 +196,24 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     }
     else if (CallInst *CI = dyn_cast<CallInst>(I))
     {
+        if (CI->getCalledFunction()->getName().find("HIPartitionMux") !=std::string::npos)
+        {
+            auto partitionConst = dyn_cast<ConstantInt>(CI->getArgOperand(1));
+            int partitionVal = partitionConst->getValue().getSExtValue();
+            *Evaluating_log << " handling mux with " << partitionVal<<" inputs.\n";
+            if (partitionVal == 2) result.timing = 1.8;
+            else if (partitionVal == 4) result.timing = 1.95;
+            else if (partitionVal == 8) result.timing = 2;
+            else if (partitionVal == 16) result.timing = 2.19;
+            else if (partitionVal == 32) result.timing = 2.73;
+            else if (partitionVal == 64) result.timing = 3.35;
+            else
+            {
+                result.timing = 4.1;
+                print_warning("using undefined partition factor and the mux delay for it is unknown. set delay=4.1ns for it.");
+            }
+            return result;
+        }
         *Evaluating_log << " Going into subfunction: " << CI->getCalledFunction()->getName() <<"\n";
         result = analyzeFunction(CI->getCalledFunction());
         return result;
@@ -220,6 +237,11 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     {
         result = get_inst_TimingInfo_result("getelementptr",-1,-1,clock_period_str);
         return result;
+    }
+    else 
+    {
+        llvm::errs() << *I << "\n";
+        assert(false && "The instruction is not defined.");
     }
 
     result.latency = 1;
@@ -290,12 +312,16 @@ bool HI_NoDirectiveTimingResourceEvaluation::isAMApossible(Instruction *PredI,In
     // for the GEP MAA, consider to transform it into AMA
     if (I->getOpcode()==Instruction::Add)
     {
-        Instruction* ori_PredI = byPassBitcastOp(PredI);
+        Instruction* ori_PredI = dyn_cast<Instruction>(byPassBitcastOp(PredI));
+        if (!ori_PredI)
+            return false;
         if (ori_PredI->getOpcode()==Instruction::Add)
         {
             if (auto Pred_Pred_I = dyn_cast<Instruction>(ori_PredI->getOperand(0)))
             {
-                Instruction* ori_Pred_Pred_I = byPassBitcastOp(Pred_Pred_I);
+                Instruction* ori_Pred_Pred_I = dyn_cast<Instruction>(byPassBitcastOp(Pred_Pred_I));
+                if (!ori_Pred_Pred_I)
+                    return false;
                 if (ori_Pred_Pred_I->getOpcode()==Instruction::Mul)
                 {
                     Value *op0 = (ori_Pred_Pred_I->getOperand(0));
@@ -564,6 +590,11 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
     {
         return result;
     }
+    else 
+    {
+        llvm::errs() << *I << "\n";
+        assert(false && "The instruction is not defined.");
+    }
     return result;
 }
 
@@ -790,9 +821,16 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
             }
         }
         else
-        {
-            print_warning("WARNING: The predecessor of load instruction should be IntToPtrInst.");
-            llvm::errs() << "InstructionEvaluation:796" << *loadI << " in Block: " << loadI->getParent()->getName() << " of Function: " << loadI->getParent()->getParent()->getName()  << "\n";
+        {   bool warnOut = 1;
+            if (auto tmp_arg = dyn_cast<Argument>(loadI->getOperand(0)))
+                warnOut = 0;
+            if (auto tmp_alloca = dyn_cast<AllocaInst>(loadI->getOperand(0)))
+                warnOut = 0;
+            if (warnOut)
+            {
+                print_warning("WARNING: The predecessor of load instruction should be IntToPtrInst.");
+                llvm::errs() << "InstructionEvaluation:796" << *loadI << " in Block: " << loadI->getParent()->getName() << " of Function: " << loadI->getParent()->getParent()->getName()  << "\n";
+            }
         }
         return res;
     }
@@ -1024,7 +1062,7 @@ Instruction* HI_NoDirectiveTimingResourceEvaluation::byPassUnregisterOp(Instruct
 
 
 // trace back to find the original operator, bypassing SExt and ZExt operations
-Instruction* HI_NoDirectiveTimingResourceEvaluation::byPassBitcastOp(Instruction* cur_I)
+Value* HI_NoDirectiveTimingResourceEvaluation::byPassBitcastOp(Instruction* cur_I)
 {
                 
     // For ZExt/SExt Instruction, we do not need to consider those constant bits
@@ -1036,6 +1074,12 @@ Instruction* HI_NoDirectiveTimingResourceEvaluation::byPassBitcastOp(Instruction
         }
         else
         {
+            if (auto next_Arg = dyn_cast<Argument>(cur_I->getOperand(0)))
+            {
+                return next_Arg;
+            }
+            llvm::errs() << "error from instruction: " << *cur_I << "\n";
+            llvm::errs() << "In function: " << *(cur_I->getParent()->getParent()) << "\n";
             assert(false && "Predecessor of bitcast operator should be found.\n");
         }
     }
@@ -1047,9 +1091,16 @@ Instruction* HI_NoDirectiveTimingResourceEvaluation::byPassBitcastOp(Instruction
 
 
 // trace back to find the original operator, bypassing SExt and ZExt operations
-Instruction* HI_NoDirectiveTimingResourceEvaluation::byPassBitcastOp(Value* cur_I_value)
+Value* HI_NoDirectiveTimingResourceEvaluation::byPassBitcastOp(Value* cur_I_value)
 {
     auto cur_I = dyn_cast<Instruction>(cur_I_value);
+    if (auto arg = dyn_cast<Argument>(cur_I_value))
+        return cur_I_value;
+    if (!cur_I)
+    {
+        return cur_I_value;
+        llvm::errs() << *cur_I_value << "\n";
+    }
     assert(cur_I && "This should be an instruction.\n");
     // For ZExt/SExt Instruction, we do not need to consider those constant bits
     if (/*cur_I->getOpcode() == Instruction::Trunc || */cur_I->getOpcode() == Instruction::ZExt || cur_I->getOpcode() == Instruction::SExt )
@@ -1060,6 +1111,10 @@ Instruction* HI_NoDirectiveTimingResourceEvaluation::byPassBitcastOp(Value* cur_
         }
         else
         {
+            if (auto next_Arg = dyn_cast<Argument>(cur_I->getOperand(0)))
+            {
+                return next_Arg;
+            }
             assert(false && "Predecessor of bitcast operator should be found.\n");
         }
     }

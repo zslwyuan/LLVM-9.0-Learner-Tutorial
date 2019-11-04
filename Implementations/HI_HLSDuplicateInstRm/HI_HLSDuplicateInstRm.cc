@@ -18,38 +18,76 @@ using namespace llvm;
  
 bool HI_HLSDuplicateInstRm::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
 {
+    print_status("Running HI_HLSDuplicateInstRm pass."); 
+    if (F.getName().find("llvm.") != std::string::npos)
+        return false;
     if (Function_id.find(&F)==Function_id.end())  // traverse functions and assign function ID
     {
         Function_id[&F] = ++Function_Counter;
     }
     bool removed = 0;
+
+    Block2Inst2DupInst.clear();
+
+    std::vector<Instruction*> PHINodeList;
     for (BasicBlock &B : F) 
     {
-        bool duplicationInBlock = 1;
-        while (duplicationInBlock)
+        for (Instruction &I: B) 
         {
-            duplicationInBlock = 0;
-            for (Instruction &I: B) 
+            if (I.getOpcode()==Instruction::PHI)
             {
-                Instruction *dupI = checkDuplicationInBlock(&B,&I);
-                if ( dupI != nullptr)
-                {
-                    if (dupI->getType() != I.getType())
-                        continue;
-                    *RemoveLog <<"duplicated: " << I << " -------  " << *dupI <<"\n";
-                    *RemoveLog <<"Remove: " << *dupI <<"\n";
-                    *RemoveLog <<"Block: \n" <<  B <<"\n";
-                    RemoveLog->flush(); 
-                    dupI->replaceAllUsesWith(&I);
-                    dupI->eraseFromParent();
-                    duplicationInBlock = 1;
-                    removed = 1;
-                    break; // remove the instruction and start the search again, until no duplication
-                }
+                PHINodeList.push_back(&I);
             }
+            if (I.getOpcode() == Instruction::Load || I.getOpcode() == Instruction::Store || I.getOpcode() == Instruction::Call || I.getOpcode() == Instruction::Alloca || I.getOpcode() == Instruction::Br)
+                continue;
+            checkDuplicationInBlock(&B,&I);
         }
-
     }
+
+    std::set<Instruction*> removedI;
+    removedI.clear();
+    
+    for (BasicBlock &B : F) 
+    {
+        for (auto dupIMap : Block2Inst2DupInst[&B])
+        {
+            if (removedI.find(dupIMap.first) == removedI.end())
+            {
+                Instruction *I = dupIMap.first;
+                for (auto dupI : dupIMap.second)
+                {
+                    if (removedI.find(dupI) != removedI.end())
+                        continue;
+                    if (dupI->getType() != I->getType())
+                        continue;
+                    if (DEBUG) *RemoveLog <<"duplicated: " << *I << " -------  " << *dupI <<"\n";
+                    if (DEBUG) *RemoveLog <<"Remove: " << *dupI <<"\n";
+                    if (DEBUG) *RemoveLog <<"Block: \n" <<  B <<"\n";
+                    if (DEBUG) RemoveLog->flush(); 
+                    dupI->replaceAllUsesWith(I);
+                    removedI.insert(dupI);
+                    // RecursivelyDeleteTriviallyDeadInstructions(dupI);
+                    
+                    dupI->eraseFromParent();
+                    removed = 1;
+                }
+            }            
+        }
+    }
+
+    for (Instruction *tmp_PHI_I : PHINodeList) 
+    {
+        auto PHI_I = dyn_cast<llvm::PHINode>(tmp_PHI_I);
+        assert(PHI_I);
+        if (PHI_I->getNumIncomingValues()==1)
+        {
+            PHI_I->replaceAllUsesWith(PHI_I->getOperand(0));
+            removedI.insert(PHI_I);
+            PHI_I->eraseFromParent();
+            removed = 1;
+        }
+    }
+
     RemoveLog->flush(); 
     return removed;
 }
@@ -59,16 +97,15 @@ bool HI_HLSDuplicateInstRm::runOnFunction(Function &F) // The runOnModule declar
 char HI_HLSDuplicateInstRm::ID = 0;  // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
 
 void HI_HLSDuplicateInstRm::getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<ScalarEvolutionWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-    AU.addRequired<LoopInfoWrapperPass>();
     AU.setPreservesCFG();
 }
 
 Instruction* HI_HLSDuplicateInstRm::checkDuplicationInBlock(BasicBlock *B, Instruction *I)
 {
     if (BranchInst *tmpI = dyn_cast<BranchInst>(I))
+        return nullptr;
+
+    if (AllocaInst *tmpI = dyn_cast<AllocaInst>(I))
         return nullptr;
 
     // the Mul and Add might end up with MAC, don't rm them
@@ -83,10 +120,11 @@ Instruction* HI_HLSDuplicateInstRm::checkDuplicationInBlock(BasicBlock *B, Instr
         }
     }
 
+    bool  enableCheck = false;
     for (Instruction &tmpII: *B) 
     {
         Instruction *tmpI = &tmpII;
-        if ( tmpI != I )
+        if (enableCheck)
         {
             // check if they are the same
 
@@ -114,9 +152,15 @@ Instruction* HI_HLSDuplicateInstRm::checkDuplicationInBlock(BasicBlock *B, Instr
                     }
                 }    
             }           
-            if (sameOpcode && sameOperands)           
-                return tmpI;           
+            if (sameOpcode && sameOperands)    
+            {
+                Block2Inst2DupInst[B][I].push_back(tmpI);
+                // return tmpI; 
+            }       
+                          
         }
+        enableCheck |= tmpI == I;
+        
     }
     return nullptr;
 }

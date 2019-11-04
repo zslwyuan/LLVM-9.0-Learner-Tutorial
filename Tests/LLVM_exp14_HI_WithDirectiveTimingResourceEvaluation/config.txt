@@ -1,3 +1,6 @@
 clock = 10
 HLS_lib_path = ../../../HLS_Data_Lib/
-array_partition variable=A dim=1 factor=2 scope=f
+array_partition variable=A dim=2 factor=4 scope=f cyclic
+loop_unroll label=Loop_f_2 factor=4
+loop_unroll label=Loop_subf_2 factor=4
+loop_pipeline label=Loop_f_2 II=1

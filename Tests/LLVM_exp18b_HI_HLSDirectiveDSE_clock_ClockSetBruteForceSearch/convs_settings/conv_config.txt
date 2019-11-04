@@ -1,0 +1,7 @@
+clock = 20
+HLS_lib_path = ../../../HLS_Data_Lib/
+resource_limit DSP=100 FF=20000 LUT=20000 BRAM=100 clock_num=2
+func_dataflow scope=convs enable
+local_array scope=convs variable=filter0 enable
+local_array scope=convs variable=filter1 enable
+local_array scope=convs variable=filter2 enable

@@ -198,12 +198,13 @@
 #include <cstdint>
 #include <memory>
 #include <utility>
+#include <sys/time.h>
 
 using namespace llvm;
 
 class HI_VarWidthReduce : public FunctionPass {
 public:
-    HI_VarWidthReduce(const char* VarWidthChangeLog_Name ) : FunctionPass(ID) 
+    HI_VarWidthReduce(const char* VarWidthChangeLog_Name, bool DEBUG=0 ) : FunctionPass(ID), DEBUG(DEBUG)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;
@@ -212,6 +213,8 @@ public:
         callCounter = 0;
         VarWidthChangeLog = new raw_fd_ostream(VarWidthChangeLog_Name, ErrInfo, sys::fs::F_None);
         tmp_stream = new raw_string_ostream(tmp_stream_str);
+        UnsignedRanges.clear();
+        SignedRanges.clear();
     } // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
 
     ~HI_VarWidthReduce()
@@ -232,7 +235,8 @@ public:
         {   
             delete it.second;
         }
-        VarWidthChangeLog->flush(); delete VarWidthChangeLog;
+        VarWidthChangeLog->flush();
+        delete VarWidthChangeLog;
         tmp_stream->flush(); delete tmp_stream;
     }
 
@@ -284,16 +288,20 @@ public:
     void getAnalysisUsage(AnalysisUsage &AU) const;
     virtual bool runOnFunction(Function &M);
     static char ID;
-
+    bool DEBUG;
     // Determine the range for a particular SCEV, but bypass the operands generated from PtrToInt Instruction, considering the actual 
     // implementation in HLS
     const ConstantRange HI_getSignedRangeRef(const SCEV *S);
+
+    const ConstantRange HI_getUnsignedRangeRef(const SCEV *S);
 
     // check whether we should bypass the PtrToInt Instruction
     bool bypassPTI(const SCEV *S);
 
     // cache constant range for those evaluated SCEVs
-    const ConstantRange &setRange(const SCEV *S, ConstantRange CR);
+    const ConstantRange &setSignedRange(const SCEV *S, ConstantRange CR);
+
+    const ConstantRange &setUnsignedRange(const SCEV *S, ConstantRange CR);
 
     unsigned int HI_getBidwith(Value *I);
 
@@ -345,7 +353,10 @@ public:
     std::map<int, std::vector<int>*> Instruction2Pre_id;
     std::map<int, std::vector<int>*> Blcok2InstructionList_id;
     DenseMap<const SCEV *, ConstantRange> SignedRanges;
+    DenseMap<const SCEV *, ConstantRange> UnsignedRanges;
     std::map<Instruction *, unsigned int> Instruction_BitNeeded;
+
+    std::map<Instruction*, bool> I2NeedSign;
 
     std::error_code ErrInfo;
     raw_ostream *VarWidthChangeLog;
@@ -355,6 +366,13 @@ public:
 
     LazyValueInfo* LazyI;
     ScalarEvolution  *SE;
+
+    
+/// Timer
+
+    struct timeval tv_begin;
+    struct timeval tv_end;
+
 };
 
 

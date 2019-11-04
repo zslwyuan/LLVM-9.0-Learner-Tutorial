@@ -6,7 +6,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "HI_print.h"
 #include "HI_NoDirectiveTimingResourceEvaluation.h"
-#include "polly/PolyhedralInfo.h"
 
 #include <stdio.h>
 #include <string>
@@ -23,6 +22,8 @@ bool HI_NoDirectiveTimingResourceEvaluation::runOnModule(Module &M) // The runOn
     *Evaluating_log << M;
     *Evaluating_log << " ======================= the module end =======================\n";
     
+    
+
     TraceMemoryDeclarationinModule(M);
 
     AnalyzeFunctions(M);
@@ -39,8 +40,10 @@ bool HI_NoDirectiveTimingResourceEvaluation::CheckDependencyFesilility(Function 
             if (CallInst *CI = dyn_cast<CallInst>(&I))
             {
                 if (FunctionLatency.find(CI->getCalledFunction()) == FunctionLatency.end())
-                {
-                    if (CI->getCalledFunction()->getName().find("llvm.")!=std::string::npos)
+                {       
+                    
+                    if (CI->getCalledFunction()->getName().find("llvm.")!=std::string::npos 
+                        || CI->getCalledFunction()->getName().find("HIPartitionMux")!=std::string::npos)
                     {
                         timingBase tmp(0,0,1,clock_period);
                         FunctionLatency[CI->getCalledFunction()] = tmp;                    
@@ -57,12 +60,14 @@ char HI_NoDirectiveTimingResourceEvaluation::ID = 0;  // the ID for pass should 
 // introduce the dependence of Pass
 void HI_NoDirectiveTimingResourceEvaluation::getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
+    AU.addRequired<AAResultsWrapperPass>(); 
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
     
     // AU.addRequired<ScalarEvolutionWrapperPass>();
     // AU.addRequired<LoopInfoWrapperPass>();
     // AU.addPreserved<LoopInfoWrapperPass>();
+    
     AU.addRequired<LoopAccessLegacyAnalysis>();
     AU.addRequired<DominatorTreeWrapperPass>();
     // AU.addPreserved<DominatorTreeWrapperPass>();
@@ -108,7 +113,7 @@ void HI_NoDirectiveTimingResourceEvaluation::AnalyzeFunctions(Module &M)
             }
             else
             {                
-                if (F.getName().find("llvm.")!=std::string::npos)
+                if (F.getName().find("llvm.")!=std::string::npos || F.getName().find("HIPartitionMux")!=std::string::npos)
                 {
                     timingBase tmp(0,0,1,clock_period);
                     FunctionLatency[&F] = tmp;       
@@ -141,8 +146,9 @@ void HI_NoDirectiveTimingResourceEvaluation::analyzeTopFunction(Module &M)
         std::string demangled_name;
         demangled_name = demangleFunctionName(mangled_name);
         mangled_name = "find function " + mangled_name + "and its demangled name is : " + demangled_name;
-        print_info(mangled_name.c_str());
-        if (demangled_name == top_function_name)
+	if (F.getName().find(".") == std::string::npos && F.getName().find("HIPartitionMux")  == std::string::npos)
+            print_info(mangled_name.c_str());
+        if (demangled_name == top_function_name && F.getName().find(".") == std::string::npos)
         {
             *Evaluating_log << "Top Function: "<< F.getName() <<" is found";
             topFunctionFound = 1;
@@ -168,12 +174,18 @@ void HI_NoDirectiveTimingResourceEvaluation::TraceMemoryDeclarationinModule(Modu
 {
     for (auto &F : M)
     {
-        if (F.getName().find("llvm.")!=std::string::npos) // bypass the "llvm.xxx" functions..
+        if (F.getName().find("llvm.")!=std::string::npos || F.getName().find("HIPartitionMux")!=std::string::npos) // bypass the "llvm.xxx" functions..
             continue;
         std::string mangled_name = F.getName();
         std::string demangled_name;
         demangled_name = demangleFunctionName(mangled_name);
-        findMemoryDeclarationin(&F, demangled_name == top_function_name);        
+        findMemoryDeclarationin(&F, demangled_name == top_function_name && F.getName().find(".") == std::string::npos);        
+    }
+    for (auto &F : M)
+    {
+        if (F.getName().find("llvm.")!=std::string::npos || F.getName().find("HIPartitionMux")!=std::string::npos) // bypass the "llvm.xxx" functions..
+            continue;
+        AliasAnalysis &AA = getAnalysis<AAResultsWrapperPass>(F).getAAResults();
     }
 }
 
@@ -190,7 +202,7 @@ int HI_NoDirectiveTimingResourceEvaluation::getTotalStateNum(Module &M)
     int state_total = 0;
     for (auto &F : M)
     {
-        if (F.getName().find("llvm.")!=std::string::npos) // bypass the "llvm.xxx" functions..
+        if (F.getName().find("llvm.")!=std::string::npos || F.getName().find("HIPartitionMux")!=std::string::npos) // bypass the "llvm.xxx" functions..
             continue;
         BasicBlock *Func_Entry = &(F.getEntryBlock()); //get the entry of the function
         timingBase origin_path_in_F(0,0,1,clock_period);

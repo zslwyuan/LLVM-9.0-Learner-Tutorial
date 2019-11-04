@@ -18,10 +18,12 @@ using namespace llvm;
  
 bool HI_AggressiveLSR_MUL::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
 {
-    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    print_status("Running HI_AggressiveLSR_MUL pass."); 
     ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
     bool changed = false;
     bool ActionTaken = true;
+    ValueVisited.clear();
+    Inst_AccessRelated.clear();
     TraceMemoryAccessinFunction(F);
     while (ActionTaken)
     {
@@ -50,9 +52,7 @@ bool HI_AggressiveLSR_MUL::runOnFunction(Function &F) // The runOnModule declara
 char HI_AggressiveLSR_MUL::ID = 0;  // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
 
 void HI_AggressiveLSR_MUL::getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
     AU.setPreservesCFG();
 }
@@ -86,7 +86,7 @@ bool HI_AggressiveLSR_MUL::LSR_Mul(Instruction *I, ScalarEvolution *SE)
     {
         if (SARE->isAffine())
         {
-            *AggrLSRLog << *I << " --> is add rec Mul: " << *SARE  << " it operand (0) " << *SARE->getOperand(0)  << " it operand (1) " << *SARE->getOperand(1) << "\n";
+            if (DEBUG) *AggrLSRLog << *I << " --> is add rec Mul: " << *SARE  << " it operand (0) " << *SARE->getOperand(0)  << " it operand (1) " << *SARE->getOperand(1) << "\n";
             if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(SARE->getOperand(0)))
             {
                 if (const SCEVConstant *step_V = dyn_cast<SCEVConstant>(SARE->getOperand(1)))
@@ -95,6 +95,8 @@ bool HI_AggressiveLSR_MUL::LSR_Mul(Instruction *I, ScalarEvolution *SE)
                     int step_val = step_V->getAPInt().getSExtValue();
                     APInt start_val_APInt = start_V->getAPInt();
                     APInt step_val_APInt = step_V->getAPInt();
+                    if (DEBUG) *AggrLSRLog << *I << " --> is being replaced. start_val_APInt=" << start_val_APInt.getSExtValue()  << " step_val_APInt =" << step_val_APInt.getSExtValue() << "\n";
+                    AggrLSRLog->flush();
                     LSR_Process(I, start_val_APInt, step_val_APInt);
                     return true;
                 }
@@ -127,7 +129,7 @@ bool HI_AggressiveLSR_MUL::LSR_Add(Instruction *I, ScalarEvolution *SE)
     {
         if (SARE->isAffine())
         {
-            *AggrLSRLog << *I << " --> is add rec Affine Add: " << *SARE  << " it operand (0) " << *SARE->getOperand(0)  << " it operand (1) " << *SARE->getOperand(1) << "\n";
+            if (DEBUG) *AggrLSRLog << *I << " --> is add rec Affine Add: " << *SARE  << " it operand (0) " << *SARE->getOperand(0)  << " it operand (1) " << *SARE->getOperand(1) << "\n";
             if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(SARE->getOperand(0)))
             {
                 if (const SCEVConstant *step_V = dyn_cast<SCEVConstant>(SARE->getOperand(1)))
@@ -143,7 +145,7 @@ bool HI_AggressiveLSR_MUL::LSR_Add(Instruction *I, ScalarEvolution *SE)
         }
         if (SARE->isQuadratic())
         {
-            *AggrLSRLog << *I << " --> is add rec Quadratic Add: " << *SARE  << " it operand (0) " << *SARE->getOperand(0)  << " it operand (1) " << *SARE->getOperand(1)  << " it operand (2) " << *SARE->getOperand(2) << "\n";
+            if (DEBUG) *AggrLSRLog << *I << " --> is add rec Quadratic Add: " << *SARE  << " it operand (0) " << *SARE->getOperand(0)  << " it operand (1) " << *SARE->getOperand(1)  << " it operand (2) " << *SARE->getOperand(2) << "\n";
             if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(SARE->getOperand(0)))
             {
                 if (const SCEVConstant *step_V = dyn_cast<SCEVConstant>(SARE->getOperand(1)))
@@ -173,14 +175,15 @@ void HI_AggressiveLSR_MUL::LSR_Process(Instruction *Mul_I, APInt start_val, APIn
 */
     Instruction *Inst_I = find_Incremental_op(Mul_I);
     PHINode* PHI_I = byPassBack_BitcastOp_findPHINode(Inst_I);
-    *AggrLSRLog << "find the PHINode: [" << *PHI_I << "] for Mul: [" << *Mul_I << "]\n";
+    if (DEBUG) *AggrLSRLog << "find the PHINode: [" << *PHI_I << "] for Mul: [" << *Mul_I << "]\n";
 
     std::string LSR_PHI_Name = Mul_I->getName();
     LSR_PHI_Name += ".PHI";
     std::string LSR_Add_Name = Mul_I->getName();
     LSR_Add_Name += ".Add";
-    IRBuilder<> Builder(Mul_I);
-
+    IRBuilder<> Builder(Mul_I->getParent()->getFirstNonPHI());
+    // BasicBlock *CurBlock = Mul_I->getParent();
+    
     // 2.  insert a new PHI (carefully select the initial constant)
     PHINode* PHI_I_for_LSR_Mul = Builder.CreatePHI(Mul_I->getType(), 2,  LSR_PHI_Name);
     Constant *step_Value = ConstantInt::get(Mul_I->getType(),step_val);
@@ -204,8 +207,8 @@ void HI_AggressiveLSR_MUL::LSR_Process(Instruction *Mul_I, APInt start_val, APIn
         }
     }    
 
-    *AggrLSRLog << "create the LSR PHINode: [" << *PHI_I_for_LSR_Mul << "] for Mul: [" << *Mul_I << "]\n";
-    *AggrLSRLog << "create the LSR Add: [" << *Add_I_for_LSR_Mul << "] for Mul: [" << *Mul_I << "]\n\n\n";
+    if (DEBUG) *AggrLSRLog << "create the LSR PHINode: [" << *PHI_I_for_LSR_Mul << "] for Mul: [" << *Mul_I << "]\n";
+    if (DEBUG) *AggrLSRLog << "create the LSR Add: [" << *Add_I_for_LSR_Mul << "] for Mul: [" << *Mul_I << "]\n\n\n";
 
     // 3.  replace multiplication with addition
     Mul_I->replaceAllUsesWith(Add_I_for_LSR_Mul);
@@ -250,7 +253,7 @@ void HI_AggressiveLSR_MUL::TraceMemoryAccessinFunction(Function &F)
 // find the array access in the function F and trace the accesses to them
 void HI_AggressiveLSR_MUL::findMemoryAccessin(Function *F)
 {
-    *AggrLSRLog << "checking the Memory Access information in Function: " << F->getName() << "\n";
+    if (DEBUG) *AggrLSRLog << "checking the Memory Access information in Function: " << F->getName() << "\n";
     ValueVisited.clear();
 
 
@@ -261,19 +264,19 @@ void HI_AggressiveLSR_MUL::findMemoryAccessin(Function *F)
         {
             if (IntToPtrInst *ITP_I = dyn_cast<IntToPtrInst>(&I))
             {
-                *AggrLSRLog << "find a IntToPtrInst: [" << *ITP_I << "] backtrace to its operands.\n";
+                if (DEBUG) *AggrLSRLog << "find a IntToPtrInst: [" << *ITP_I << "] backtrace to its operands.\n";
                 TraceAccessForTarget(ITP_I);
             }
         }
     }
-    *AggrLSRLog << "-------------------------------------------------" << "\n\n\n\n";
+    if (DEBUG) *AggrLSRLog << "-------------------------------------------------" << "\n\n\n\n";
     AggrLSRLog->flush();
 }
 
 // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
 void HI_AggressiveLSR_MUL::TraceAccessForTarget(Value *cur_node)
 {
-    *AggrLSRLog << "looking for the operands of " << *cur_node<< "\n";
+    if (DEBUG) *AggrLSRLog << "looking for the operands of " << *cur_node<< "\n";
     if (Instruction* tmpI = dyn_cast<Instruction>(cur_node))
     {       
         Inst_AccessRelated.insert(tmpI);
@@ -322,7 +325,20 @@ PHINode* HI_AggressiveLSR_MUL::byPassBack_BitcastOp_findPHINode(Value* cur_I_val
     }
     else
     {
-        if (auto PHI_I = dyn_cast<PHINode>(cur_I))
+        if (auto BOI = dyn_cast<BinaryOperator>(cur_I))
+        {
+            auto next_I0 = dyn_cast<Instruction>(cur_I->getOperand(0));
+            auto next_I1 = dyn_cast<Instruction>(cur_I->getOperand(1));
+            if (next_I0 && !next_I1)
+                return byPassBack_BitcastOp_findPHINode(next_I0);
+            if (next_I1 && !next_I0)
+                return byPassBack_BitcastOp_findPHINode(next_I1);
+                
+            llvm::errs() << *cur_I << "\n";
+            assert(false && "Fail to find the PHI for this instruction.\n");
+            return nullptr;
+        }
+        else if (auto PHI_I = dyn_cast<PHINode>(cur_I))
         {
             return PHI_I;
         }

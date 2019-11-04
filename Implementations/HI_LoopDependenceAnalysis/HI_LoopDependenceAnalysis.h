@@ -60,6 +60,7 @@ using namespace llvm;
 #include <ostream>
 #include <fstream> 
 #include <iostream>
+#include <sys/time.h>
 
 using namespace llvm;
 
@@ -136,6 +137,11 @@ private:
     int NumDirectionalDependentMemOps = 0;
     int NumInterestingLoops = 0;
 
+    
+/// Timer
+
+    struct timeval tv_begin;
+    struct timeval tv_end;
 };
 
 

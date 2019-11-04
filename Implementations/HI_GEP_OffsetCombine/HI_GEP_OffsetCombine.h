@@ -38,12 +38,8 @@
 #include "llvm/Transforms/Utils/LoopVersioning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/ADT/SmallVector.h"
-#include "polly/PolyhedralInfo.h"
-#include "polly/DependenceInfo.h"
-#include "polly/LinkAllPasses.h"
-#include "polly/Options.h"
-#include "polly/ScopInfo.h"
 #include <set>
+#include <sys/time.h>
 
 using namespace llvm;
 
@@ -179,6 +175,11 @@ public:
     
 
 
+    
+/// Timer
+
+    struct timeval tv_begin;
+    struct timeval tv_end;
 
 };
 #endif

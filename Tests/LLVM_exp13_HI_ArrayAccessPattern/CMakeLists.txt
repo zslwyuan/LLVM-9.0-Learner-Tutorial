@@ -37,6 +37,7 @@ include_directories(./
 ../../Implementations/HI_HLSDuplicateInstRm
 ../../Implementations/HI_AggressiveLSR_MUL
 ../../Implementations/HI_ArrayAccessPattern
+../../Implementations/HI_StringProcess
 )
 
 link_directories("../LLVM_Learner_Libs")
@@ -68,6 +69,7 @@ HI_IntstructionMoveBackward
 HI_HLSDuplicateInstRm
 HI_AggressiveLSR_MUL
 HI_ArrayAccessPattern
+HI_StringProcess
 ) #link llvm component 
 
 target_link_libraries(${Outputname} ${Polly_LIBRARIES})

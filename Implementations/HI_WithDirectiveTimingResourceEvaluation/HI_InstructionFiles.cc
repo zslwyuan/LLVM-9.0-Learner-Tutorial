@@ -1,6 +1,11 @@
 
 #include <string>
+// WARNING!!!!!!!
+// WARNING!!!!!!!
+// when you modify this file, remember that there is another file you need to modify for HI_NoDirectiveTimingResourceEvaluation
 
+// WARNING!!!!!!!
+// WARNING!!!!!!!
 std::string instructionNames[100] = 
     {
         "add"   ,
@@ -33,7 +38,11 @@ std::string instructionNames[100] =
         "sitofp" , 
         "store"  ,
         "uitofp"  ,
-        "xor"
+        "xor" ,
+        "sub",
+        "fsub",
+        "dsub",
+        "tadd"
     };
 
 bool instructionHasMappingFile[100] = 
@@ -102,5 +111,9 @@ bool instructionHasMappingFile[100] =
         1, // "srem", // ID=22
         1, // "uitofp", // ID=23
         1, // "urem", // ID=24
+        1,  // ""sub""
+        1,   // "fsub"
+        1,   // "dsub"
+        1      // "tadd"
     };
 

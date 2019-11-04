@@ -6,9 +6,11 @@ cmake_minimum_required(VERSION 3.10)
 
 find_package(LLVM REQUIRED CONFIG) 
 find_package(Polly) 
+find_package(Clang)
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}") 
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}") 
+
 
 message(STATUS "Using PollyConfig.cmake in: ${Polly_CMAKE_DIR}") 
 
@@ -18,6 +20,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -std=c++14 -g")
 
 include_directories(${LLVM_INCLUDE_DIRS}) 
 include_directories(${Polly_INCLUDE_DIRS}) 
+include_directories(${Clang_INCLUDE_DIRS}) 
 
 include_directories(./ 
 ../../Implementations/ 
@@ -40,6 +43,15 @@ include_directories(./
 ../../Implementations/HI_WithDirectiveTimingResourceEvaluation
 ../../Implementations/HI_StringProcess
 ../../Implementations/HI_FunctionInstantiation
+../../Implementations/HI_ReplaceSelectAccess
+../../Implementations/HI_LoopUnroll
+../../Implementations/HI_RemoveRedundantAccess
+../../Implementations/HI_IR2SourceCode
+../../Implementations/HI_LoopLabeler
+../../Implementations/HI_FunctionInterfaceInfo
+../../Implementations/HI_Mul2Shl
+../../Implementations/HI_MulOrderOpt
+../../Implementations/HI_MuxInsertionArrayPartition
 )
 
 link_directories("../LLVM_Learner_Libs")
@@ -51,7 +63,7 @@ execute_process(COMMAND ${MAKE_CMD}
 add_definitions(${LLVM_DEFINITIONS}) 
 add_definitions(${Polly_DEFINITIONS}) 
 
-add_executable(${Outputname} LLVM_exp14_HI_WithDirectiveTimingResourceEvaluation.cc) 
+add_executable(${Outputname} LLVM_exp14_HI_WithDirectiveTimingResourceEvaluation.cc ConfigParse.cc) 
 
 llvm_map_components_to_libnames(llvm_libs support core irreader engine nativecodegen) 
 
@@ -74,6 +86,15 @@ HI_ArrayAccessPattern
 HI_WithDirectiveTimingResourceEvaluation
 HI_StringProcess
 HI_FunctionInstantiation
+HI_ReplaceSelectAccess
+HI_LoopUnroll
+HI_RemoveRedundantAccess
+HI_IR2SourceCode
+HI_LoopLabeler
+HI_FunctionInterfaceInfo
+HI_Mul2Shl
+HI_MulOrderOpt
+HI_MuxInsertionArrayPartition
 ) #link llvm component 
 
 target_link_libraries(${Outputname} ${Polly_LIBRARIES})
@@ -103,84 +124,6 @@ LLVMXCoreCodeGen
 LLVMXCoreDesc 
 LLVMXCoreInfo 
 LLVMXCoreAsmPrinter 
-LLVMWebAssemblyDisassembler 
-LLVMWebAssemblyCodeGen 
-LLVMWebAssemblyDesc 
-LLVMWebAssemblyAsmPrinter 
-LLVMWebAssemblyAsmParser 
-LLVMWebAssemblyInfo 
-LLVMSystemZDisassembler 
-LLVMSystemZCodeGen 
-LLVMSystemZAsmParser 
-LLVMSystemZDesc 
-LLVMSystemZInfo 
-LLVMSystemZAsmPrinter 
-LLVMSparcDisassembler 
-LLVMSparcCodeGen 
-LLVMSparcAsmParser 
-LLVMSparcDesc 
-LLVMSparcInfo 
-LLVMSparcAsmPrinter 
-LLVMPowerPCDisassembler 
-LLVMPowerPCCodeGen 
-LLVMPowerPCAsmParser 
-LLVMPowerPCDesc 
-LLVMPowerPCInfo 
-LLVMPowerPCAsmPrinter 
-LLVMNVPTXCodeGen 
-LLVMNVPTXDesc 
-LLVMNVPTXInfo 
-LLVMNVPTXAsmPrinter 
-LLVMMSP430Disassembler 
-LLVMMSP430CodeGen 
-LLVMMSP430AsmParser 
-LLVMMSP430Desc 
-LLVMMSP430Info 
-LLVMMSP430AsmPrinter 
-LLVMMipsDisassembler 
-LLVMMipsCodeGen 
-LLVMMipsAsmParser 
-LLVMMipsDesc 
-LLVMMipsInfo 
-LLVMMipsAsmPrinter 
-LLVMLanaiDisassembler 
-LLVMLanaiCodeGen 
-LLVMLanaiAsmParser 
-LLVMLanaiDesc 
-LLVMLanaiAsmPrinter 
-LLVMLanaiInfo 
-LLVMHexagonDisassembler 
-LLVMHexagonCodeGen 
-LLVMHexagonAsmParser 
-LLVMHexagonDesc 
-LLVMHexagonInfo 
-LLVMBPFDisassembler 
-LLVMBPFCodeGen 
-LLVMBPFAsmParser 
-LLVMBPFDesc 
-LLVMBPFInfo 
-LLVMBPFAsmPrinter 
-LLVMARMDisassembler 
-LLVMARMCodeGen 
-LLVMARMAsmParser 
-LLVMARMDesc 
-LLVMARMInfo 
-LLVMARMAsmPrinter 
-LLVMARMUtils 
-LLVMAMDGPUDisassembler 
-LLVMAMDGPUCodeGen 
-LLVMAMDGPUAsmParser 
-LLVMAMDGPUDesc 
-LLVMAMDGPUInfo 
-LLVMAMDGPUAsmPrinter 
-LLVMAMDGPUUtils 
-LLVMAArch64Disassembler 
-LLVMAArch64CodeGen 
-LLVMAArch64AsmParser 
-LLVMAArch64Desc 
-LLVMAArch64Info 
-LLVMAArch64AsmPrinter 
-LLVMAArch64Utils 
 LLVMObjectYAML 
 LLVMLibDriver 
 LLVMOption 
@@ -230,6 +173,25 @@ LLVMCore
 LLVMBinaryFormat 
 LLVMSupport 
 LLVMDemangle
+clangFrontend 
+clangParse 
+clangSema 
+clangAnalysis 
+clangAST 
+clangLex 
+clangBasic 
+clangDriver 
+clangSerialization 
+clangFrontendTool
+clangCodeGen 
+clangStaticAnalyzerFrontend 
+clangStaticAnalyzerCheckers 
+clangStaticAnalyzerCore 
+clangRewrite 
+clangEdit 
+clangTooling
+clangARCMigrate
+clangRewriteFrontend
 ) 
 
 # message(STATUS "LLVM Libraries0 are: ${llvm_libs}") 

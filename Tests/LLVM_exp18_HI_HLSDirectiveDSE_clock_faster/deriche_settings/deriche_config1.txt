@@ -1,0 +1,3 @@
+clock = 10
+HLS_lib_path = ../../../HLS_Data_Lib/
+loop_pipeline label=Loop_kernel_deriche_2 II=5
