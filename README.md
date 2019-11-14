@@ -24,7 +24,7 @@ Please note that all the experiments are built with **LLVM-9.0.0**.  In this blo
  
 ## [How to use this blog](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial#how-to-use-this-blog)
 
-1. download the blog (entire project)
+1. download the blog (entire project) and install LLVM-9.0.0. If you get problems during install LLVM, I suggest you to use **[the LLVM package with my install shell script](https://github.com/zslwyuan/LLVM-9-for-Light-HLS)**.
 2. basic functiones and passes are implemented in the directory **["Implementations"](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations)**. Nearly all the directories have their own README file to explain the directory.
 3. experiments are tested in the directory **["Test"](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Tests)**.
 4. by making a "build" directory and using CMake in each experiment directory (e.g. **[this one](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Tests/LLVM_exp5_SimpleTimingAnalysis/)**), executable can be generated and tried. (hint: cmake .. & make) 
