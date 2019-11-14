@@ -109,6 +109,10 @@ int main(int argc, char **argv) {
   // Create a pass manager and fill it with the passes we want to run.
   legacy::PassManager PM;
 
+  auto dominatortreewrapperpass = new DominatorTreeWrapperPass();
+  PM.add(dominatortreewrapperpass);
+  print_info("Enable DominatorTreeWrapperPass Pass");
+
   print_info("Enable HI_FindFunctions Pass");
   print_info("Enable HI_DependenceList Pass");
   PM.add(new HI_FindFunctions());
