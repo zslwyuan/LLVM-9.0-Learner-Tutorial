@@ -23,35 +23,13 @@ bool HI_FindFunctions::runOnModule(Module &M) // The runOnModule declaration wil
         *Function_Demangle << "Found function Definition named == " << GI->getName() << "\n"; // a Function class is inherited from Value class, which has a function to get the name of the value (function).
         std::string fname(GI->getName());
         if (fname[0]=='_')
+        {
             *Function_Demangle << "     its demangled name == " << DemangleFunctionName(GI->getName()) << "\n";
-    }
-
-    // find all the Call Instruction and demangle the called function name
-    for (Function &F : M) 
-    {
-        for (BasicBlock &B : F) 
-        {        
-            for (Instruction &I : B) 
-            {
-                if (CallInst* Call_I = dyn_cast<CallInst>(&I))
-                {
-                    if (Function_Checked.find(Call_I->getCalledFunction())==Function_Checked.end())
-                    {
-                        *Function_Demangle << "Found CallInst == " << I << "\n";
-                        *Function_Demangle << "     its getCalledFunction == " << Call_I->getCalledFunction()->getName() << "\n";
-                        std::string fname(Call_I->getCalledFunction()->getName());
-                        if (fname[0]=='_')
-                        {
-                            *Function_Demangle << Call_I->getCalledFunction()->getName() << " **** " <<  DemangleFunctionName(fname) << "\n";
-                            *Function_Demangle << "     its demangled name == " << DemangleFunctionName(fname) << "\n";
-                            Function_Demangle_Map[Call_I->getCalledFunction()->getName()] = DemangleFunctionName(fname);
-                        }
-                        Function_Checked.insert(Call_I->getCalledFunction());
-                    }
-                }
-            }
+            Function_Demangle_Map[GI->getName()] = DemangleFunctionName(fname);
         }
     }
+
+
     
     *Function_Demangle << "===============printing the module ====================================\n";
     *Function_Demangle << M << "\n";

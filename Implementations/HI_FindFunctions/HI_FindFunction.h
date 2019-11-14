@@ -21,6 +21,7 @@
 #include "HI_print.h"
 #include <stdio.h>
 #include <string>
+
 #include <ios>
 #include <stdlib.h>
 #include "llvm/Pass.h"
@@ -54,6 +55,17 @@
 #include <cxxabi.h>
 #include "llvm/Demangle/Demangle.h"
 #include <sys/time.h>
+#include <cstdio>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <array>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <string>
+#include <fstream>
+#include <sstream>
 
 using namespace llvm;
 
@@ -78,22 +90,22 @@ public:
         return false;      
     }
     static char ID;
-    std::string DemangleFunctionName (std::string functioname)
+    std::string DemangleFunctionName (std::string mangled_name)
     {
-        size_t size = 0;
-        int status = -4;
-        
-        // try to demangle a c++ name, __cxa_demangle is a very interesting function in <cxxabi.h>
-        // it can demangle a function name in IR like _ZN6ap_intILi271EEC2Ei, to a readable name, like ap_int<271>::ap_int(int)
-        char *deMGL = abi::__cxa_demangle(functioname.c_str(), NULL, &size, &status);
-        if (status == 0) 
-        {
-            std::string ans(deMGL);
-            return ans;
-        }
-        return "DEMANGLE_FAILURE";
+        std::string demangled_name;
 
+        // demangle the function
+        if (mangled_name.find("_Z")==std::string::npos)
+            demangled_name = mangled_name;
+        else
+            {
+                std::stringstream iss(mangled_name);
+                iss.ignore(1, '_');iss.ignore(1, 'Z');
+                int len; iss >> len; while (len--) {char tc;iss>>tc;demangled_name+=tc;}
+            }
+        return demangled_name;
     }
+
     std::set<Function*> Function_Checked;
     std::error_code ErrInfo;
     raw_ostream *Function_Demangle;

@@ -1,6 +1,8 @@
 The HI_FindFunction pass is mainlyed tested by LLVM_exp0_find_functions
 
-HI_FindFunction Pass is just a HelloWorld-level pass, showing the template of the construction of Pass in LLVM. Detailed explanation can be found in the source code's comments.
+HI_FindFunction Pass is just a HelloWorld-level pass, showing the template of the construction of Pass in LLVM. 
+Detailed explanation can be found in the source code's comments.
+The test code will replace the function name in the IR code with the demangled ones.
 
 
 LLVM installation hint:
