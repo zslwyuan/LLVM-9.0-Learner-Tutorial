@@ -41,9 +41,12 @@ Please note that all the experiments are built with **LLVM-9.0.0**.  In this blo
 **usage example**
 
       When built, most test executables can be used like below but please check the source code for confirmation.
-      (1) ./LLVM\_expXXXXX  <C/C++ FILE> <top\_function\_name>   
+      (1) ./LLVM_expXXXXX  <C/C++ FILE> <top_function_name>   
       or
-      (2) ./LLVM\_expXXXXX  <IR FILE>
+      (2) ./LLVM_expXXXXX  <IR FILE>
+
+      for comprehensive evaluation test:
+      (1) ./LLVM_expXXXXX  <C/C++ FILE> <top_function_name> <configuration_file> [DEBUG]
 
 
 ***
