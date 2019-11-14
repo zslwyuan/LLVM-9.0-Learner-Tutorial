@@ -29,6 +29,13 @@ int main(int argc, char **argv) {
   // Create a pass manager and fill it with the passes we want to run.
   legacy::PassManager PM;
 
+  PM.add(new LoopInfoWrapperPass());
+  PM.add(new RegionInfoPass());
+  PM.add(new ScalarEvolutionWrapperPass());
+  PM.add(new LoopAccessLegacyAnalysis());
+  PM.add(new DominatorTreeWrapperPass());
+  PM.add(new OptimizationRemarkEmitterWrapperPass());
+
   print_info("Enable HI_FindFunctions Pass");
   print_info("Enable HI_DependenceList Pass");
   PM.add(new HI_FindFunctions());
@@ -44,12 +51,7 @@ int main(int argc, char **argv) {
   PM.add(createIndVarSimplifyPass());
 
 
-  PM.add(new LoopInfoWrapperPass());
-  PM.add(new RegionInfoPass());
-  PM.add(new ScalarEvolutionWrapperPass());
-  PM.add(new LoopAccessLegacyAnalysis());
-  PM.add(new DominatorTreeWrapperPass());
-  PM.add(new OptimizationRemarkEmitterWrapperPass());
+
   print_info("Enable HI_LoopInFormationCollect Pass");
   PM.add(new HI_LoopInFormationCollect("Loops")); 
 
