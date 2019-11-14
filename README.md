@@ -134,7 +134,9 @@ Please note that all the experiments are built with **LLVM-9.0.0**.  In this blo
       --- IR transformation, Timing/Resource Evaluation for special structures on FPGA
 	
       
+**Experiment 15**: A flow of high-level synthesis including source code processing, implementation of HLS directives, IR optimization for FPGA implementation, timing scheduling and resource binding **[TEST CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Tests/LLVM_exp15_HI_HighAccurateFastEvaluationWithPragma)** (for more information for this flow, please refer to **[Light-HLS](https://github.com/zslwyuan/Light-HLS)**)
 
+      --- Clang Source Code Transformation, IR optimization for FPGA HLS, implementation of HLS directives, timing scheduling and resource binding.
 
 ***
 
