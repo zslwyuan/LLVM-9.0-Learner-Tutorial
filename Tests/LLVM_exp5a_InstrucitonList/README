@@ -7,6 +7,10 @@ The latency is obtained by ASAP scheduling according to the dependence between b
 the pass handles the module block by block, with the help of many subfunctions of different LLVM pre-defined classes.
 
 
+The test can be run with the following command:
+
+      ./LLVM_expXXXXX  <C/C++ FILE> <top_function_name>   
+      
 
 Implementation idea is shown below:
 

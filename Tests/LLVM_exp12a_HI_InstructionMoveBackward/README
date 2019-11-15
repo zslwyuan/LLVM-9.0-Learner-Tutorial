@@ -4,6 +4,9 @@ The pass is used to move the instructions from the original block to the dominat
 
 This pass is based on the DominatorTreeWrapperPass in LLVM. As for the problem, what is dominator tree, please refer to https://en.wikipedia.org/wiki/Dominator_(graph_theory).
 
+The test can be run with the following command:
+
+      ./LLVM_expxxxxx <C/C++ file> <Top_Function_Name> <Config_File_Path>
 
 the rought implementation idea is shown below:
 

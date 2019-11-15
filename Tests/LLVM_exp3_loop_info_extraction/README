@@ -4,3 +4,7 @@ HI_LoopInFormationCollect pass try to extract and print out different Loop infor
 
 It shows how to use the Loop class and LoopInfo class for processing and analysis.
 It also shows how to use function getAnalysisUsage to define the dependence between Passes
+
+The test can be run with the following command:
+
+    ./LLVM_expXXXXX  <C/C++ FILE>

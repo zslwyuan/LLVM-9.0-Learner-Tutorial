@@ -7,3 +7,7 @@ Please refer to the change in CMakeLists.txt, compared to previous experiment
 You can just find the "Polly" in the CMakeLists.txt and notice the modification
 
 In the source code, you need to add all the dependence passes into passmanager otherwise you might get runtime error such as "Pass 'Unnamed pass: implement Pass::getPassName()' is not initialized"
+
+The test can be run with the following command:
+
+    ./LLVM_expXXXXX  <C/C++ FILE>

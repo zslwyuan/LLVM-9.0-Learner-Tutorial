@@ -995,7 +995,7 @@ public:
         {
             if (rhs.latency==-2) // for operation like load
             {
-                if (lhs.clock_period-lhs.timing>Strict_LoadStore_Thredhold)
+                if (lhs.clock_period-lhs.timing>rhs.timing)
                 {
                     lhs.timing = rhs.timing;
                     lhs.latency++;
@@ -1013,7 +1013,7 @@ public:
         {
             if (rhs.latency==-2) // for operation like load
             {
-                if (lhs.clock_period-lhs.timing>LoadStore_Thredhold)
+                if (lhs.clock_period-lhs.timing>rhs.timing)
                 {
                     lhs.timing = rhs.timing;
                     lhs.latency++;

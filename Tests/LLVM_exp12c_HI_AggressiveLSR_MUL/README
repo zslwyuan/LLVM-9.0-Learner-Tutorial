@@ -3,6 +3,9 @@ which can be transformed into addition operations if they are actually related
 to loop induction variables. These multiplications are usally the array index
 variables.
 
+The test can be run with the following command:
+
+      ./LLVM_expxxxxx <C/C++ file> <Top_Function_Name> <Config_File_Path>
 
 1.  find the mul for array offset calculation
 2.  get the incremental value by using SCEV

@@ -1040,7 +1040,7 @@ int HI_WithDirectiveTimingResourceEvaluation::findEarlietUseTimeInTheLoop(Loop* 
         {
             R_I = callI; // if there is mux for the load, check the users of the mux instead
             timingBase tmpMuxDelay = getInstructionLatency(R_I);
-            if (((tmpMuxDelay.timing+3.25) / clock_period) > 0.5) // when the mux delay is too high to fit in the current
+            if (((tmpMuxDelay.timing+get_inst_TimingInfo_result("store",-1,-1,clock_period_str).timing) / clock_period) > 0.5) // when the mux delay is too high to fit in the current
             {                                                     // cycle, we should leave one more cycle before the earliest user
                 muxDelayIsHigh = true;
             }
@@ -1087,7 +1087,7 @@ int HI_WithDirectiveTimingResourceEvaluation::findEarlietUseTimeInTheLoop(Loop* 
                 
                 if (InstructionCriticalPath_inBlock[tmp_user_I->getParent()][tmp_user_I].timing - getInstructionLatency(tmp_user_I).timing <= 0.001)
                 {
-                    if (getInstructionLatency(tmp_user_I).timing + 3.25 > 0.5 * clock_period)
+                    if (getInstructionLatency(tmp_user_I).timing + get_inst_TimingInfo_result("store",-1,-1,clock_period_str).timing > 0.5 * clock_period)
                     {
                         // this situation, the scheduling of the block is relatively tight, reschedule the load ealier.
                         cycle_inadvance = 2;

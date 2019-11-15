@@ -1,6 +1,12 @@
-LLVM_exp10_HI_APIntegerAnalysis is used to test the the frontend action HI_APIntegerAnalysis
+LLVM_exp10_HI_LoopLabeler is used to test the frontend action HI_LoopLabeler, which will set label for loops in the source code.
 
-HI_APIntegerAnalysis is based on Clang LibTooling
+HI_LoopLabeler is based on Clang LibTooling
+
+
+The test can be run with the following command:
+
+      ./LLVM_expXXXXX  <C/C++ FILE>
+      
 
 It implement a frontend action to find the declartions of arbitrary precision integer and add comments in the source code to mark those declartions.
 

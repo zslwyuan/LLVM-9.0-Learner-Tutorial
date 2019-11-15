@@ -34,6 +34,7 @@ include_directories(./
 ../../Implementations/HI_SeparateConstOffsetFromGEP
 ../../Implementations/HI_NoDirectiveTimingResourceEvaluation
 ../../Implementations/HI_IntstructionMoveBackward
+../../Implementations/HI_StringProcess
 )
 
 link_directories("../LLVM_Learner_Libs")
@@ -62,6 +63,7 @@ HI_VarWidthReduce
 HI_SeparateConstOffsetFromGEP
 HI_NoDirectiveTimingResourceEvaluation
 HI_IntstructionMoveBackward
+HI_StringProcess
 ) #link llvm component 
 
 target_link_libraries(${Outputname} ${Polly_LIBRARIES})

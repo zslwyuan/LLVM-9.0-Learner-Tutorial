@@ -26,6 +26,7 @@ include_directories(./
 ../../Implementations/HI_LoopInFormationCollect 
 ../../Implementations/HI_DependenceList 
 ../../Implementations/HI_SysExec 
+../../Implementations/HI_StringProcess 
 ../../Implementations/HI_Polly_Info 
 ../../Implementations/HI_LoopDependenceAnalysis
 ../../Implementations/HI_SimpleTimingEvaluation
@@ -60,6 +61,7 @@ HI_DuplicateInstRm
 HI_VarWidthReduce 
 HI_SeparateConstOffsetFromGEP
 HI_NoDirectiveTimingResourceEvaluation
+HI_StringProcess
 ) #link llvm component 
 
 target_link_libraries(${Outputname} ${Polly_LIBRARIES})
