@@ -11,7 +11,7 @@ using ap_int = __attribute__((__ap_int(Bits))) int ;
 
 
 template <typename F>
-inline
+inline __attribute__((always_inline))
 F partSelect(F input, const int l,const int r)
 {
     return ((input ) &((1<<(l+1))-1))>> r ;

@@ -104,7 +104,7 @@ Please note that all the experiments are built with **LLVM-9.0.0**.  In this blo
       --- Front-End Operation, AST Consumer, Visit Nodes in AST, Clang, Template Detection
 
 
-**Experiment 11**: (Patch-Applied) Hack on Clang to properly map arbitary precision integer ap\_int<X> in source code for VivadoHLS into iX in IR generation  (Front-end Operation: CodeGen) **[TEST CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Tests/LLVM_expAPINT_test)**. Since a patch for LLVM-9 necessary for this tutorial is still under the review of LLVM, **[complete source code of LLVM for this tutorial](https://github.com/zslwyuan/LLVM-9-for-Light-HLS)** can be downloaded via github in case that you cannot make the patch work properly. 
+**Experiment 11**: (Patch-Applied) Hack on Clang to properly map arbitary precision integer ap\_int<X> in source code for VivadoHLS into iX in IR generation  (Front-end Operation: CodeGen) **[TEST CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Tests/LLVM_expAPINT_test)**. Since a patch for LLVM-9 necessary for this tutorial is still under the review of LLVM, **[complete source code of LLVM for this tutorial](https://github.com/zslwyuan/LLVM-9-for-Light-HLS)** can be downloaded via github in case that you cannot make the patch work properly. Example of declaring arbitrary precision integer variables is shown [here](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/App/2dloop2darray_pl_apint).
 
       --- CodeGen Operation, AST Consumer, Visit Nodes in AST, Clang
       --- The original way I implement is too ugly and I applied the patch which Erich Keane shared via maillist clang-cfe.
