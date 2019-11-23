@@ -25,8 +25,20 @@ bool HI_RemoveRedundantAccess::runOnModule(Module &M) // The runOnModule declara
     ValueVisited.clear();
     Alias2Target.clear();
     Access2TargetMap.clear();
+    
+
+   
 
     if (DEBUG) *RemoveRedundantAccess_Log << M << "\n\n\n\n\n=======================================\n\n\n\n";
+
+    for (auto &it  : M.global_values())
+    {
+        if (auto GV = dyn_cast<GlobalVariable>(&it))
+        {
+            if (DEBUG) *RemoveRedundantAccess_Log << it << " is a global variable\n";
+            TraceAccessForTarget(&it,&it);
+        }        
+    }
 
     for (auto &F : M)
     {
@@ -752,6 +764,23 @@ Value* HI_RemoveRedundantAccess::getTargetFromInst(Instruction* accessI)
 {
     if (getTargetFromInst_cache.find(accessI) != getTargetFromInst_cache.end())
         return getTargetFromInst_cache[accessI];
+
+    if (Access2TargetMap.find(accessI) == Access2TargetMap.end())
+    {
+        llvm::errs() << "Instruction: " << *accessI << " is not pre-processed. Its pointer is: ";
+        Value* pointer_I = nullptr;
+        if (accessI->getOpcode()==Instruction::Load)
+        {
+            pointer_I = dyn_cast<Value>(accessI->getOperand(0));
+        }
+        else if (accessI->getOpcode()==Instruction::Store)
+        {
+            pointer_I = dyn_cast<Value>(accessI->getOperand(1));
+        } 
+        llvm::errs() << *pointer_I << "\n";
+        assert(false && "Accesses should be pre-processed.");
+    }
+
     // assert(Access2TargetMap[accessI].size()==1 && "currently, we do not support 1-access-multi-target.");
     if (Access2TargetMap[accessI].size()>1)
     {
@@ -775,6 +804,7 @@ Value* HI_RemoveRedundantAccess::getTargetFromInst(Instruction* accessI)
             assert(tmp_target==tmp_reftarget && "currently, we do not support 1-access-multi-target.");
         }
     }
+
     Value* target = Access2TargetMap[accessI][0];
     if (Alias2Target.find(target) == Alias2Target.end())
     {

@@ -298,15 +298,17 @@ public:
 
     void traceInstructionSourceCode(Function &F);
 
-    void traceLoopSourceCode(LoopInfo &LI, ScalarEvolution &SE, Function &F);
+    void traceLoopSourceCode(LoopInfo &LI, ScalarEvolution &SE, Function &F, DISubprogram* subprog);
 
-    void traceBasicBlockSourceCode(LoopInfo &LI, Function &F);
+    void traceBasicBlockSourceCode(LoopInfo &LI, Function &F, DISubprogram* subprog);
 
     void traceFunctionSourceCode(Function &F);
 
     void traceModuleMetadata(llvm::Module &M);
 
-    void mappingLoopIR2LoopLabel(llvm::Module &M);
+    void mappingLoopIR2LoopLabel(DISubprogram* subprogram);
+
+    std::set<DISubprogram*> getAllSubprogram(llvm::Module &M);
 
     int callCounter;
     int Instruction_Counter;
@@ -320,6 +322,7 @@ public:
 
     std::map<Instruction*, int> Inst2Line;
     std::map<BasicBlock*, std::pair<int,int>> Block2Line;
+    std::map<BasicBlock*, std::pair<int,int>> Block2Line_forLoop;
     std::map<BasicBlock*, std::string> Block2Path;
     std::map<BasicBlock*, std::pair<int,int>> Loop2Line;
     std::map<BasicBlock*, std::string> Loop2Path;

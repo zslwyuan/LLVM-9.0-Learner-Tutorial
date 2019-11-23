@@ -182,6 +182,14 @@ void HI_WithDirectiveTimingResourceEvaluation::analyzeTopFunction(Module &M)
 // analyze BRAM accesses in the module before any other analysis
 void HI_WithDirectiveTimingResourceEvaluation::TraceMemoryDeclarationAndAnalyzeAccessinModule(Module &M)
 {
+    for (auto &it  : M.global_values())
+    {
+        if (auto GV = dyn_cast<GlobalVariable>(&it))
+        {
+            if (DEBUG) *ArrayLog << it << " is a global variable\n";
+            TraceAccessForTarget(&it,&it);
+        }        
+    }
     for (auto &F : M)
     {
         

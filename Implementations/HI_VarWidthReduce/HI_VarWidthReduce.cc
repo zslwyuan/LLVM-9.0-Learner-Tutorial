@@ -361,7 +361,8 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
             std::vector<Instruction*> integerInsts;
             for (Instruction &I: B) 
             {
-                if (DEBUG) *VarWidthChangeLog << "checking Instruction width: " << I << " ";
+                if (DEBUG) *VarWidthChangeLog << "will check Instruction width: " << I << "\n";
+                if (DEBUG) VarWidthChangeLog->flush();
                 if (I.getType()->isIntegerTy())
                 {
                     integerInsts.push_back(&I);
@@ -369,23 +370,22 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
             }
             for (Instruction *I: integerInsts) 
             {
-                if (DEBUG) *VarWidthChangeLog << "checking Instruction width: " << I << " ";
+                if (DEBUG) *VarWidthChangeLog << "checking Instruction width: " << *I << " ";
                 if (I->getType()->isIntegerTy())
                 {
-                    const SCEV *tmp_S = SE->getSCEV(I);
-                    bool isUnsignedInst = I->getOpcode() == Instruction::UDiv || I->getOpcode() == Instruction::URem;
-                    ConstantRange tmp_CR1 = isUnsignedInst ? SE->getUnsignedRange(tmp_S) : SE->getSignedRange(tmp_S);
+                    if (DEBUG) *VarWidthChangeLog << " type-bw="<<I->getType()->getIntegerBitWidth() <<"\n";
+
+                    if (DEBUG) VarWidthChangeLog->flush();
                     
-                    if (DEBUG) *VarWidthChangeLog << "CR-bw=" << tmp_CR1.getBitWidth() << " type-bw="<<I->getType()->getIntegerBitWidth() <<"\n";
-                    if (tmp_CR1.getBitWidth() != I->getType()->getIntegerBitWidth())
-                        if (DEBUG) *VarWidthChangeLog << "Bit width error!!!\n";
                     if (TruncInst *TI = dyn_cast<TruncInst>(I))
                     {
                         if (TI->getDestTy()->getIntegerBitWidth() > TI->getSrcTy()->getIntegerBitWidth())
                         {
                             if (DEBUG) *VarWidthChangeLog << "  should not be a truncI. correct it\n";
-                                            Type *NewTy_OP = IntegerType::get(I->getType()->getContext(), Instruction_BitNeeded[I]);
-                            ConstantRange tmp_CR = isUnsignedInst ? ConstantRange(APInt( HI_getUnsignedRangeRef(tmp_S).getBitWidth(),0), HI_getUnsignedRangeRef(tmp_S).getUpper()) : HI_getSignedRangeRef(tmp_S);
+
+                            Type *NewTy_OP = IntegerType::get(I->getType()->getContext(),  Instruction_BitNeeded[I]);
+
+                            if (DEBUG) VarWidthChangeLog->flush();
 
                             Value *ResultPtr;
                             IRBuilder<> Builder( TI->getNextNode());
@@ -407,6 +407,7 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
                             I->eraseFromParent();
                             if (DEBUG) *VarWidthChangeLog << "                         ------->  accomplish erasing of original instruction.\n";
                             //VarWidthChangeLog->flush(); 
+                            if (DEBUG) VarWidthChangeLog->flush();
                             take_action = 1;
                            // break;
                         }
@@ -418,8 +419,10 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
                             I->eraseFromParent();
                             if (DEBUG) *VarWidthChangeLog << "                         ------->  accomplish erasing of original instruction.\n";
                             take_action = 1;
+                            if (DEBUG) VarWidthChangeLog->flush();
                            // break;
                         }
+                        if (DEBUG) *VarWidthChangeLog << "\n";
                     } 
                     else if (ZExtInst *ZI = dyn_cast<ZExtInst>(I))
                     {
@@ -427,9 +430,6 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
                         {
                             if (DEBUG) *VarWidthChangeLog << "  should not be a truncI. correct it\n";
                                             Type *NewTy_OP = IntegerType::get(I->getType()->getContext(), Instruction_BitNeeded[I]);
-
-                            
-                            ConstantRange tmp_CR = isUnsignedInst ? ConstantRange(APInt( HI_getUnsignedRangeRef(tmp_S).getBitWidth(),0), HI_getUnsignedRangeRef(tmp_S).getUpper()): HI_getSignedRangeRef(tmp_S);
 
                             Value *ResultPtr;
                             IRBuilder<> Builder( ZI->getNextNode());
@@ -471,7 +471,6 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
                         {
                             if (DEBUG) *VarWidthChangeLog << "  should not be a truncI. correct it\n";
                                             Type *NewTy_OP = IntegerType::get(I->getType()->getContext(), Instruction_BitNeeded[I]);
-                            ConstantRange tmp_CR = isUnsignedInst ? ConstantRange(APInt( HI_getUnsignedRangeRef(tmp_S).getBitWidth(),0), HI_getUnsignedRangeRef(tmp_S).getUpper()) : HI_getSignedRangeRef(tmp_S);
 
                             Value *ResultPtr;
                             IRBuilder<> Builder( SI->getNextNode());
@@ -513,6 +512,7 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
                     if (DEBUG) *VarWidthChangeLog << "is not an integer type.\n ";
                 }
             }
+            if (DEBUG) *VarWidthChangeLog << "\n";
         }    
         if (DEBUG) *VarWidthChangeLog << "\n";
         //VarWidthChangeLog->flush(); 

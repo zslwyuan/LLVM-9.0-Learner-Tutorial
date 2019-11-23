@@ -172,6 +172,14 @@ void HI_NoDirectiveTimingResourceEvaluation::analyzeTopFunction(Module &M)
 
 void HI_NoDirectiveTimingResourceEvaluation::TraceMemoryDeclarationinModule(Module &M)
 {
+    for (auto &it  : M.global_values())
+    {
+        if (auto GV = dyn_cast<GlobalVariable>(&it))
+        {
+            *Evaluating_log << it << " is a global variable\n";
+            TraceAccessForTarget(&it,&it);
+        }        
+    }
     for (auto &F : M)
     {
         if (F.getName().find("llvm.")!=std::string::npos || F.getName().find("HIPartitionMux")!=std::string::npos) // bypass the "llvm.xxx" functions..
