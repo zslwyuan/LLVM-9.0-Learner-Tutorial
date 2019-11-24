@@ -131,6 +131,10 @@ Please note that all the experiments are built with **LLVM-9.0.0**.  In this blo
 
       --- SCEV, Scalar Evolution Interpretation (AddRec, Add, Unknown, Constant), Array Access Pattern
 
+**Experiment 13c**: map IR code back to source code based on DWARF debug information in IR metadata (Instruction=>line in source code; basic block/loop/function=>range in source code) **[PASS CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations/HI_IR2SourceCode)**  **[TEST CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Tests/LLVM_exp13d_HI_LoopUnroll)** 
+
+      --- Loop Unrolling, Debug Information from Source Code
+
 **Experiment 13d**: unroll the specifc loops according to the label set in the source code and the setting in the configuration file (Transformation Pass) **[PASS CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Implementations/HI_LoopUnroll)**  **[TEST CODE](https://github.com/zslwyuan/LLVM-9.0-Learner-Tutorial/tree/master/Tests/LLVM_exp13d_HI_LoopUnroll)** 
 
       --- Loop Unrolling, Debug Information from Source Code
