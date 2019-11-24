@@ -127,7 +127,8 @@ void HI_WithDirectiveTimingResourceEvaluation::parseArrayPartition(std::stringst
 {
     std::string targetStr,scopeStr;
     int dim,partition_factor;
-    bool cyclic;
+    bool cyclic = 1;
+    bool complete = 0;
     while (!iss.eof())
     {
         std::string arg_name;
@@ -160,15 +161,15 @@ void HI_WithDirectiveTimingResourceEvaluation::parseArrayPartition(std::stringst
                 break;
 
             case hash_compile_time("cyclic"):
-                consumeEqual(iss);
-                iss >> tmp_val;
                 cyclic = 1;
                 break;
 
             case hash_compile_time("block"):
-                consumeEqual(iss);
-                iss >> tmp_val;
                 cyclic = 0;
+                break;
+
+            case hash_compile_time("complete"):
+                complete = 1;
                 break;
 
             default:
@@ -176,7 +177,11 @@ void HI_WithDirectiveTimingResourceEvaluation::parseArrayPartition(std::stringst
                 break;
         }
     }
-    if (cyclic)
+    if (complete)
+    {
+        desginconfig.insertArrayCompletePartition(scopeStr, targetStr, dim);
+    }
+    else if (cyclic)
     {
         desginconfig.insertArrayCyclicPartition(scopeStr, targetStr, dim, partition_factor);
     }
@@ -438,6 +443,20 @@ void HI_WithDirectiveTimingResourceEvaluation::Parse_Config(const HI_DesignConfi
         ans_pragma.dim = block_partition_pair.second.second.first - 1;
         ans_pragma.partition_factor = block_partition_pair.second.second.second;
         ans_pragma.cyclic = 0;
+        PragmaInfo_List.push_back(ans_pragma);
+    }
+
+    // get array complete partition configs
+    for (auto complete_partition_pair : configInfo.completePartitionConfigs)
+    {
+        // (std::string functionName, std::string arrayName, int dim, int factor)
+        HI_PragmaInfo ans_pragma;  
+        ans_pragma.HI_PragmaInfoType = HI_PragmaInfo::arrayPartition_Pragma;
+        ans_pragma.scopeStr = complete_partition_pair.first;
+        ans_pragma.targetStr = complete_partition_pair.second.first;
+        ans_pragma.dim =       complete_partition_pair.second.second- 1;
+        ans_pragma.cyclic = 1;
+        ans_pragma.complete = 1;
         PragmaInfo_List.push_back(ans_pragma);
     }
 
@@ -750,6 +769,10 @@ void HI_WithDirectiveTimingResourceEvaluation::parseArrayPartition(std::stringst
                 ans_pragma.cyclic = 0;
                 break;
 
+            case hash_compile_time("complete"):
+                ans_pragma.complete = 1;
+                break;
+
             default:
                 llvm::errs() << "wrong argument: " << arg_name << "\n";
                 print_error("Wrong argument for array partitioning.");
@@ -978,7 +1001,13 @@ void HI_WithDirectiveTimingResourceEvaluation::matchArrayAndConfiguration(Value*
                 arrayDirectives[target].push_back(pragma);
                 FuncArray2PartitionBenefit[std::pair<std::string, std::string>(nameOfFunction,pragma.targetStr )] = false;
                 resArrayInfo.cyclic[pragma.dim] = pragma.cyclic;
-                resArrayInfo.partition_size[pragma.dim] = pragma.partition_factor;
+                if (pragma.complete)
+                {
+                    resArrayInfo.partition_size[pragma.dim] = resArrayInfo.dim_size[pragma.dim];
+                    resArrayInfo.completePartition = 1;
+                }
+                else
+                    resArrayInfo.partition_size[pragma.dim] = pragma.partition_factor;
             }
         }
         else if (pragma.HI_PragmaInfoType == HI_PragmaInfo::arrayPortNum_Pragma)
@@ -1036,17 +1065,22 @@ raw_ostream& operator<< (raw_ostream& stream, const HI_DesignConfigInfo& tb)
     {
         stream << "    Array: [" << partition_seq.second.first 
                << "] in Function: [" << partition_seq.first 
-               << "] at dim=" << partition_seq.second.second.first
+               << "] cyclic partition at dim=" << partition_seq.second.second.first
                << " factor=" << partition_seq.second.second.second << "\n";
     }
     for (auto partition_seq : tb.blockPartitionConfigs)
     {
         stream << "    Array: [" << partition_seq.second.first 
                << "] in Function: [" << partition_seq.first 
-               << "] at dim=" << partition_seq.second.second.first
+               << "] block partition at dim=" << partition_seq.second.second.first
                << " factor=" << partition_seq.second.second.second << "\n";
     }
-    
+    for (auto partition_seq : tb.completePartitionConfigs)
+    {
+        stream << "    Array: [" << partition_seq.second.first 
+               << "] in Function: [" << partition_seq.first 
+               << "] complete partition at dim=" << partition_seq.second.second << "\n";
+    }
     stream << "\n\n";
 
     
@@ -1093,6 +1127,13 @@ raw_ostream& operator<< (raw_ostream& stream, const HI_DesignConfigInfo& tb)
         stream << "#pragma HLS array_partition  variable=" << partition_seq.second.first 
                << " dim=" << partition_seq.second.second.first
                << " factor=" << partition_seq.second.second.second << " block\n";
+    }
+
+    for (auto partition_seq : tb.completePartitionConfigs)
+    {
+        stream << "#pragma HLS array_partition  variable=" << partition_seq.second.first 
+               << " dim=" << partition_seq.second.second
+               << " complete\n";
     }
 
     return stream;

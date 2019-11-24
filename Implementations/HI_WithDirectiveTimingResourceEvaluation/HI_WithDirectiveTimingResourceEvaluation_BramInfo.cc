@@ -240,29 +240,61 @@ HI_WithDirectiveTimingResourceEvaluation::scheduleBRAMAccess(Instruction *access
         }
     }
     Value* target = reftarget;
+
+
     
     if (DEBUG) *BRAM_log << "\n\n\n sceduling access instruction: " << *access << " for the target [" << target->getName() << "]" << " of Block:" << cur_block->getName() <<"\n";
-    timingBase targetTiming = handleBRAMAccessFor(access, target, cur_block, cur_Timing, target_partition);        
-    if (access->getOpcode()==Instruction::Store)
+
+    // if the target is partitioned completely as registers, the delay of accesses might be ignored.
+    // (implict: there won't be access contension to the target, since each element has its own register)
+    if (Target2ArrayInfo[target].completePartition)
     {
-        if (DEBUG) *BRAM_log << " sceduled access Store instruction: " << *access << 
-                    " for the target ["  << target->getName() << 
-                    "] in its partition #" << target_partition << 
-                    " at cycle #" << targetTiming.latency << 
-                    " of Block:" << cur_block->getName() << "\n";
+        timingBase targetTiming = cur_Timing;  
+        if (access->getOpcode()==Instruction::Store)
+        {
+            if (DEBUG) *BRAM_log << " sceduled access Store instruction: " << *access << 
+                        " for the target ["  << target->getName() << 
+                        "] in its partition #" << target_partition << 
+                        " at cycle #" << targetTiming.latency << 
+                        " of Block:" << cur_block->getName() << "\n";
+        }
+        else
+        {
+            if (DEBUG)*BRAM_log << " sceduled access Load instruction: " << *access << 
+                        " for the target [" << target->getName() << 
+                        "] in its partition #" << target_partition << 
+                        " at cycle #" << targetTiming.latency << 
+                        " of Block:" << cur_block->getName() << "\n";
+        }
+        
+        if (targetTiming > res)
+            res = targetTiming;
     }
     else
     {
-        if (DEBUG)*BRAM_log << " sceduled access Load instruction: " << *access << 
-                    " for the target [" << target->getName() << 
-                    "] in its partition #" << target_partition << 
-                    " at cycle #" << targetTiming.latency-1 << 
-                    " of Block:" << cur_block->getName() << "\n";
+        timingBase targetTiming = handleBRAMAccessFor(access, target, cur_block, cur_Timing, target_partition);        
+        if (access->getOpcode()==Instruction::Store)
+        {
+            if (DEBUG) *BRAM_log << " sceduled access Store instruction: " << *access << 
+                        " for the target ["  << target->getName() << 
+                        "] in its partition #" << target_partition << 
+                        " at cycle #" << targetTiming.latency << 
+                        " of Block:" << cur_block->getName() << "\n";
+        }
+        else
+        {
+            if (DEBUG)*BRAM_log << " sceduled access Load instruction: " << *access << 
+                        " for the target [" << target->getName() << 
+                        "] in its partition #" << target_partition << 
+                        " at cycle #" << targetTiming.latency-1 << 
+                        " of Block:" << cur_block->getName() << "\n";
+        }
+        
+        if (targetTiming > res)
+            res = targetTiming;
     }
-    
-    if (targetTiming > res)
-        res = targetTiming;
-    // BRAM_log->flush();
+
+    if (DEBUG) BRAM_log->flush();
 
     return res;
 }
@@ -1193,6 +1225,14 @@ HI_WithDirectiveTimingResourceEvaluation::HI_ArrayInfo HI_WithDirectiveTimingRes
     res_array_info.target = target;
 
     matchArrayAndConfiguration(target, res_array_info);
+
+    int totalPartitionNum = getTotalPartitionNum(res_array_info);
+
+    if (!res_array_info.completePartition)
+    {
+        if (res_array_info.sub_element_num[num_dims-1] * res_array_info.dim_size[num_dims-1] == totalPartitionNum)
+            res_array_info.completePartition = 1;
+    }
 
     return res_array_info;
 }

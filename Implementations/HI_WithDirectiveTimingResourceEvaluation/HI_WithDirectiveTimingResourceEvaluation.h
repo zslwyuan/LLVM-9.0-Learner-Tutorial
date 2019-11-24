@@ -175,6 +175,43 @@ class HI_DesignConfigInfo
             cyclicPartitionConfigs.push_back(std::pair<std::string, std::pair<std::string, std::pair<int, int>>>(functionName,std::pair<std::string, std::pair<int, int>>(arrayName, std::pair<int, int>(dim, factor))));
         }
 
+        void insertArrayCompletePartition(std::string functionName, std::string arrayName, int dim)
+        {
+            int cnt=0;
+            for (auto partition_seq : cyclicPartitionConfigs)
+            {
+                if (partition_seq.first == functionName)
+                {
+                    if (partition_seq.second.first == arrayName)
+                    {
+                        if (partition_seq.second.second.first == dim)
+                        {
+                            cyclicPartitionConfigs.erase(cyclicPartitionConfigs.begin()+cnt);
+                            break;
+                        }
+                    }
+                }
+                cnt++;
+            }
+            cnt=0;
+            for (auto partition_seq : blockPartitionConfigs)
+            {
+                if (partition_seq.first == functionName)
+                {
+                    if (partition_seq.second.first == arrayName)
+                    {
+                        if (partition_seq.second.second.first == dim)
+                        {
+                            blockPartitionConfigs.erase(blockPartitionConfigs.begin()+cnt);
+                            break;
+                        }
+                    }
+                }
+                cnt++;
+            }
+            completePartitionConfigs.push_back(std::pair<std::string, std::pair<std::string, int>>(functionName,std::pair<std::string, int>(arrayName, dim)));
+        }
+
         void increaseArrayCyclicPartition(std::string functionName, std::string arrayName, int dim, int factor)
         {
             int cnt=0;
@@ -311,6 +348,7 @@ class HI_DesignConfigInfo
             LoopLabel2UnrollFactor = input.LoopLabel2UnrollFactor;
             loopPipelineConfigs = input.loopPipelineConfigs;
             cyclicPartitionConfigs = input.cyclicPartitionConfigs;
+            completePartitionConfigs = input.completePartitionConfigs;
             blockPartitionConfigs = input.blockPartitionConfigs;
             arrayPortConfigs = input.arrayPortConfigs;
             funcDataflowConfigs = input.funcDataflowConfigs;
@@ -326,6 +364,7 @@ class HI_DesignConfigInfo
             LoopLabel2UnrollFactor = input.LoopLabel2UnrollFactor;
             loopPipelineConfigs = input.loopPipelineConfigs;
             cyclicPartitionConfigs = input.cyclicPartitionConfigs;
+            completePartitionConfigs = input.completePartitionConfigs;
             blockPartitionConfigs = input.blockPartitionConfigs;
             arrayPortConfigs = input.arrayPortConfigs;
             funcDataflowConfigs = input.funcDataflowConfigs;
@@ -339,6 +378,7 @@ class HI_DesignConfigInfo
         std::vector<std::pair<std::string, int>> loopUnrollConfigs;
         std::vector<std::pair<std::string, int>> loopPipelineConfigs;
         std::vector<std::pair<std::string, std::pair<std::string, std::pair<int, int>>>> cyclicPartitionConfigs;
+        std::vector<std::pair<std::string, std::pair<std::string, int>>> completePartitionConfigs;
         std::vector<std::pair<std::string, std::pair<std::string, std::pair<int, int>>>> blockPartitionConfigs;
         std::vector<std::pair<std::string, std::pair<std::string, bool>>> localArrayConfigs;
         std::vector<std::pair<std::string, std::pair<std::string, int>>> arrayPortConfigs;
@@ -1494,6 +1534,7 @@ public:
             bool cyclic[10];
             int num_dims;
             bool isArgument = 0;
+            bool completePartition = 0;
             llvm::Type* elementType;
             Value* target;
             int port_num = -1;
@@ -1517,6 +1558,7 @@ public:
                 target = input.target;
                 isArgument = input.isArgument;
                 port_num = input.port_num;
+                completePartition = input.completePartition;
                 for (int i=0;i<num_dims;i++)
                     dim_size[i] = input.dim_size[i];
                 for (int i=0;i<num_dims;i++)
@@ -1533,6 +1575,7 @@ public:
                 target = input.target;
                 isArgument = input.isArgument;
                 port_num = input.port_num;
+                completePartition = input.completePartition;
                 for (int i=0;i<num_dims;i++)
                     dim_size[i] = input.dim_size[i];
                 for (int i=0;i<num_dims;i++)
@@ -1555,6 +1598,7 @@ public:
             int partition_id[10];
             bool cyclic[10];
 
+            bool completePartition = 0;
 
             int num_dims;
             int partition = -1;
@@ -1596,6 +1640,7 @@ public:
                 initial_offset = input.initial_offset;
                 unpredictable = input.unpredictable;
                 port_num = input.port_num;
+                completePartition = input.completePartition;
                 for (int i=0;i<10;i++)
                 {
                     dim_size[i] = -1;
@@ -1628,6 +1673,7 @@ public:
                 target = input.target;
                 isArgument = input.isArgument;
                 port_num = input.port_num;
+                completePartition = input.completePartition;
                 for (int i=0;i<10;i++)
                 {
                     dim_size[i] = -1;
@@ -1655,6 +1701,7 @@ public:
                 initial_offset = input.initial_offset;
                 unpredictable = input.unpredictable;
                 port_num = input.port_num;
+                completePartition = input.completePartition;
 
                 for (int i=0;i<10;i++)
                 {
@@ -1688,6 +1735,7 @@ public:
                 target = input.target;
                 isArgument = input.isArgument;
                 port_num = input.port_num;
+                completePartition = input.completePartition;
 
                 for (int i=0;i<10;i++)
                 {
@@ -2136,7 +2184,7 @@ public:
             pragmaType HI_PragmaInfoType = unkown_Pragma;
             std::string targetStr,scopeStr, labelStr;
             int II, dim, unroll_factor, partition_factor, port_num;
-            bool cyclic=1, dataflowEnable=0, localArrayEnable=0;;
+            bool cyclic=1, dataflowEnable=0, localArrayEnable=0, complete=0;
             Value* targetArray;
             BasicBlock* targetLoop;
             Function* ScopeFunc;
@@ -2172,6 +2220,8 @@ public:
                 labelStr = input.labelStr;
                 dataflowEnable = input.dataflowEnable;
                 localArrayEnable = input.localArrayEnable;
+                cyclic = input.cyclic;
+                complete = input.complete;
             }
             HI_PragmaInfo& operator=(const HI_PragmaInfo &input)
             {
@@ -2189,6 +2239,8 @@ public:
                 labelStr = input.labelStr;
                 dataflowEnable = input.dataflowEnable;
                 localArrayEnable = input.localArrayEnable;
+                cyclic = input.cyclic;
+                complete = input.complete;
             }
     };
 
@@ -2204,6 +2256,8 @@ public:
         if (lhs.port_num != rhs.port_num) return false;
         if (lhs.dataflowEnable != rhs.dataflowEnable) return false;
         if (lhs.localArrayEnable != rhs.localArrayEnable) return false;
+        if (lhs.cyclic != rhs.cyclic) return false;
+        if (lhs.complete != rhs.complete) return false;
         return true;
     }
 
