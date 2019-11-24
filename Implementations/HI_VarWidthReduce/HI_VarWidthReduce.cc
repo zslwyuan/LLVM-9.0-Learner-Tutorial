@@ -693,6 +693,7 @@ void HI_VarWidthReduce::BOI_WidthCast(BinaryOperator *BOI)
     if (DEBUG) *VarWidthChangeLog << "                         ------->  new_BOI = "<<*newBOI<<"\n";
     // BOI->replaceAllUsesWith(newBOI) ;
     ReplaceUses_withNewOperand_newBW(BOI, newBOI) ;
+    CopyInstMetadata(BOI, newBOI) ;
     if (DEBUG) *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
     //VarWidthChangeLog->flush(); 
     I.eraseFromParent();
@@ -790,6 +791,7 @@ void HI_VarWidthReduce::ICMP_WidthCast(ICmpInst *ICMP_I)
     if (DEBUG) *VarWidthChangeLog << "                         ------->  new_CMP = "<<*newCMP<<"\n";
     // BOI->replaceAllUsesWith(newBOI) ;
     ReplaceUses_withNewOperand_newBW(ICMP_I, newCMP) ;
+    CopyInstMetadata(ICMP_I, newCMP);
     if (DEBUG) *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
     //VarWidthChangeLog->flush(); 
     I.eraseFromParent();
@@ -897,6 +899,7 @@ void HI_VarWidthReduce::PHI_WidthCast(llvm::PHINode *PHI_I)
     
     // BOI->replaceAllUsesWith(newBOI) ;
     ReplaceUses_withNewOperand_newBW(PHI_I, new_PHI) ;
+    CopyInstMetadata(PHI_I, new_PHI);
     if (DEBUG) *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
     //VarWidthChangeLog->flush(); 
     I.eraseFromParent();
@@ -1279,4 +1282,8 @@ bool HI_VarWidthReduce::bypassPTI(const SCEV *S)
     return false;
 }
 
-
+// copy the metadata from one to another
+void HI_VarWidthReduce::CopyInstMetadata(Instruction *oldI, Instruction *newI)
+{
+    newI->copyMetadata(*oldI);
+}

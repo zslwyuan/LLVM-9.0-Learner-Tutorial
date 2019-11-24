@@ -330,7 +330,9 @@ public:
     // Validation Check: Check whether there is any binary operation with operands in different types.
     void VarWidthReduce_Validation(Function *F);
 
-    
+    // copy the metadata from one to another
+    void CopyInstMetadata(Instruction *oldI, Instruction *newI);
+        
     int callCounter;
     int Instruction_Counter;
     int Function_Counter;
