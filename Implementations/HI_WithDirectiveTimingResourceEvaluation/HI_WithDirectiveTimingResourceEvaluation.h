@@ -1336,7 +1336,10 @@ public:
 
     const SCEV* bypassExtTruntSCEV(const SCEV* inputS);
 
-    const SCEV* findUnknown(const SCEV* ori_inputS, int depth=0);
+    const SCEV* findUnknown(const SCEV* ori_inputS);
+
+    // get the unknown values in the expression
+    int getUnknownNum(const SCEV* ori_inputS);
 
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////// Declaration related to Memory Access Tracing ////////////////////  

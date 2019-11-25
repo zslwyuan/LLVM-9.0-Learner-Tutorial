@@ -238,6 +238,15 @@ void HI_MuxInsertionArrayPartition::TryArrayAccessProcess(Instruction *I, Scalar
     //     *ArrayLog << *I << " --> tryGetPureAddOrAddRecSCEV SCEV: " << *tryCleanS << "\n";
     ArrayLog->flush();
 
+    if (getUnknownNum(tmp_S)>1)
+    {
+        // it is a complex SCEV and hard to predict the access pattern, we assume that it could access all possible elements.
+        // in the array
+        if (DEBUG) *ArrayLog << *I << " --> SCEV: " << *tmp_S << " has multiple unknown values in expression. It will be a complex access.\n";
+        handleComplexSCEVAccess(I, tmp_S);
+        return;
+    }
+
     const SCEVAddExpr *SAE = dyn_cast<SCEVAddExpr>(bypassExtTruntSCEV(tmp_S));
 
     if (SAE)
@@ -262,8 +271,7 @@ void HI_MuxInsertionArrayPartition::TryArrayAccessProcess(Instruction *I, Scalar
         handleSAREAccess(I, SARE);
         return;
     }
-    else // it is a complex SCEV and hard to predict the access pattern, we assume that it could access all possible elements.
-            // in the array
+    else 
     {
         
         const SCEVAddRecExpr *SAREtmp = dyn_cast<SCEVAddRecExpr>(bypassExtTruntSCEV(SAE->getOperand(0)));
@@ -279,6 +287,9 @@ void HI_MuxInsertionArrayPartition::TryArrayAccessProcess(Instruction *I, Scalar
         }       
         
     }
+
+    // it is a complex SCEV and hard to predict the access pattern, we assume that it could access all possible elements.
+    // in the array
     handleComplexSCEVAccess(I, tmp_S);
     return;
 }
@@ -363,6 +374,9 @@ const SCEV * HI_MuxInsertionArrayPartition::findTheActualStartValue(const SCEVAd
         }
         else
         {
+            if (DEBUG) ArrayLog->flush();
+            llvm::errs() << "nextStart: " << *nextStart << " and its type is " << nextStart->getSCEVType() << "\n";
+            llvm::errs() << "bypass trunc nextStart: " << *bypassExtTruntSCEV(nextStart) << "\n";
             assert(false && "should not reach here.");
         }
     }
@@ -402,6 +416,7 @@ void HI_MuxInsertionArrayPartition::findTheIncrementalIndexAndTripCount(const SC
         else
         {
             const SCEVAddRecExpr *SARE_bypass = dyn_cast<SCEVAddRecExpr>(nextStart);
+            if (DEBUG) ArrayLog->flush();
             if (SARE_bypass)
                 findTheIncrementalIndexAndTripCount(SARE_bypass, inc_indices, trip_counts);
             else
@@ -526,6 +541,11 @@ HI_MuxInsertionArrayPartition::HI_ArrayInfo HI_MuxInsertionArrayPartition::getAr
     if (Target2ArrayInfo.find(target)!=Target2ArrayInfo.end())
         return Target2ArrayInfo[target];
     PointerType* ptr_type = dyn_cast<PointerType>(target->getType());
+    if (!ptr_type)
+    {
+        llvm::errs() << "  " << "target:" << *target << " is not pointer type.\n";
+        assert(false && "wrong type for array target.");
+    }
     if (DEBUG) *ArrayLog << "\n\nchecking type : " << *ptr_type << " and its ElementType is: [" << *ptr_type->getElementType()  << "]\n";
     Type* tmp_type = ptr_type->getElementType();
     int total_ele = 1;
@@ -572,30 +592,49 @@ HI_MuxInsertionArrayPartition::HI_ArrayInfo HI_MuxInsertionArrayPartition::getAr
                 break;
         }
 
-        if (DEBUG) *ArrayLog << "----- is declared as an argument check [" << FuncName+"-"+argName+"-"+funcLine << "] in FuncParamLine2OutermostSize\n";
-        // ArrayLog->flush();
-        if (FuncParamLine2OutermostSize.find(FuncName+"-"+argName+"-"+funcLine) == FuncParamLine2OutermostSize.end())
-        {
-            llvm::errs() << "ERROR AT:" << FuncName+"-"+argName+"-"+funcLine << "\n";
-            for (auto it : FuncParamLine2OutermostSize)
-            {
-                std::string lab = it.first;
-                int size = it.second;
-                llvm::errs() << "          " << lab+"------" << size << "\n";
-            }
-        }
-        assert(FuncParamLine2OutermostSize.find(FuncName+"-"+argName+"-"+funcLine) != FuncParamLine2OutermostSize.end() && "FuncParamLine2OutermostSize shoud find the target!");
+        
         res_array_info.dim_size[num_dims] = FuncParamLine2OutermostSize[FuncName+"-"+argName+"-"+funcLine]; // set to nearly infinite
         res_array_info.num_dims ++;
         res_array_info.isArgument = 1;
     }
-
+    else
+    {
+        if (auto global_v = dyn_cast<GlobalVariable>(target))
+        {
+            if (num_dims==0)
+            {
+                res_array_info.sub_element_num[num_dims] = 1;               
+                res_array_info.dim_size[num_dims] = 1; // set to nearly infinite
+                res_array_info.num_dims = 1;
+            }
+        }
+    }
+    
     res_array_info.elementType = tmp_type;
     res_array_info.target = target;
 
     matchArrayAndConfiguration(target, res_array_info);
 
+    int totalPartitionNum = getTotalPartitionNum(res_array_info);
+
+    if (!res_array_info.completePartition)
+    {
+        if (res_array_info.sub_element_num[num_dims-1] * res_array_info.dim_size[num_dims-1] == totalPartitionNum)
+            res_array_info.completePartition = 1;
+    }
+
     return res_array_info;
+}
+
+// get the total number of partitions of the target array
+int HI_MuxInsertionArrayPartition::getTotalPartitionNum(HI_ArrayInfo &refInfo)
+{
+    int res = 1;
+    for (int i=0; i<refInfo.num_dims; i++)
+    {
+        res *= refInfo.partition_size[i];
+    }
+    return res;
 }
 
 // get the targer partition for the specific memory access instruction
@@ -831,57 +870,6 @@ bool HI_MuxInsertionArrayPartition::processNaiveAccess(Instruction *Load_or_Stor
     if (Load_or_Store->getOpcode()!=Instruction::Load && Load_or_Store->getOpcode()!=Instruction::Store)
         return false;
 
-    if (Load_or_Store->getParent()->getParent()->getName()=="Z10kernel_2mmiiiiiiPA18_iPA22_iS0_PA24_iS4_.for.cond31.preheader")
-    {
-        Instruction *pointer_I = nullptr;
-        Value *pointer_V = nullptr;
-        if (Load_or_Store->getOpcode()==Instruction::Load)
-        {
-            pointer_I = dyn_cast<Instruction>(Load_or_Store->getOperand(0));
-            pointer_V = (Load_or_Store->getOperand(0));
-        }
-        else
-        {
-            pointer_I = dyn_cast<Instruction>(Load_or_Store->getOperand(1));
-            pointer_V = (Load_or_Store->getOperand(1));
-        }
-        Value *address_addI = nullptr;
-        if (!pointer_I && pointer_V)
-        {
-            Value *target = pointer_V;
-            if (Target2ArrayInfo.find(target) == Target2ArrayInfo.end())
-            {
-                if (Alias2Target.find(target) != Alias2Target.end()) // it could be argument. We need to trace back to get its original array declaration
-                {
-                    target = Alias2Target[target];
-                }
-                else
-                {
-                    llvm::errs() << "ERRORS: cannot find target [" << *target << "] in Target2ArrayInfo and its address=" 
-                                    << target << "\n";
-                    assert(Target2ArrayInfo.find(target) != Target2ArrayInfo.end() 
-                                && Alias2Target.find(target) != Alias2Target.end()
-                                && "Fail to find the array inforamtion for the target.");
-                }
-            }
-            if (target->getName() == "C")
-            {
-                int u=0;
-            }
-            if (auto arg_pointer = dyn_cast<Argument>(target))
-            {
-                AddressInst2AccessInfo[target] = getAccessInfoFor(target, Load_or_Store, 0, nullptr, nullptr);
-                if (DEBUG) *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[target] << "\n\n\n";
-                // ArrayLog->flush();
-            }
-            else if (auto alloc_pointer = dyn_cast<AllocaInst>(target))
-            {
-                AddressInst2AccessInfo[target] = getAccessInfoFor(target, Load_or_Store, 0, nullptr, nullptr);
-                if (DEBUG) *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[target] << "\n\n\n";
-                // ArrayLog->flush();
-            }
-        }
-    }
     Instruction *pointer_I = nullptr;
     Value *pointer_V = nullptr;
     if (Load_or_Store->getOpcode()==Instruction::Load)
@@ -924,6 +912,11 @@ bool HI_MuxInsertionArrayPartition::processNaiveAccess(Instruction *Load_or_Stor
             AddressInst2AccessInfo[target] = getAccessInfoFor(target, Load_or_Store, 0, nullptr, nullptr);
             if (DEBUG) *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[target] << "\n\n\n";
             // ArrayLog->flush();
+        }
+        else if (auto GV = dyn_cast<GlobalVariable>(target))
+        {
+            AddressInst2AccessInfo[target] = getAccessInfoFor(target, Load_or_Store, 0, nullptr, nullptr);
+            if (DEBUG) *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[target] << "\n\n\n";
         }
     }
 
@@ -1214,6 +1207,7 @@ void HI_MuxInsertionArrayPartition::handleUnstandardSCEVAccess(Instruction *I, c
         if (DEBUG) *ArrayLog << " -----> tripcount value: ";
         if (DEBUG) for (auto trip_count_tmp : trip_counts) *ArrayLog << trip_count_tmp  << " ";
         if (DEBUG)  *ArrayLog << "\n";
+        if (DEBUG) ArrayLog->flush();
         // ArrayLog->flush();
 
         const SCEV *initial_expr_tmp = findTheActualStartValue(SARE);
@@ -1233,6 +1227,7 @@ void HI_MuxInsertionArrayPartition::handleUnstandardSCEVAccess(Instruction *I, c
             // some time, using 2-complement will end with fake negative initial offset
             if (initial_const<0)
             {
+                if (DEBUG) ArrayLog->flush();
                 llvm::errs() << " -----> intial offset const: " << initial_const <<"\n";
                 llvm::errs() << "    -----> (1<<getMinSignedBits)-1 " 
                              << ((initial_const)&((1<<initial_const_scev->getAPInt().getMinSignedBits())-1)) 
@@ -1445,37 +1440,29 @@ const SCEV* HI_MuxInsertionArrayPartition::bypassExtTruntSCEV(const SCEV* inputS
 }
 
 
-const SCEV* HI_MuxInsertionArrayPartition::findUnknown(const SCEV* ori_inputS, int depth)
+const SCEV* HI_MuxInsertionArrayPartition::findUnknown(const SCEV* ori_inputS)
 {
     const SCEV* inputS = bypassExtTruntSCEV(ori_inputS);
-    if (auto addSCEV = dyn_cast<SCEVAddExpr>(inputS))
+    const SCEVNAryExpr* naryS = dyn_cast<SCEVNAryExpr>(inputS);
+    const SCEVUDivExpr* divS = dyn_cast<SCEVUDivExpr>(inputS);
+    if (naryS)
     {
-        for (int i=0; i<addSCEV->getNumOperands(); i++)
+        for (int i = 0; i<naryS->getNumOperands(); i++)
         {
-            const SCEV *opSCEV = addSCEV->getOperand(i);
-            const SCEV *clear_opSCEV = findUnknown(opSCEV, depth+1);
-            if (clear_opSCEV)
-            {
-                return clear_opSCEV;
-            }
+            const SCEV *tmp = findUnknown(naryS->getOperand(i));
+            if (tmp)
+                return tmp;
         }
-        return nullptr;
     }
-    else if (auto addrecSCEV = dyn_cast<SCEVAddRecExpr>(inputS))
+    else if (divS)
     {
-        if (DEBUG) *ArrayLog << "      " << *inputS << " is SCEVAddRecExpr\n";
-        const SCEV *start = findUnknown(addrecSCEV->getStart(), depth+1);
-        const SCEV *step = findUnknown(addrecSCEV->getStepRecurrence(*SE),depth+1);
-        if (start)
-            return start;
-        if (step)
-            return step;
-        return nullptr;
-    }
-    else if (auto constSCEV = dyn_cast<SCEVConstant>(inputS))
-    {
-        return nullptr;
-    }
+        const SCEV *tmp0 = findUnknown(divS->getLHS());
+        if (tmp0)
+            return tmp0;
+        const SCEV *tmp1 = findUnknown(divS->getRHS());
+        if (tmp1)
+            return tmp1;
+    } 
     else if (auto unknown = dyn_cast<SCEVUnknown>(inputS))
     {
         return unknown;
@@ -1483,6 +1470,33 @@ const SCEV* HI_MuxInsertionArrayPartition::findUnknown(const SCEV* ori_inputS, i
     else
     {
         return nullptr;
+    }    
+}
+
+
+// get the unknown values in the expression
+int HI_MuxInsertionArrayPartition::getUnknownNum(const SCEV* ori_inputS)
+{
+    int res = 0;
+    const SCEV* inputS = bypassExtTruntSCEV(ori_inputS);
+    const SCEVNAryExpr* naryS = dyn_cast<SCEVNAryExpr>(inputS);
+    const SCEVUDivExpr* divS = dyn_cast<SCEVUDivExpr>(inputS);
+    if (naryS)
+    {
+        for (int i = 0; i<naryS->getNumOperands(); i++)
+        {
+            res += getUnknownNum(naryS->getOperand(i));
+        }
     }
-    
+    else if (divS)
+    {
+        res += getUnknownNum(divS->getLHS());
+        res += getUnknownNum(divS->getRHS());
+    } 
+    else if (auto unknown = dyn_cast<SCEVUnknown>(inputS))
+    {
+        res = 1;
+    }
+
+    return res;
 }

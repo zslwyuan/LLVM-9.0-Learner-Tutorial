@@ -871,10 +871,20 @@ void HI_WithDirectiveTimingResourceEvaluation::TryArrayAccessProcess(Instruction
 
     if (DEBUG) *ArrayLog << *I << " --> SCEV: " << *tmp_S << "\n";  
 
+
     // const SCEV *tryCleanS = tryGetPureAddOrAddRecSCEV(tmp_S, 0);
     // if (tryCleanS)
     //     *ArrayLog << *I << " --> tryGetPureAddOrAddRecSCEV SCEV: " << *tryCleanS << "\n";
     ArrayLog->flush();
+
+    if (getUnknownNum(tmp_S)>1)
+    {
+        // it is a complex SCEV and hard to predict the access pattern, we assume that it could access all possible elements.
+        // in the array
+        if (DEBUG) *ArrayLog << *I << " --> SCEV: " << *tmp_S << " has multiple unknown values in expression. It will be a complex access.\n";
+        handleComplexSCEVAccess(I, tmp_S);
+        return;
+    }
 
     const SCEVAddExpr *SAE = dyn_cast<SCEVAddExpr>(bypassExtTruntSCEV(tmp_S));
 
@@ -900,16 +910,13 @@ void HI_WithDirectiveTimingResourceEvaluation::TryArrayAccessProcess(Instruction
         handleSAREAccess(I, SARE);
         return;
     }
-    else // it is a complex SCEV and hard to predict the access pattern, we assume that it could access all possible elements.
-            // in the array
-    {
-        
+    else
+    {        
         const SCEVAddRecExpr *SAREtmp = dyn_cast<SCEVAddRecExpr>(bypassExtTruntSCEV(SAE->getOperand(0)));
         const SCEVUnknown *SU = dyn_cast<SCEVUnknown>(findUnknown(tmp_S));
         const PtrToIntInst *PTI_I = dyn_cast<PtrToIntInst>(SU->getValue());
         if (SAE && SAREtmp && SU && PTI_I)
-        {
-            
+        {            
             // example :   ({{100,+,1}<nuw><nsw><%for.cond1.preheader>,+,200}<nuw><%for.body4> + %0)
             if (DEBUG) *ArrayLog << *I << " --> is a transformed SCEV\n";
             handleUnstandardSCEVAccess(I, tmp_S);
@@ -917,6 +924,9 @@ void HI_WithDirectiveTimingResourceEvaluation::TryArrayAccessProcess(Instruction
         }       
         
     }
+
+    // it is a complex SCEV and hard to predict the access pattern, we assume that it could access all possible elements.
+    // in the array
     handleComplexSCEVAccess(I, tmp_S);
     return;
 }
@@ -1169,6 +1179,11 @@ HI_WithDirectiveTimingResourceEvaluation::HI_ArrayInfo HI_WithDirectiveTimingRes
     if (Target2ArrayInfo.find(target)!=Target2ArrayInfo.end())
         return Target2ArrayInfo[target];
     PointerType* ptr_type = dyn_cast<PointerType>(target->getType());
+    if (!ptr_type)
+    {
+        llvm::errs() << "  " << "target:" << *target << " is not pointer type.\n";
+        assert(false && "wrong type for array target.");
+    }
     if (DEBUG) *ArrayLog << "\n\nchecking type : " << *ptr_type << " and its ElementType is: [" << *ptr_type->getElementType()  << "]\n";
     Type* tmp_type = ptr_type->getElementType();
     int total_ele = 1;
@@ -1220,7 +1235,19 @@ HI_WithDirectiveTimingResourceEvaluation::HI_ArrayInfo HI_WithDirectiveTimingRes
         res_array_info.num_dims ++;
         res_array_info.isArgument = 1;
     }
-
+    else
+    {
+        if (auto global_v = dyn_cast<GlobalVariable>(target))
+        {
+            if (num_dims==0)
+            {
+                res_array_info.sub_element_num[num_dims] = 1;               
+                res_array_info.dim_size[num_dims] = 1; // set to nearly infinite
+                res_array_info.num_dims = 1;
+            }
+        }
+    }
+    
     res_array_info.elementType = tmp_type;
     res_array_info.target = target;
 
@@ -1798,13 +1825,18 @@ bool HI_WithDirectiveTimingResourceEvaluation::processNaiveAccess(Instruction *L
         {
             AddressInst2AccessInfo[target] = getAccessInfoFor(target, Load_or_Store, 0, nullptr, nullptr);
             if (DEBUG) *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[target] << "\n\n\n";
-            // ArrayLog->flush();
+            if (DEBUG) ArrayLog->flush();
         }
         else if (auto alloc_pointer = dyn_cast<AllocaInst>(target))
         {
             AddressInst2AccessInfo[target] = getAccessInfoFor(target, Load_or_Store, 0, nullptr, nullptr);
             if (DEBUG) *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[target] << "\n\n\n";
-            // ArrayLog->flush();
+            if (DEBUG) ArrayLog->flush();
+        }
+        else if (auto GV = dyn_cast<GlobalVariable>(target))
+        {
+            AddressInst2AccessInfo[target] = getAccessInfoFor(target, Load_or_Store, 0, nullptr, nullptr);
+            if (DEBUG) *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[target] << "\n\n\n";
         }
     }
 

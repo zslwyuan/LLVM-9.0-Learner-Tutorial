@@ -80,22 +80,249 @@ class HI_DesignConfigInfo
 
         void insertLoopUnroll(std::string loopLabel, int factor)
         {
+            int cnt=0;
+            for (auto unroll_pair : loopUnrollConfigs)
+            {
+                if (unroll_pair.first == loopLabel)
+                {
+                    loopUnrollConfigs.erase(loopUnrollConfigs.begin()+cnt);
+                    break;
+                }
+                cnt++;
+            }
             loopUnrollConfigs.push_back(std::pair<std::string, int>(loopLabel,factor));
+            LoopLabel2UnrollFactor[loopLabel] = factor;
+        }
+
+        void eraseLoopPipeline(std::string loopLabel)
+        {
+            int cnt=0;
+            for (auto pipeline_pair : loopPipelineConfigs)
+            {
+                if (pipeline_pair.first == loopLabel)
+                {
+                    loopPipelineConfigs.erase(loopPipelineConfigs.begin()+cnt);
+                    break;
+                }
+                cnt++;
+            }
         }
 
         void insertLoopPipeline(std::string loopLabel, int II)
         {
+            int cnt=0;
+            for (auto pipeline_pair : loopPipelineConfigs)
+            {
+                if (pipeline_pair.first == loopLabel)
+                {
+                    loopPipelineConfigs.erase(loopPipelineConfigs.begin()+cnt);
+                    break;
+                }
+                cnt++;
+            }
             loopPipelineConfigs.push_back(std::pair<std::string, int>(loopLabel,II));
         }
 
         void insertArrayCyclicPartition(std::string functionName, std::string arrayName, int dim, int factor)
         {
+            int cnt=0;
+            for (auto partition_seq : cyclicPartitionConfigs)
+            {
+                if (partition_seq.first == functionName)
+                {
+                    if (partition_seq.second.first == arrayName)
+                    {
+                        if (partition_seq.second.second.first == dim)
+                        {
+                            cyclicPartitionConfigs.erase(cyclicPartitionConfigs.begin()+cnt);
+                            break;
+                        }
+                    }
+                }
+                cnt++;
+            }
+            cnt=0;
+            for (auto partition_seq : blockPartitionConfigs)
+            {
+                if (partition_seq.first == functionName)
+                {
+                    if (partition_seq.second.first == arrayName)
+                    {
+                        if (partition_seq.second.second.first == dim)
+                        {
+                            blockPartitionConfigs.erase(blockPartitionConfigs.begin()+cnt);
+                            break;
+                        }
+                    }
+                }
+                cnt++;
+            }
             cyclicPartitionConfigs.push_back(std::pair<std::string, std::pair<std::string, std::pair<int, int>>>(functionName,std::pair<std::string, std::pair<int, int>>(arrayName, std::pair<int, int>(dim, factor))));
+        }
+
+        void insertArrayCompletePartition(std::string functionName, std::string arrayName, int dim)
+        {
+            int cnt=0;
+            for (auto partition_seq : cyclicPartitionConfigs)
+            {
+                if (partition_seq.first == functionName)
+                {
+                    if (partition_seq.second.first == arrayName)
+                    {
+                        if (partition_seq.second.second.first == dim)
+                        {
+                            cyclicPartitionConfigs.erase(cyclicPartitionConfigs.begin()+cnt);
+                            break;
+                        }
+                    }
+                }
+                cnt++;
+            }
+            cnt=0;
+            for (auto partition_seq : blockPartitionConfigs)
+            {
+                if (partition_seq.first == functionName)
+                {
+                    if (partition_seq.second.first == arrayName)
+                    {
+                        if (partition_seq.second.second.first == dim)
+                        {
+                            blockPartitionConfigs.erase(blockPartitionConfigs.begin()+cnt);
+                            break;
+                        }
+                    }
+                }
+                cnt++;
+            }
+            completePartitionConfigs.push_back(std::pair<std::string, std::pair<std::string, int>>(functionName,std::pair<std::string, int>(arrayName, dim)));
+        }
+
+        void increaseArrayCyclicPartition(std::string functionName, std::string arrayName, int dim, int factor)
+        {
+            int cnt=0;
+            for (auto partition_seq : cyclicPartitionConfigs)
+            {
+                if (partition_seq.first == functionName)
+                {
+                    if (partition_seq.second.first == arrayName)
+                    {
+                        if (partition_seq.second.second.first == dim)
+                        {
+                            if (partition_seq.second.second.second < factor)
+                            {
+                                cyclicPartitionConfigs.erase(cyclicPartitionConfigs.begin()+cnt);
+                                break;
+                            }
+                            else
+                            {
+                                return;
+                            }
+                        }
+                    }
+                }
+                cnt++;
+            }
+            cnt=0;
+            for (auto partition_seq : blockPartitionConfigs)
+            {
+                if (partition_seq.first == functionName)
+                {
+                    if (partition_seq.second.first == arrayName)
+                    {
+                        if (partition_seq.second.second.second < factor)
+                        {
+                            blockPartitionConfigs.erase(blockPartitionConfigs.begin()+cnt);
+                            break;
+                        }
+                        else
+                        {
+                            return;
+                        }
+                    }
+                }
+                cnt++;
+            }
+            cyclicPartitionConfigs.push_back(std::pair<std::string, std::pair<std::string, std::pair<int, int>>>(functionName,std::pair<std::string, std::pair<int, int>>(arrayName, std::pair<int, int>(dim, factor))));
+        }
+
+        void eraseArrayPartition(std::string functionName, std::string arrayName)
+        {
+            int cnt=0;
+            for (auto partition_seq : cyclicPartitionConfigs)
+            {
+                if (partition_seq.first == functionName)
+                {
+                    if (partition_seq.second.first == arrayName)
+                    {
+                        cyclicPartitionConfigs.erase(cyclicPartitionConfigs.begin()+cnt);
+                    }
+                }
+                cnt++;
+            }
+            cnt=0;
+            for (auto partition_seq : blockPartitionConfigs)
+            {
+                if (partition_seq.first == functionName)
+                {
+                    if (partition_seq.second.first == arrayName)
+                    {
+                        blockPartitionConfigs.erase(blockPartitionConfigs.begin()+cnt);
+                    }
+                }
+                cnt++;
+            }
         }
 
         void insertArrayblockPartition(std::string functionName, std::string arrayName, int dim, int factor)
         {
+            int cnt=0;
+            for (auto partition_seq : cyclicPartitionConfigs)
+            {
+                if (partition_seq.first == functionName)
+                {
+                    if (partition_seq.second.first == arrayName)
+                    {
+                        if (partition_seq.second.second.first == dim)
+                        {
+                            cyclicPartitionConfigs.erase(cyclicPartitionConfigs.begin()+cnt);
+                            break;
+                        }
+                    }
+                }
+                cnt++;
+            }
+            cnt=0;
+            for (auto partition_seq : blockPartitionConfigs)
+            {
+                if (partition_seq.first == functionName)
+                {
+                    if (partition_seq.second.first == arrayName)
+                    {
+                        if (partition_seq.second.second.first == dim)
+                        {
+                            blockPartitionConfigs.erase(blockPartitionConfigs.begin()+cnt);
+                            break;
+                        }
+                    }
+                }
+                cnt++;
+            }
             blockPartitionConfigs.push_back(std::pair<std::string, std::pair<std::string, std::pair<int, int>>>(functionName,std::pair<std::string, std::pair<int, int>>(arrayName, std::pair<int, int>(dim, factor))));
+        }
+
+        void insertArrayPortNum(std::string functionName, std::string arrayName, int port_num)
+        {
+            arrayPortConfigs.push_back(std::pair<std::string, std::pair<std::string, int>>(functionName,std::pair<std::string, int>(arrayName, port_num)));
+        }
+
+        void insertFuncDataflow(std::string functioName, bool enable)
+        {
+            funcDataflowConfigs.push_back(std::pair<std::string,bool>(functioName,enable));
+        }
+
+        void insertLocalArray(std::string functionName, std::string arrayName, bool enable)
+        {
+            localArrayConfigs.push_back(std::pair<std::string, std::pair<std::string, bool>>(functionName,std::pair<std::string, bool>(arrayName, enable)));
         }
 
         HI_DesignConfigInfo (const HI_DesignConfigInfo &input)
@@ -103,9 +330,14 @@ class HI_DesignConfigInfo
             clock_period = input.clock_period;
             clock_period_str = input.clock_period_str;
             loopUnrollConfigs = input.loopUnrollConfigs;
+            LoopLabel2UnrollFactor = input.LoopLabel2UnrollFactor;
             loopPipelineConfigs = input.loopPipelineConfigs;
             cyclicPartitionConfigs = input.cyclicPartitionConfigs;
+            completePartitionConfigs = input.completePartitionConfigs;
             blockPartitionConfigs = input.blockPartitionConfigs;
+            arrayPortConfigs = input.arrayPortConfigs;
+            funcDataflowConfigs = input.funcDataflowConfigs;
+            localArrayConfigs = input.localArrayConfigs;
             HLS_lib_path = input.HLS_lib_path;
         }
 
@@ -114,9 +346,14 @@ class HI_DesignConfigInfo
             clock_period = input.clock_period;
             clock_period_str = input.clock_period_str;
             loopUnrollConfigs = input.loopUnrollConfigs;
+            LoopLabel2UnrollFactor = input.LoopLabel2UnrollFactor;
             loopPipelineConfigs = input.loopPipelineConfigs;
             cyclicPartitionConfigs = input.cyclicPartitionConfigs;
+            completePartitionConfigs = input.completePartitionConfigs;
             blockPartitionConfigs = input.blockPartitionConfigs;
+            arrayPortConfigs = input.arrayPortConfigs;
+            funcDataflowConfigs = input.funcDataflowConfigs;
+            localArrayConfigs = input.localArrayConfigs;
             HLS_lib_path = input.HLS_lib_path;
         }
 
@@ -126,7 +363,12 @@ class HI_DesignConfigInfo
         std::vector<std::pair<std::string, int>> loopUnrollConfigs;
         std::vector<std::pair<std::string, int>> loopPipelineConfigs;
         std::vector<std::pair<std::string, std::pair<std::string, std::pair<int, int>>>> cyclicPartitionConfigs;
+        std::vector<std::pair<std::string, std::pair<std::string, int>>> completePartitionConfigs;
         std::vector<std::pair<std::string, std::pair<std::string, std::pair<int, int>>>> blockPartitionConfigs;
+        std::vector<std::pair<std::string, std::pair<std::string, bool>>> localArrayConfigs;
+        std::vector<std::pair<std::string, std::pair<std::string, int>>> arrayPortConfigs;
+        std::vector<std::pair<std::string, bool>> funcDataflowConfigs;
+        std::map<std::string, int> LoopLabel2UnrollFactor;
         
 };
 
@@ -332,7 +574,10 @@ public:
 
     const SCEV* bypassExtTruntSCEV(const SCEV* inputS);
 
-    const SCEV* findUnknown(const SCEV* ori_inputS, int depth=0);
+    const SCEV* findUnknown(const SCEV* ori_inputS);
+
+    // get the unknown values in the expression
+    int getUnknownNum(const SCEV* ori_inputS);
 
     // get the initial index of the array access in the loop
     const SCEV* findTheActualStartValue(const SCEVAddRecExpr *S);
@@ -348,6 +593,10 @@ public:
     // get the exact access information for a specific load or store information
     HI_AccessInfo getAccessInfoForAccessInst(Instruction* Load_or_Store);
     
+
+    // get the total number of partitions of the target array
+    int getTotalPartitionNum(HI_ArrayInfo &refInfo);
+
     // get the targer partition according to the specific memory access instruction
     std::vector<partition_info> getPartitionFor(Instruction* access);
     
@@ -386,8 +635,10 @@ public:
             bool cyclic[10];
             int num_dims;
             bool isArgument = 0;
+            bool completePartition = 0;
             llvm::Type* elementType;
             Value* target;
+            int port_num = -1;
             HI_ArrayInfo()
             {
                 num_dims = 10;
@@ -407,6 +658,8 @@ public:
                 num_dims = input.num_dims;
                 target = input.target;
                 isArgument = input.isArgument;
+                port_num = input.port_num;
+                completePartition = input.completePartition;
                 for (int i=0;i<num_dims;i++)
                     dim_size[i] = input.dim_size[i];
                 for (int i=0;i<num_dims;i++)
@@ -422,6 +675,8 @@ public:
                 num_dims = input.num_dims;
                 target = input.target;
                 isArgument = input.isArgument;
+                port_num = input.port_num;
+                completePartition = input.completePartition;
                 for (int i=0;i<num_dims;i++)
                     dim_size[i] = input.dim_size[i];
                 for (int i=0;i<num_dims;i++)
@@ -444,6 +699,7 @@ public:
             int partition_id[10];
             bool cyclic[10];
 
+            bool completePartition = 0;
 
             int num_dims;
             int partition = -1;
@@ -455,6 +711,8 @@ public:
             int reverse_loop_dep = -1;
             llvm::Type* elementType;
             Value* target;
+            int port_num = -1;
+
             HI_AccessInfo()
             {
                 num_dims = 10;
@@ -473,6 +731,7 @@ public:
             }
             HI_AccessInfo(const HI_AccessInfo &input)
             {
+                assert(input.target);
                 assert(input.num_dims>0);
                 elementType = input.elementType;
                 num_dims = input.num_dims;
@@ -481,6 +740,8 @@ public:
                 partition = input.partition;
                 initial_offset = input.initial_offset;
                 unpredictable = input.unpredictable;
+                port_num = input.port_num;
+                completePartition = input.completePartition;
                 for (int i=0;i<10;i++)
                 {
                     dim_size[i] = -1;
@@ -507,10 +768,13 @@ public:
             }
             HI_AccessInfo(const HI_ArrayInfo &input)
             {
+                assert(input.target);
                 elementType = input.elementType;
                 num_dims = input.num_dims;
                 target = input.target;
                 isArgument = input.isArgument;
+                port_num = input.port_num;
+                completePartition = input.completePartition;
                 for (int i=0;i<10;i++)
                 {
                     dim_size[i] = -1;
@@ -528,6 +792,7 @@ public:
             }
             HI_AccessInfo& operator=(const HI_AccessInfo &input)
             {
+                assert(input.target);
                 assert(input.num_dims>0);
                 elementType = input.elementType;
                 num_dims = input.num_dims;
@@ -536,6 +801,9 @@ public:
                 partition = input.partition;
                 initial_offset = input.initial_offset;
                 unpredictable = input.unpredictable;
+                port_num = input.port_num;
+                completePartition = input.completePartition;
+
                 for (int i=0;i<10;i++)
                 {
                     dim_size[i] = -1;
@@ -562,10 +830,14 @@ public:
             }
             HI_AccessInfo& operator=(const HI_ArrayInfo &input)
             {
+                assert(input.target);
                 elementType = input.elementType;
                 num_dims = input.num_dims;
                 target = input.target;
                 isArgument = input.isArgument;
+                port_num = input.port_num;
+                completePartition = input.completePartition;
+
                 for (int i=0;i<10;i++)
                 {
                     dim_size[i] = -1;
@@ -589,6 +861,7 @@ public:
                     partition_id[i] = input.partition_id[i];
             }
     };
+
 
     class partition_info
     {
@@ -761,11 +1034,19 @@ public:
     class HI_PragmaInfo
     {
         public:
-            enum pragmaType {arrayPartition_Pragma, loopUnroll_Pragma, loopPipeline_Pragma, unkown_Pragma};
+            enum pragmaType {
+                                arrayPartition_Pragma, 
+                                loopUnroll_Pragma, 
+                                loopPipeline_Pragma, 
+                                arrayPortNum_Pragma, 
+                                funcDataflow_Pragma,
+                                localArray_Pragma,
+                                unkown_Pragma
+                            };
             pragmaType HI_PragmaInfoType = unkown_Pragma;
             std::string targetStr,scopeStr, labelStr;
-            int II, dim, unroll_factor, partition_factor;
-            bool cyclic=1;
+            int II, dim, unroll_factor, partition_factor, port_num;
+            bool cyclic=1, dataflowEnable=0, localArrayEnable=0, complete=0;
             Value* targetArray;
             BasicBlock* targetLoop;
             Function* ScopeFunc;
@@ -776,6 +1057,7 @@ public:
                 unroll_factor = -1;
                 partition_factor = -1;
                 dim = -1;
+                port_num = -1;
                 HI_PragmaInfoType = unkown_Pragma;
                 targetArray = nullptr;
                 targetLoop = nullptr;
@@ -786,6 +1068,7 @@ public:
             }
             HI_PragmaInfo(const HI_PragmaInfo &input)
             {
+                port_num = input.port_num;
                 II = input.II; 
                 unroll_factor = input.unroll_factor;
                 dim = input.dim;
@@ -797,9 +1080,14 @@ public:
                 scopeStr = input.scopeStr;
                 ScopeFunc = input.ScopeFunc;
                 labelStr = input.labelStr;
+                dataflowEnable = input.dataflowEnable;
+                localArrayEnable = input.localArrayEnable;
+                cyclic = input.cyclic;
+                complete = input.complete;
             }
             HI_PragmaInfo& operator=(const HI_PragmaInfo &input)
             {
+                port_num = input.port_num;
                 II = input.II; 
                 unroll_factor = input.unroll_factor;
                 dim = input.dim;
@@ -811,6 +1099,10 @@ public:
                 scopeStr = input.scopeStr;
                 ScopeFunc = input.ScopeFunc;
                 labelStr = input.labelStr;
+                dataflowEnable = input.dataflowEnable;
+                localArrayEnable = input.localArrayEnable;
+                cyclic = input.cyclic;
+                complete = input.complete;
             }
     };
 
@@ -823,8 +1115,14 @@ public:
         if (lhs.dim != rhs.dim) return false;
         if (lhs.scopeStr != rhs.scopeStr) return false;
         if (lhs.targetStr != rhs.targetStr) return false;
+        if (lhs.port_num != rhs.port_num) return false;
+        if (lhs.dataflowEnable != rhs.dataflowEnable) return false;
+        if (lhs.localArrayEnable != rhs.localArrayEnable) return false;
+        if (lhs.cyclic != rhs.cyclic) return false;
+        if (lhs.complete != rhs.complete) return false;
         return true;
     }
+
 
     // Pass for simple evluation of the latency of the top function, without considering HLS directives
     void Parse_Config();
@@ -832,8 +1130,20 @@ public:
     // parse the argument for array partitioning
     void parseArrayPartition(std::stringstream &iss);
 
+    // parse the argument for array port number setting
+    void parseArrayPortNum(std::stringstream &iss);
+
+    // parse the argument for  function dataflow
+    void parseFuncDataflow(std::stringstream &iss);
+
+    // parse the argument for local array settting
+    void parseLocalArray(std::stringstream &iss);
+
     // parse the argument for loop pipelining
     void parseLoopPipeline(std::stringstream &iss);
+
+    // parse the argument for loop unrolling
+    void parseLoopUnroll(std::stringstream &iss);
 
     // match the configuration and the corresponding declaration of memory (array)
     void matchArrayAndConfiguration(Value* target, HI_ArrayInfo& resArrayInfo);

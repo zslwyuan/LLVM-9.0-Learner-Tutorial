@@ -70,38 +70,57 @@ using namespace llvm;
 //     return getAddRecExpr(NewOp, L, Flags);
 //   }
 
+// get the unknown values in the expression
+int HI_WithDirectiveTimingResourceEvaluation::getUnknownNum(const SCEV* ori_inputS)
+{
+    int res = 0;
+    const SCEV* inputS = bypassExtTruntSCEV(ori_inputS);
+    const SCEVNAryExpr* naryS = dyn_cast<SCEVNAryExpr>(inputS);
+    const SCEVUDivExpr* divS = dyn_cast<SCEVUDivExpr>(inputS);
+    if (naryS)
+    {
+        for (int i = 0; i<naryS->getNumOperands(); i++)
+        {
+            res += getUnknownNum(naryS->getOperand(i));
+        }
+    }
+    else if (divS)
+    {
+        res += getUnknownNum(divS->getLHS());
+        res += getUnknownNum(divS->getRHS());
+    } 
+    else if (auto unknown = dyn_cast<SCEVUnknown>(inputS))
+    {
+        res = 1;
+    }
 
-const SCEV* HI_WithDirectiveTimingResourceEvaluation::findUnknown(const SCEV* ori_inputS, int depth)
+    return res;
+}
+
+
+const SCEV* HI_WithDirectiveTimingResourceEvaluation::findUnknown(const SCEV* ori_inputS)
 {
     const SCEV* inputS = bypassExtTruntSCEV(ori_inputS);
-    if (auto addSCEV = dyn_cast<SCEVAddExpr>(inputS))
+    const SCEVNAryExpr* naryS = dyn_cast<SCEVNAryExpr>(inputS);
+    const SCEVUDivExpr* divS = dyn_cast<SCEVUDivExpr>(inputS);
+    if (naryS)
     {
-        for (int i=0; i<addSCEV->getNumOperands(); i++)
+        for (int i = 0; i<naryS->getNumOperands(); i++)
         {
-            const SCEV *opSCEV = addSCEV->getOperand(i);
-            const SCEV *clear_opSCEV = findUnknown(opSCEV, depth+1);
-            if (clear_opSCEV)
-            {
-                return clear_opSCEV;
-            }
+            const SCEV *tmp = findUnknown(naryS->getOperand(i));
+            if (tmp)
+                return tmp;
         }
-        return nullptr;
     }
-    else if (auto addrecSCEV = dyn_cast<SCEVAddRecExpr>(inputS))
+    else if (divS)
     {
-        if (DEBUG) *ArrayLog << "      " << *inputS << " is SCEVAddRecExpr\n";
-        const SCEV *start = findUnknown(addrecSCEV->getStart(), depth+1);
-        const SCEV *step = findUnknown(addrecSCEV->getStepRecurrence(*SE),depth+1);
-        if (start)
-            return start;
-        if (step)
-            return step;
-        return nullptr;
-    }
-    else if (auto constSCEV = dyn_cast<SCEVConstant>(inputS))
-    {
-        return nullptr;
-    }
+        const SCEV *tmp0 = findUnknown(divS->getLHS());
+        if (tmp0)
+            return tmp0;
+        const SCEV *tmp1 = findUnknown(divS->getRHS());
+        if (tmp1)
+            return tmp1;
+    } 
     else if (auto unknown = dyn_cast<SCEVUnknown>(inputS))
     {
         return unknown;
@@ -109,8 +128,7 @@ const SCEV* HI_WithDirectiveTimingResourceEvaluation::findUnknown(const SCEV* or
     else
     {
         return nullptr;
-    }
-    
+    }    
 }
 
 

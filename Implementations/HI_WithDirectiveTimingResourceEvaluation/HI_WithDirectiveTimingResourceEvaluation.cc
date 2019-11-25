@@ -187,7 +187,12 @@ void HI_WithDirectiveTimingResourceEvaluation::TraceMemoryDeclarationAndAnalyzeA
         if (auto GV = dyn_cast<GlobalVariable>(&it))
         {
             if (DEBUG) *ArrayLog << it << " is a global variable\n";
-            TraceAccessForTarget(&it,&it);
+            if (DEBUG) *ArrayLog << "  get array information of [" << it.getName() << "] from argument and its address=" << &it << "\n";
+            Target2ArrayInfo[&it]=getArrayInfo(&it);
+            TraceAccessForTarget(&it,&it);   
+            Instruction2Target[&it].push_back(&it);      
+            if (DEBUG) *ArrayLog << Target2ArrayInfo[&it] << "\n";
+            if (DEBUG) ArrayLog->flush();
         }        
     }
     for (auto &F : M)

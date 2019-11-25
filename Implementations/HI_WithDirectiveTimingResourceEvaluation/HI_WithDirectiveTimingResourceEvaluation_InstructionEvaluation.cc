@@ -1144,6 +1144,7 @@ Instruction* HI_WithDirectiveTimingResourceEvaluation::byPassUnregisterOp(Instru
         }
         else
         {
+            llvm::errs() << "For instruction : " << *cur_I << "\n";
             assert(false && "Predecessor of bitcast operator should be found.\n");
         }
     }
