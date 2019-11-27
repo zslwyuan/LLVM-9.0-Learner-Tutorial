@@ -190,7 +190,7 @@ void HI_WithDirectiveTimingResourceEvaluation::TraceMemoryDeclarationAndAnalyzeA
             if (DEBUG) *ArrayLog << "  get array information of [" << it.getName() << "] from argument and its address=" << &it << "\n";
             Target2ArrayInfo[&it]=getArrayInfo(&it);
             TraceAccessForTarget(&it,&it);   
-            Instruction2Target[&it].push_back(&it);      
+            Value2Target[&it].insert(&it);      
             if (DEBUG) *ArrayLog << Target2ArrayInfo[&it] << "\n";
             if (DEBUG) ArrayLog->flush();
         }        

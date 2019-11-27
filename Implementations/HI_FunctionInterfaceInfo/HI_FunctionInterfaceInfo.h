@@ -61,10 +61,11 @@ class HI_FunctionInterfaceInfo_Visitor : public RecursiveASTVisitor<HI_FunctionI
 public: 
     HI_FunctionInterfaceInfo_Visitor(CompilerInstance &_CI, 
                                     Rewriter &R,std::string _parselog_name, 
-                                    std::map<std::string, int> &FuncParamLine2OutermostSize, std::string topFunctioName) : 
+                                    std::map<std::string, int> &FuncParamLine2OutermostSize, std::string topFunctioName, bool functionAllInline) : 
                                     CI(_CI), TheRewriter(R) , parselog_name(_parselog_name), 
                                     FuncParamLine2OutermostSize(FuncParamLine2OutermostSize),
-                                    topFunctioName(topFunctioName)
+                                    topFunctioName(topFunctioName),
+                                    functionAllInline(functionAllInline)
     {
         parseLog = new llvm::raw_fd_ostream(_parselog_name.c_str(), ErrInfo, llvm::sys::fs::F_None);
     } 
@@ -92,7 +93,8 @@ public:
             // Add comment before 
             SourceLocation ST = f->getSourceRange().getBegin(); 
             FullSourceLoc FSL(ST, CI.getSourceManager());
-            if (FuncName != topFunctioName)
+
+            if (FuncName != topFunctioName && functionAllInline)
                 TheRewriter.InsertText(f->getBeginLoc(), "inline __attribute__((always_inline)) ", false, true); 
                 
             if(f->getNumParams() > 0)
@@ -175,6 +177,7 @@ private:
     std::error_code ErrInfo;
     raw_ostream *parseLog;
     std::string parselog_name;
+    bool functionAllInline;
 
     int label_counter = 0;
 
@@ -191,8 +194,8 @@ class HI_FunctionInterfaceInfo_ASTConsumer : public ASTConsumer
   public: 
     HI_FunctionInterfaceInfo_ASTConsumer(CompilerInstance &_CI,
                                          Rewriter &R,std::string _parselog_name, 
-                                         std::map<std::string, int> &FuncParamLine2OutermostSize, std::string topFunctioName) : 
-                Visitor(_CI,R,_parselog_name,FuncParamLine2OutermostSize, topFunctioName),CI(_CI),parselog_name(_parselog_name), topFunctioName(topFunctioName)
+                                         std::map<std::string, int> &FuncParamLine2OutermostSize, std::string topFunctioName, bool functionAllInline) : 
+                Visitor(_CI,R,_parselog_name,FuncParamLine2OutermostSize, topFunctioName, functionAllInline),CI(_CI),parselog_name(_parselog_name), topFunctioName(topFunctioName), functionAllInline(functionAllInline)
     {
 
     } // Override the method that gets called for each parsed top-level // declaration. 
@@ -211,6 +214,7 @@ private:
     CompilerInstance &CI;
     std::string parselog_name;
     std::string topFunctioName;
+    bool functionAllInline;
     
 /// Timer
 
@@ -227,9 +231,9 @@ private:
 class HI_FunctionInterfaceInfo_FrontendAction : public ASTFrontendAction 
 { 
 public: 
-    HI_FunctionInterfaceInfo_FrontendAction(const char* _parselog_name,Rewriter &R,const char* _outputCode_name,std::map<std::string, int> &FuncParamLine2OutermostSize, std::string topFunctioName): 
+    HI_FunctionInterfaceInfo_FrontendAction(const char* _parselog_name,Rewriter &R,const char* _outputCode_name,std::map<std::string, int> &FuncParamLine2OutermostSize, std::string topFunctioName, bool functionAllInline): 
                 parselog_name(_parselog_name),TheRewriter(R),outputCode_name(_outputCode_name),
-                FuncParamLine2OutermostSize(FuncParamLine2OutermostSize), topFunctioName(topFunctioName) {} 
+                FuncParamLine2OutermostSize(FuncParamLine2OutermostSize), topFunctioName(topFunctioName), functionAllInline(functionAllInline) {} 
     void EndSourceFileAction() override 
     { 
         SourceManager &SM = TheRewriter.getSourceMgr(); 
@@ -243,7 +247,7 @@ public:
     { 
         llvm::errs() << "** Creating AST consumer for: " << file << "\n"; 
         TheRewriter.setSourceMgr(CI.getSourceManager(), CI.getLangOpts()); 
-        return llvm::make_unique<HI_FunctionInterfaceInfo_ASTConsumer>(CI,TheRewriter,parselog_name,FuncParamLine2OutermostSize,topFunctioName); 
+        return llvm::make_unique<HI_FunctionInterfaceInfo_ASTConsumer>(CI,TheRewriter,parselog_name,FuncParamLine2OutermostSize,topFunctioName, functionAllInline); 
     } 
     
 private: 
@@ -254,6 +258,7 @@ private:
     std::string outputCode_name;
     raw_ostream *outputCode;
     std::error_code ErrInfo;
+    bool functionAllInline = 0;
 };
 
 // We need a factory to produce such a frontend action
@@ -262,28 +267,30 @@ std::unique_ptr<tooling::FrontendActionFactory> HI_FunctionInterfaceInfo_rewrite
                                                             Rewriter &R,
                                                             const char * _outputCode_name,
                                                             std::map<std::string, int> &FuncParamLine2OutermostSize,
-                                                            std::string topFunctioName) 
+                                                            std::string topFunctioName,
+                                                            bool functionAllInline = 0) 
 {
   class SimpleFrontendActionFactory : public tooling::FrontendActionFactory {
   public:
     SimpleFrontendActionFactory(const char * _parseLog_name,Rewriter &R,const char * _outputCode_name, 
-                                std::map<std::string, int> &FuncParamLine2OutermostSize, std::string topFunctioName): 
-    parseLog_name(_parseLog_name), TheRewriter(R),outputCode_name(_outputCode_name), FuncParamLine2OutermostSize(FuncParamLine2OutermostSize), topFunctioName(topFunctioName)
+                                std::map<std::string, int> &FuncParamLine2OutermostSize, std::string topFunctioName, bool functionAllInline = 0): 
+    parseLog_name(_parseLog_name), TheRewriter(R),outputCode_name(_outputCode_name), FuncParamLine2OutermostSize(FuncParamLine2OutermostSize), topFunctioName(topFunctioName), functionAllInline(functionAllInline)
     {
     }
     FrontendAction *create() override 
     { 
-        return new T(parseLog_name.c_str(), TheRewriter, outputCode_name.c_str(), FuncParamLine2OutermostSize, topFunctioName); 
+        return new T(parseLog_name.c_str(), TheRewriter, outputCode_name.c_str(), FuncParamLine2OutermostSize, topFunctioName, functionAllInline); 
     }
     std::string parseLog_name;
     std::string outputCode_name;
     Rewriter &TheRewriter;
     std::map<std::string, int> &FuncParamLine2OutermostSize;
     std::string topFunctioName;
+    bool functionAllInline = 0;
   };
 
   return std::unique_ptr<tooling::FrontendActionFactory>(
-      new SimpleFrontendActionFactory(_parseLog_name,R,_outputCode_name,FuncParamLine2OutermostSize, topFunctioName));
+      new SimpleFrontendActionFactory(_parseLog_name,R,_outputCode_name,FuncParamLine2OutermostSize, topFunctioName, functionAllInline));
 }
 
 

@@ -419,12 +419,12 @@ void HI_WithDirectiveTimingResourceEvaluation::functionDataflowCheck(Function* F
     {
         if (auto callI = dyn_cast<CallInst>(&I))
         {
-            if (Instruction2Target.find(callI)!=Instruction2Target.end())
+            if (Value2Target.find(callI)!=Value2Target.end())
             {         
                 if (callI->getCalledFunction()->getName().find("llvm.")!=std::string::npos || callI->getCalledFunction()->getName().find("HIPartitionMux")!=std::string::npos)
                     continue;
                 arrays_need_buffer_curStage.clear(); 
-                auto targets = Instruction2Target[callI];
+                auto targets = Value2Target[callI];
                 for (auto target : targets)
                 {
                     if (!isLocalArray(target))

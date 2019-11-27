@@ -2,6 +2,11 @@ LLVM_exp10_HI_APIntegerAnalysis is used to test the the frontend action HI_APInt
 
 HI_APIntegerAnalysis is based on Clang LibTooling
 
+
+The test can be run with the following command:
+
+      ./LLVM_expXXXXX  <C/C++ FILE>
+
 It implement a frontend action to find the declartions of arbitrary precision integer and add comments in the source code to mark those declartions.
 
 The rewriter shoud be passed as reference but not pointer, otherwise errors will come out.

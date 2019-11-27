@@ -1,2 +1,0 @@
-clock = 20
-HLS_lib_path = ../../../HLS_Data_Lib/

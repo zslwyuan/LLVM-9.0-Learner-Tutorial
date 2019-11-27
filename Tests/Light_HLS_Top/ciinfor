@@ -1,0 +1,13 @@
+clang version 9.0.0 (a7c2c8ff4eb589c59ad9ff6e80fa50edf5b97a46)
+Target: x86_64-unknown-linux-gnu
+Thread model: posix
+InstalledDir: /usr/local/bin
+Found candidate GCC installation: /usr/lib/gcc/i686-linux-gnu/8
+Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/7
+Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/7.4.0
+Found candidate GCC installation: /usr/lib/gcc/x86_64-linux-gnu/8
+Selected GCC installation: /usr/lib/gcc/x86_64-linux-gnu/7.4.0
+Candidate multilib: .;@m64
+Selected multilib: .;@m64
+clang-9: warning: treating 'c' input as 'c++' when in C++ mode, this behavior is deprecated [-Wdeprecated]
+clang-9: error: no such file or directory: '../testcase/test.c'

@@ -310,6 +310,14 @@ public:
 
     std::set<DISubprogram*> getAllSubprogram(llvm::Module &M);
 
+    const SCEV* bypassExtTruntSCEV(const SCEV* inputS);
+
+    // trace back to find the original operator, bypassing SExt and ZExt operations
+    llvm::Value* byPassBitcastOp(llvm::Value* cur_V);
+
+    // check whether the instruction is used by a ICmp instruction
+    bool useForCmp(Instruction *I);
+
     int callCounter;
     int Instruction_Counter;
     int Function_Counter;

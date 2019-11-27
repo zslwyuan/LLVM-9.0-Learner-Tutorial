@@ -37,7 +37,7 @@ void HI_WithDirectiveTimingResourceEvaluation::findMemoryDeclarationAndAnalyzeAc
                     if (DEBUG) *ArrayLog << "  get array information of [" << it->getName() << "] from argument and its address=" << it << "\n";
                     Target2ArrayInfo[it]=getArrayInfo(it);
                     TraceAccessForTarget(it,it);   
-                    Instruction2Target[it].push_back(it);      
+                    Value2Target[it].insert(it);      
                     if (DEBUG) *ArrayLog << Target2ArrayInfo[it] << "\n";
                 }
                 else if (tmp_PtrType->getElementType()->isIntegerTy() || tmp_PtrType->getElementType()->isFloatingPointTy() ||tmp_PtrType->getElementType()->isDoubleTy() )
@@ -45,7 +45,7 @@ void HI_WithDirectiveTimingResourceEvaluation::findMemoryDeclarationAndAnalyzeAc
                     if (DEBUG) *ArrayLog << "  get array information of [" << it->getName() << "] from argument and its address=" << it << "\n";
                     Target2ArrayInfo[it]=getArrayInfo(it);
                     TraceAccessForTarget(it,it);
-                    Instruction2Target[it].push_back(it);  
+                    Value2Target[it].insert(it);  
                     if (DEBUG) *ArrayLog << Target2ArrayInfo[it] << "\n";
                 }
             }
@@ -67,7 +67,7 @@ void HI_WithDirectiveTimingResourceEvaluation::findMemoryDeclarationAndAnalyzeAc
                 if (DEBUG) *ArrayLog << "  get array information of [" << *allocI << "] from allocaInst and its address=" << allocI << "\n";
                 Target2ArrayInfo[allocI]=getArrayInfo(allocI);
                 TraceAccessForTarget(allocI,allocI);
-                Instruction2Target[allocI].push_back(allocI);
+                Value2Target[allocI].insert(allocI);
                 if (DEBUG) *ArrayLog << Target2ArrayInfo[allocI] << "\n";
             }
         }
@@ -132,7 +132,7 @@ void HI_WithDirectiveTimingResourceEvaluation::TraceAccessForTarget(Value *cur_n
     for (auto it = cur_node->use_begin(),ie = cur_node->use_end(); it != ie; ++it)
     {
         if (DEBUG) *BRAM_log << "    find user of " << ori_node->getName() << " --> " << *it->getUser() <<  "\n";
-        Instruction2Target[it->getUser()].push_back(ori_node);
+        Value2Target[it->getUser()].insert(ori_node);
         
         // Load and Store Instructions are leaf nodes in the DFS
         if (LoadInst *LoadI = dyn_cast<LoadInst>(it->getUser()))
@@ -189,6 +189,7 @@ void HI_WithDirectiveTimingResourceEvaluation::TraceAccessForTarget(Value *cur_n
                         if (i==j)
                         {
                             // go into the sub-function to trace the accesses to the target
+                            Value2Target[arg_it].insert(ori_node);
                             Alias2Target[arg_it] = ori_node;
                             TraceAccessForTarget(arg_it,ori_node);
                             break;
@@ -1246,6 +1247,15 @@ HI_WithDirectiveTimingResourceEvaluation::HI_ArrayInfo HI_WithDirectiveTimingRes
                 res_array_info.num_dims = 1;
             }
         }
+        else if ( auto alloc_I = dyn_cast<AllocaInst>(target))
+        {
+            if (num_dims==0)
+            {
+                res_array_info.sub_element_num[num_dims] = 1;               
+                res_array_info.dim_size[num_dims] = 1; // set to nearly infinite
+                res_array_info.num_dims = 1;
+            }
+        }
     }
     
     res_array_info.elementType = tmp_type;
@@ -1496,13 +1506,19 @@ HI_WithDirectiveTimingResourceEvaluation::HI_AccessInfo HI_WithDirectiveTimingRe
     Value *address_addI = nullptr;
     if (pointer_I)
     {
-        address_addI = (pointer_I->getOperand(0));
+        if (pointer_I->getOpcode() == Instruction::IntToPtr)
+            address_addI = (pointer_I->getOperand(0));
+        else
+            address_addI = pointer_I;
     }
     else
     {
         address_addI = pointer_V; // the access may not need the calculation of address, take the pointer directly
+        if (Alias2Target.find(address_addI) != Alias2Target.end()) // it could be argument. We need to trace back to get its original array declaration
+        {
+            address_addI = Alias2Target[address_addI];
+        }  
     }
-        
 
     // if (auto PTI = dyn_cast<PtrToIntInst>(address_addI))
     // {
@@ -1514,7 +1530,7 @@ HI_WithDirectiveTimingResourceEvaluation::HI_AccessInfo HI_WithDirectiveTimingRe
 
     assert(address_addI && "The pointer for this access should be found.\n");
     if (AddressInst2AccessInfo.find(address_addI)==AddressInst2AccessInfo.end())
-        llvm::errs() << *address_addI << "<=======\n";
+        llvm::errs() << "Instruction: " << *Load_or_Store << " addressI: " << *address_addI << "<=======\n";
     assert(AddressInst2AccessInfo.find(address_addI)!=AddressInst2AccessInfo.end() && "The pointer should be checked by TryArrayAccessProcess() previously.");
     return AddressInst2AccessInfo[address_addI];
 }
@@ -1876,6 +1892,12 @@ bool HI_WithDirectiveTimingResourceEvaluation::processNaiveAccess(Instruction *L
                     // ArrayLog->flush();
                 }
             }
+        }
+        else if (auto alloc_pointer = dyn_cast<AllocaInst>(pointer_I))
+        {
+            AddressInst2AccessInfo[pointer_I] = getAccessInfoFor(pointer_I, Load_or_Store, 0, nullptr, nullptr);
+            if (DEBUG) *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[pointer_I] << "\n\n\n";
+            if (DEBUG) ArrayLog->flush();
         }
     }
     

@@ -231,25 +231,136 @@ void HI_IR2SourceCode::traceLoopSourceCode(LoopInfo &LI, ScalarEvolution &SE, Fu
 {
     for (auto cur_Loop : LI.getLoopsInPreorder())
     {
-        if (DEBUG) *IR2Src_Log << "Loop: " << cur_Loop->getName() << " includes basic blocks:\n   ";
+        if (DEBUG) *IR2Src_Log << "Loop: " << cur_Loop->getName() << " cur_Loop->getStartLoc()=line: " << cur_Loop->getStartLoc().getLine() << " includes basic blocks:\n   ";
         std::string path = "";
         int begin_line = 1000000;
         int end_line = 1;
+
+        std::set<BasicBlock*> Loop_Blocks;
         for (auto B : cur_Loop->getBlocks())
         {
-            if (cur_Loop != LI.getLoopFor(B))
-                continue;
-            if (DEBUG) *IR2Src_Log << B->getName() << ": " << Block2Line_forLoop[B].first << "--" << Block2Line_forLoop[B].second << "\n";
+            Loop_Blocks.insert(B);
+        }
+
+        int tmp_begin_line = 0;
+        if (DEBUG) *IR2Src_Log << *cur_Loop << "\n";
+        for (auto &I : *cur_Loop->getHeader())
+        {
+            if (auto PHI_I = dyn_cast<PHINode>(&I))
+            {
+                for (int i=0;i<PHI_I->getNumIncomingValues();i++)
+                {
+                    if (auto in_I = dyn_cast<Instruction>(PHI_I->getIncomingValue(i)))
+                    {
+                        if (cur_Loop->contains(in_I->getParent()))
+                        {
+                          //  auto Br_I = dyn_cast<BranchInst>(in_I->getParent()->getTerminator());
+                            // if (Br_I->getName().find("indvars") != std::string::npos)
+                            if (DEBUG) *IR2Src_Log << "  check feedback Instruction: " << *in_I << ": SCEV:" <<  *SE.getSCEV(in_I) << "\n";
+                            const SCEVAddRecExpr* tmp_S = dyn_cast<SCEVAddRecExpr>(bypassExtTruntSCEV(SE.getSCEV(in_I)));
+                            if (tmp_S)
+                            {
+                                if (tmp_S->getLoop() == cur_Loop)
+                                {
+                                    const SCEVConstant *constS = dyn_cast<SCEVConstant>(bypassExtTruntSCEV(tmp_S->getStepRecurrence(SE)));
+                                    if (constS)
+                                    {
+                                        if (constS->getAPInt().getSExtValue() == 1)
+                                        {
+                                            SmallVector<std::pair<unsigned, MDNode *>, 4> I_MDs;
+                                            in_I->getAllMetadata(I_MDs);
+                                            for (auto &MD : I_MDs) 
+                                            {
+                                                if (MDNode *N = MD.second) 
+                                                {
+                                                    if (auto DILoc = dyn_cast<DILocation>(N) )
+                                                    {
+                                                        if (DEBUG) *IR2Src_Log << "  recognize feedback Instruction: " << *in_I << ":  line:";
+                                                        if (DEBUG) *IR2Src_Log << DILoc->getLine();
+                                                        auto scopeFuncName = DILoc->getScope()->getSubprogram()->getName();
+                                                        if (DEBUG) *IR2Src_Log << "  scopeFuncName:" << scopeFuncName << "\n"; 
+                                                        if (tmp_begin_line < DILoc->getLine() ) 
+                                                        {                                            
+                                                            tmp_begin_line = DILoc->getLine();             
+                                                            if (DEBUG) *IR2Src_Log << "   update tmp_begin_line to " << tmp_begin_line << "\n"; 
+                                                        }
+                                                    }                    
+                                                }
+                                            }
+                                        }
+                                    }                                    
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (!tmp_begin_line)
+        {
+            for (auto &I : *cur_Loop->getHeader())
+            {
+                if (auto PHI_I = dyn_cast<PHINode>(&I))
+                {
+                    for (int i=0;i<PHI_I->getNumIncomingValues();i++)
+                    {
+                        if (auto in_I = dyn_cast<Instruction>(byPassBitcastOp(PHI_I->getIncomingValue(i))))
+                        {
+                            if (cur_Loop->contains(in_I->getParent()))
+                            {
+                            //  auto Br_I = dyn_cast<BranchInst>(in_I->getParent()->getTerminator());
+                                // if (Br_I->getName().find("indvars") != std::string::npos)
+                                if (DEBUG) *IR2Src_Log << "  check feedback Instruction: " << *in_I << ": SCEV:" <<  *SE.getSCEV(in_I) << "\n";
+                                if (useForCmp(in_I))
+                                {
+                                    SmallVector<std::pair<unsigned, MDNode *>, 4> I_MDs;
+                                    in_I->getAllMetadata(I_MDs);
+                                    for (auto &MD : I_MDs) 
+                                    {
+                                        if (MDNode *N = MD.second) 
+                                        {
+                                            if (auto DILoc = dyn_cast<DILocation>(N) )
+                                            {
+                                                if (DEBUG) *IR2Src_Log << "  recognize feedback Instruction: " << *in_I << ":  line:";
+                                                if (DEBUG) *IR2Src_Log << DILoc->getLine();
+                                                auto scopeFuncName = DILoc->getScope()->getSubprogram()->getName();
+                                                if (DEBUG) *IR2Src_Log << "  scopeFuncName:" << scopeFuncName << "\n"; 
+                                                if (tmp_begin_line < DILoc->getLine() ) 
+                                                {                                            
+                                                    tmp_begin_line = DILoc->getLine();             
+                                                    if (DEBUG) *IR2Src_Log << "   update tmp_begin_line to " << tmp_begin_line << "\n"; 
+                                                }
+                                            }                    
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
+        if (tmp_begin_line>0)
+            begin_line = tmp_begin_line;
+
+        for (auto B : cur_Loop->getBlocks())
+        {
+            
+            // if (cur_Loop != LI.getLoopFor(B))
+            //     continue;
+            if (DEBUG) *IR2Src_Log << B->getName() << ": " << Block2Line[B].first << "--" << Block2Line[B].second << "\n";
             if (path == "")
             {
                 path = Block2Path[B];
             }
 
-            if (Block2Line_forLoop[B].second > end_line)
-                end_line = Block2Line_forLoop[B].second;
+            if (Block2Line[B].second > end_line)
+                end_line = Block2Line[B].second;
 
-            if (Block2Line_forLoop[B].first < begin_line)
-                begin_line = Block2Line_forLoop[B].first;
+            // if (Block2Line_forLoop[B].first < begin_line)
+            //     begin_line = Block2Line_forLoop[B].first;
         }
         if (DEBUG) *IR2Src_Log << "\n";
         if (DEBUG) *IR2Src_Log << "====SourceRang: " << path << ":" << begin_line << "--" << end_line << "\n\n";
@@ -395,20 +506,48 @@ void HI_IR2SourceCode::mappingLoopIR2LoopLabel(DISubprogram* subprogram)
             std::string tmp_path(DFLoc->getDirectory());
             tmp_path +=  "/";
             tmp_path += DFLoc->getFilename();
+            std::string tmp_label = DLLoc->getName();
             bool find = 0;
             for (auto itLine : Loop2Line)
             {
                 if (itLine.second.first == DLLoc->getLine() && Loop2Path[itLine.first] == tmp_path)
                 {
-                    if (DEBUG) *IR2Src_Log << "               mapping to IR loop: " << itLine.first->getName() << "in Function : " << itLine.first->getParent()->getName() << "\n";
-                    std::string tmp_loop_name = itLine.first->getParent()->getName();
-                    tmp_loop_name += "-";
-                    tmp_loop_name += itLine.first->getName();
-                    IRLoop2LoopLabel[tmp_loop_name] = DLLoc->getName();
-                    find = 1;
+                    if (!find)
+                    {
+                        if (DEBUG) *IR2Src_Log << "               mapping to IR loop: " << itLine.first->getName() << "in Function : " << itLine.first->getParent()->getName() << "\n";
+                        std::string tmp_loop_name = itLine.first->getParent()->getName();
+                        tmp_loop_name += "-";
+                        tmp_loop_name += itLine.first->getName();
+                        IRLoop2LoopLabel[tmp_loop_name] = DLLoc->getName();
+                        find = 1;
+                    }
+                    else
+                    {
+                        std::string tmp_loop_name = itLine.first->getParent()->getName();
+                        tmp_loop_name += "-";
+                        tmp_loop_name += itLine.first->getName();
+                        llvm::errs() << "Loop 1 (now): " << tmp_loop_name << "\n";
+                        for (auto irloop_label : IRLoop2LoopLabel)
+                        {
+                            if (irloop_label.second == DLLoc->getName())
+                            {
+                                tmp_loop_name = irloop_label.first;
+                                break;
+                            }
+                        }
+                        llvm::errs() << "Loop 2 (previous): " << tmp_loop_name << "\n";
+                        assert(false && "They are mapped to the same loop label. One IR loop <==> One label.");
+                    }
+                    
                 }
             }
             IR2Src_Log->flush();
+            if (!find)
+            {
+                print_warning("Mapping for each loop label should be found but the loop with label=" 
+                    + tmp_label 
+                    + " does not get mapped. This might be caused by the dead loop elimination when doing IR optimization and prediction.");
+            }
             // assert(find && "mapping for each loop label should be found!!!");
         }                        
     }                    
@@ -459,4 +598,48 @@ std::set<DISubprogram*> HI_IR2SourceCode::getAllSubprogram(llvm::Module &M)
         }
     }
     return res;
+}
+
+// check whether the instruction is used by a ICmp instruction
+bool HI_IR2SourceCode::useForCmp(llvm::Instruction *I)
+{
+    for (auto tmpUser : I->users())
+    {
+        auto tmpI = dyn_cast<Instruction>(tmpUser);
+        if (auto tmp_icmp = dyn_cast<ICmpInst>(tmpI))
+        {
+            if (tmp_icmp)
+            return true;
+        }
+        else if (Instruction::isCast(tmpI->getOpcode()))
+        {
+            if (useForCmp(tmpI))
+                return true;
+        }
+    }
+    return false;
+}
+
+const SCEV* HI_IR2SourceCode::bypassExtTruntSCEV(const SCEV* inputS)
+{
+    if (auto castSCEV = dyn_cast<SCEVCastExpr>(inputS))
+        return bypassExtTruntSCEV(castSCEV->getOperand());
+    else
+        return inputS;
+}
+
+// trace back to find the original operator, bypassing SExt and ZExt operations
+llvm::Value* HI_IR2SourceCode::byPassBitcastOp(llvm::Value* cur_V)
+{
+    if (auto cur_I = dyn_cast<Instruction>(cur_V))
+    {
+        if (cur_I->getOpcode() == Instruction::Trunc ||cur_I->getOpcode() == Instruction::ZExt || cur_I->getOpcode() == Instruction::SExt )
+        {
+            if (auto next_I = dyn_cast<Instruction>(cur_I->getOperand(0)))
+            {
+                return byPassBitcastOp(next_I);
+            }
+        }
+    }
+    return cur_V;
 }

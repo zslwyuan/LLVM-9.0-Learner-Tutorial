@@ -170,6 +170,11 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
     cur_Loop = getInnerUnevaluatedLoop(outerL);
     while (cur_Loop!=NULL) 
     {
+
+        std::string tmp_loop_name = cur_Loop->getHeader()->getParent()->getName();
+        tmp_loop_name += "-";
+        tmp_loop_name += cur_Loop->getHeader()->getName();
+
         if (DEBUG) *Evaluating_log << "-- Handling the inner Loop " << cur_Loop->getName() <<":\n";
         BasicBlock *tmp_LoopHeader = cur_Loop->getHeader(); //get the header of the loop
         if (DEBUG) *Evaluating_log << "---- its header: " << tmp_LoopHeader->getName() <<":\n";
@@ -178,7 +183,13 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
         if (tmp_ExitingBlocks.size() != 1)
         {
             assert(tmp_ExitingBlocks.size() > 0);
-            print_warning("the loop could be better to have only one exiting block for the accuracy of latency evaluation.");
+            print_warning("the loop could be better to have only one exiting block for the accuracy of latency evaluation, but the following loop has multiple exits:");
+            llvm::errs() << "loop: " << cur_Loop->getName() << " (label=" << IRLoop2LoopLabel[tmp_loop_name] << ") has multiple exits and they are:\n";
+            for (auto B_it:tmp_ExitingBlocks)
+            {
+                llvm::errs() << " ==================\n " << *B_it << "\n";
+            }  
+            llvm::errs() << "please have a check\n";
         }
         for (auto B_it:tmp_ExitingBlocks)
         {
@@ -186,9 +197,7 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
         }        
         if (DEBUG) *Evaluating_log << "\n";
 
-        std::string tmp_loop_name = cur_Loop->getHeader()->getParent()->getName();
-        tmp_loop_name += "-";
-        tmp_loop_name += cur_Loop->getHeader()->getName();
+
         
         // (2) traverse the block in loop by DFS to find the longest path
         timingBase max_critial_path_in_curLoop(0,0,1,clock_period);
@@ -511,7 +520,34 @@ int HI_WithDirectiveTimingResourceEvaluation::checkIIForLoop(Loop *curLoop,  std
 
     std::string label = IRLoop2LoopLabel[tmp_loop_name];
 
-
+    for (auto B : curLoop->getBlocks())
+    {
+        for (auto &I : *B)
+        {
+                if (CallInst *callI = dyn_cast<CallInst>(&I))
+                {
+                    if (callI->getCalledFunction()->getName().find("llvm.") != std::string::npos || callI->getCalledFunction()->getName().find("checkDependenceIIForLoop") != std::string::npos)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        if (LoopLabel2II.find(label) == LoopLabel2II.end())
+                        {
+                            print_warning("Failed to pipeline the loop [" + label + "] due to subfunction(s) called in it.\n");
+                            LoopLabel2SmallestII[label] = 1000000000;
+                            return -1;
+                        }
+                        else
+                        {
+                            LoopLabel2SmallestII[label] = 1000000000;
+                            return -1;
+                        }
+                        
+                    }
+                }
+        }
+    }
 
    int II_BRAM = checkAccessIIForLoop(curLoop);
    int II_BRAM_enum = checkAccessIIForLoop_enumerateCheck(curLoop);
@@ -784,6 +820,10 @@ int HI_WithDirectiveTimingResourceEvaluation::checkDependenceIIForLoop(Loop* cur
             {
                 if (CallInst *callI = dyn_cast<CallInst>(&I))
                 {
+                    if (callI->getCalledFunction()->getName().find("llvm.") != std::string::npos)
+                    {
+                        continue;
+                    }
                     for (int i=0;i<callI->getNumArgOperands();i++)
                     {
                         if (callI->getArgOperand(i)->getType()->isPointerTy())
@@ -801,7 +841,7 @@ int HI_WithDirectiveTimingResourceEvaluation::checkDependenceIIForLoop(Loop* cur
     if (DEBUG) for (auto potentialAccess : potentialAccesses)
     {
         *ArrayLog << "    " << *potentialAccess << " ==> [";
-        for (auto target : Instruction2Target[potentialAccess])
+        for (auto target : Value2Target[potentialAccess])
             *ArrayLog << target->getName() << ", ";
         *ArrayLog << "]\n";
     }
@@ -830,9 +870,11 @@ int HI_WithDirectiveTimingResourceEvaluation::checkDependenceIIForLoop(Loop* cur
         Instruction *W_I = InstInst2DependenceDistance_pair.first.first;
         Instruction *R_I = InstInst2DependenceDistance_pair.first.second;
         if (DEBUG) *ArrayLog << "checking loop-carried dependence II: LOAD:" << *R_I << " <===>  STORE:" << *W_I << "\n";
+        if (DEBUG) ArrayLog->flush();
         int W_I_time_offset = BlockBegin_inLoop[W_I->getParent()].latency +  Inst_Schedule[W_I].second;
         int R_I_time_offset = findEarlietUseTimeInTheLoop(curLoop, R_I); // BlockBegin_inLoop[R_I->getParent()].latency +  Inst_Schedule[R_I].second;
         if (DEBUG) *ArrayLog << "    W_I_time_offset:" << W_I_time_offset << " <===>  R_I_time_offset:" << R_I_time_offset << "\n";
+        if (DEBUG) ArrayLog->flush();
         // here, we assume that the load can be rescheduled as late as possible
         // therefore, we need to find when its ealiest user use the data
 
@@ -1015,13 +1057,14 @@ void HI_WithDirectiveTimingResourceEvaluation::checkLoopCarriedDependent(Instruc
              
     }
     if (DEBUG) *ArrayLog << "**** distance:" << *I0 << " <=> " << *I1 << " =1\n"; 
+    if (DEBUG) ArrayLog->flush();
     InstInst2DependenceDistance[std::pair<Instruction*, Instruction*>(I0,I1)] = 1;
 }
 
 bool HI_WithDirectiveTimingResourceEvaluation::hasSameTargets(Instruction *I0, Instruction *I1)
 {
-    for (auto target0 : Instruction2Target[I0])
-        for (auto target1 : Instruction2Target[I1])
+    for (auto target0 : Value2Target[I0])
+        for (auto target1 : Value2Target[I1])
             if (target0 == target1)
                 return true;
     return false;    

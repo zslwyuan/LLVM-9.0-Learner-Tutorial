@@ -622,7 +622,7 @@ public:
         InstructionEvaluated.clear();
         BlockVisited.clear();
         Func_BlockVisited.clear();
-        Instruction_FFAssigned.clear();
+        Value_FFAssigned.clear();
         Function2OuterLoops.clear();
         Block2EvaluatedLoop.clear();
         BlockCriticalPath_inLoop.clear();
@@ -719,7 +719,7 @@ public:
     std::set<BasicBlock*> LoopEvaluated;
     std::set<Function*> FunctionEvaluated;
     std::set<Instruction*> InstructionEvaluated;
-    std::set<Instruction*> Instruction_FFAssigned;
+    std::set<Value*> Value_FFAssigned;
     std::set<BasicBlock*> BlockVisited;
     std::set<BasicBlock*> Func_BlockVisited;
     std::set<Value*> ValueVisited;
@@ -791,7 +791,7 @@ public:
     std::set<Instruction*> I_RegReused;   
 
     // Instruction related to target
-    std::map<Value*, std::vector<Value*>> Instruction2Target;
+    std::map<Value*, std::set<Value*>> Value2Target;
 
     // record the accesses to the partitions are done at which cycle in which basic block
     std::map<std::pair<Value*, partition_info>, std::vector<std::pair<BasicBlock*, int>>> targetPartition2BlockCycleAccessCnt;
@@ -818,7 +818,7 @@ public:
     bool hasSameTargets(Instruction *I0, Instruction *I1);
 
     // among the scheduled instructions, find the latest access to the specific target
-    Instruction* findLatestPointerAccess(Instruction *curI, std::vector<Value*> targets , std::map<Instruction*, timingBase> &cur_InstructionCriticalPath);
+    Instruction* findLatestPointerAccess(Instruction *curI, std::set<Value*> targets , std::map<Instruction*, timingBase> &cur_InstructionCriticalPath);
 
     // // demangle the name of functions
     // std::string demangleFunctionName(std::string mangled_name);
@@ -1281,7 +1281,7 @@ public:
     resourceBase FF_Evaluate(std::map<Instruction*, timingBase> &cur_InstructionCriticalPath, Instruction* cur_I);
 
     // trace back to find the original operator, bypassing SExt and ZExt operations
-    Instruction* byPassUnregisterOp(Instruction* cur_I);
+    Value* byPassUnregisterOp(Instruction* cur_I);
 
     Value* byPassBitcastOp(Instruction* cur_I);
 

@@ -163,9 +163,9 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
                     for (auto tmp_ptr : ptrInOperands)
                     {
                         if (DEBUG) *BRAM_log << "       checking pointer in args :  " << *tmp_ptr << " of targets: " ;
-                        if (DEBUG) {for (auto tmp_target : Instruction2Target[tmp_ptr]) *BRAM_log << *tmp_target << ",,"; *BRAM_log <<  "\n";}
+                        if (DEBUG) {for (auto tmp_target : Value2Target[tmp_ptr]) *BRAM_log << *tmp_target << ",,"; *BRAM_log <<  "\n";}
                         
-                        Instruction* latestPointerAccess = findLatestPointerAccess(I, Instruction2Target[tmp_ptr] , cur_InstructionCriticalPath);
+                        Instruction* latestPointerAccess = findLatestPointerAccess(I, Value2Target[tmp_ptr] , cur_InstructionCriticalPath);
                         if (latestPointerAccess)
                         {
                             if (DEBUG) *BRAM_log << "           has pointer access :  " << *latestPointerAccess << "\n";
@@ -350,7 +350,7 @@ bool HI_WithDirectiveTimingResourceEvaluation::BlockContain(BasicBlock *B, Instr
 
 // among the scheduled instructions, find the latest access to the specific target
 // excluding the instruction "curI"
-Instruction* HI_WithDirectiveTimingResourceEvaluation::findLatestPointerAccess(Instruction *curI, std::vector<Value*> targets , std::map<Instruction*, timingBase> &cur_InstructionCriticalPath)
+Instruction* HI_WithDirectiveTimingResourceEvaluation::findLatestPointerAccess(Instruction *curI, std::set<Value*> targets , std::map<Instruction*, timingBase> &cur_InstructionCriticalPath)
 {
     timingBase latest_timing(0,0,1,clock_period);
     Instruction *res_I = nullptr;

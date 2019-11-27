@@ -334,7 +334,7 @@ bool HI_VarWidthReduce::RedundantCastRemove(Function *F)
                         if (DEBUG) *VarWidthChangeLog << "                         ------->remove redunctan CastI: " << *CastI  <<"\n";
                         if (DEBUG) *VarWidthChangeLog << "                         ------->replace CastI with its operand 0: " << *I.getOperand(0)  <<"\n";
                         //VarWidthChangeLog->flush(); 
-                        ReplaceUses_withNewOperand_newBW(&I,I.getOperand(0));
+                        ReplaceUses_withNewOperand_oriBW(&I,I.getOperand(0));
                         I.eraseFromParent();
                         rmflag = 1;
                         changed = 1;
@@ -548,6 +548,7 @@ void HI_VarWidthReduce::ReplaceUses_withNewOperand_newBW(Instruction *from, Valu
         // therefore, we need to bitcast the value "to" to fit the bitwidth defined in the function definition
         if (auto Call_I = dyn_cast<CallInst>(tmp_user))
         {
+            if (DEBUG) VarWidthChangeLog->flush();
             const SCEV *tmp_S = SE->getSCEV(to);
 
             bool isUnsignedInst = false; 
@@ -580,6 +581,28 @@ void HI_VarWidthReduce::ReplaceUses_withNewOperand_newBW(Instruction *from, Valu
         if (DEBUG) *VarWidthChangeLog << "            ------  from->getNumUses() "<< from->getNumUses() << "\n";
     }
 }
+
+void HI_VarWidthReduce::ReplaceUses_withNewOperand_oriBW(Instruction *from, Value *to) 
+{
+    if (DEBUG) *VarWidthChangeLog << "            ------  replacing  " << *from << " in its user\n";
+    std::set<Use*> useSet;
+    for (auto &tmpuse : from->uses()) 
+    {
+        if (from == dyn_cast<Instruction>(tmpuse.getUser()))
+            continue;
+        useSet.insert(&tmpuse);
+    }
+    for (auto tmpuse : useSet) 
+    {
+        User* tmp_user = tmpuse->getUser();
+        if (DEBUG) *VarWidthChangeLog << "            ------  replacing the original inst in " << *tmpuse->getUser() << " with " << *to <<"\n";
+
+        from->use_begin()->set(to);
+        if (DEBUG) *VarWidthChangeLog << "            ------  new user => " << *tmp_user << "\n";
+        if (DEBUG) *VarWidthChangeLog << "            ------  from->getNumUses() "<< from->getNumUses() << "\n";
+    }
+}
+
 
 
 // compute the bitwidth needed for the specific constant range

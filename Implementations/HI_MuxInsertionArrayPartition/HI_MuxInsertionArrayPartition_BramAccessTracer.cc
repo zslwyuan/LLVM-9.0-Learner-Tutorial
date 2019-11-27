@@ -299,7 +299,16 @@ HI_MuxInsertionArrayPartition::HI_AccessInfo HI_MuxInsertionArrayPartition::getA
                                                                                               std::vector<int> *inc_indices, std::vector<int> *trip_counts, bool unpredictable)
 {
     if (Alias2Target.find(target) != Alias2Target.end())
+    {
         target = Alias2Target[target];
+    }
+
+    if (Target2ArrayInfo.find(target) == Target2ArrayInfo.end())
+    {
+        llvm::errs() << "Instruction: [" << *access << "\n";
+        llvm::errs() << "Target: [" << *target << "\n";
+        assert(false && "the target should be processed.");
+    }
         
     HI_AccessInfo res(Target2ArrayInfo[target]);
 
@@ -599,7 +608,16 @@ HI_MuxInsertionArrayPartition::HI_ArrayInfo HI_MuxInsertionArrayPartition::getAr
     }
     else
     {
-        if (auto global_v = dyn_cast<GlobalVariable>(target))
+        if (auto global_v = dyn_cast<GlobalVariable>(target) )
+        {
+            if (num_dims==0)
+            {
+                res_array_info.sub_element_num[num_dims] = 1;               
+                res_array_info.dim_size[num_dims] = 1; // set to nearly infinite
+                res_array_info.num_dims = 1;
+            }
+        }
+        else if ( auto alloc_I = dyn_cast<AllocaInst>(target))
         {
             if (num_dims==0)
             {
@@ -719,6 +737,7 @@ bool HI_MuxInsertionArrayPartition::ArrayAccessCheckForFunction(Function *F)
     {
         for (auto &I : B)
         {
+            if (DEBUG) *ArrayLog << "TryArrayAccessProcess: " << I << "\n";
             TryArrayAccessProcess(&I, SE /*, demangleFunctionName(F->getName()) == top_function_name*/);
         }
     }
@@ -751,11 +770,21 @@ HI_MuxInsertionArrayPartition::HI_AccessInfo HI_MuxInsertionArrayPartition::getA
     }
     Value *address_addI = nullptr;
     if (pointer_I)
-        address_addI = (pointer_I->getOperand(0));
+    {
+        if (pointer_I->getOpcode() == Instruction::IntToPtr)
+            address_addI = (pointer_I->getOperand(0));
+        else
+            address_addI = pointer_I;
+    }
     else
+    {
         address_addI = pointer_V; // the access may not need the calculation of address, take the pointer directly
+        if (Alias2Target.find(address_addI) != Alias2Target.end()) // it could be argument. We need to trace back to get its original array declaration
+        {
+            address_addI = Alias2Target[address_addI];
+        }  
+    }
         
-
     // if (auto PTI = dyn_cast<PtrToIntInst>(address_addI))
     // {
     //     address_addI = PTI->getOperand(0);
@@ -769,8 +798,7 @@ HI_MuxInsertionArrayPartition::HI_AccessInfo HI_MuxInsertionArrayPartition::getA
         llvm::errs() << *address_addI << "<=======\n";
         if (auto arg_target = dyn_cast<Argument>(address_addI))
         {
-            llvm::errs() << (arg_target->getParent()->getName()) << "<=======\n";
-            
+            llvm::errs() << (arg_target->getParent()->getName()) << "<=======\n";            
         }
     }
         
@@ -901,6 +929,7 @@ bool HI_MuxInsertionArrayPartition::processNaiveAccess(Instruction *Load_or_Stor
                             && "Fail to find the array inforamtion for the target.");
             }
         }
+        if (DEBUG) *ArrayLog << "processNaiveAccess: target" << *target << "\n";
         if (auto arg_pointer = dyn_cast<Argument>(target))
         {
             AddressInst2AccessInfo[target] = getAccessInfoFor(target, Load_or_Store, 0, nullptr, nullptr);
@@ -962,6 +991,12 @@ bool HI_MuxInsertionArrayPartition::processNaiveAccess(Instruction *Load_or_Stor
                 }
             }
         }
+        else if (auto alloc_pointer = dyn_cast<AllocaInst>(pointer_I))
+        {
+            AddressInst2AccessInfo[pointer_I] = getAccessInfoFor(pointer_I, Load_or_Store, 0, nullptr, nullptr);
+            if (DEBUG) *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[pointer_I] << "\n\n\n";
+            if (DEBUG) ArrayLog->flush();
+        }
     }
         
     return false;
@@ -1019,9 +1054,6 @@ void HI_MuxInsertionArrayPartition::handleSAREAccess(Instruction *I, const SCEVA
                                     << " bw=[" << start_V->getAPInt().getBitWidth() << "]" <<"\n";
                         initial_const = (initial_const)&((1<<start_V->getAPInt().getZExtValue())-1);
                     }
-                
-                    
-             
                 }
                 else
                 {
