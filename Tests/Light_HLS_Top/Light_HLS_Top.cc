@@ -52,7 +52,7 @@ int main(int argc, const char **argv)
     print_cmd(cmd_str.c_str());
     bool result = sysexec(cmd_str.c_str());
     assert(result); // ensure the cmd is executed successfully
-    cmd_str = "opt -always-inline top_notinline.bc -o top.bc 2>&1";
+    cmd_str = "opt -O1 -always-inline top_notinline.bc -o top.bc 2>&1";
     print_cmd(cmd_str.c_str());
     result = sysexec(cmd_str.c_str());
     assert(result); // ensure the cmd is executed successfully
