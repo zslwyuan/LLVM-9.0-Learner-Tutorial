@@ -532,7 +532,7 @@ int HI_WithDirectiveTimingResourceEvaluation::checkIIForLoop(Loop *curLoop,  std
                     }
                     else
                     {
-                        if (LoopLabel2II.find(label) == LoopLabel2II.end())
+                        if (LoopLabel2II.find(label) != LoopLabel2II.end())
                         {
                             print_warning("Failed to pipeline the loop [" + label + "] due to subfunction(s) called in it.\n");
                             LoopLabel2SmallestII[label] = 1000000000;
