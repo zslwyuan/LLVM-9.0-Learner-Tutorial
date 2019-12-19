@@ -62,7 +62,8 @@ class HI_LoopInFormationCollect : public LoopPass
     }
     virtual bool doInitialization(Loop *L, LPPassManager &LPPM)
     {
-        std::string tmpInfo = std::string("Initilizing HI_LoopInFormationCollect pass for Loop ") + L->getName().str();
+        std::string tmpInfo = std::string("Initilizing HI_LoopInFormationCollect pass for Loop ") +
+                              L->getName().str();
         print_status(tmpInfo.c_str());
 
         return false;
@@ -75,7 +76,8 @@ class HI_LoopInFormationCollect : public LoopPass
             if (ele.first->isInvalid())
             {
                 print_info("Pass finalization encounter invalid loop");
-                errs() << "Loop-ID:" << Loop_id[ele.first] << " is invalid when being printed by pass.\n";
+                errs() << "Loop-ID:" << Loop_id[ele.first]
+                       << " is invalid when being printed by pass.\n";
                 continue;
             }
             *Loop_out << "Loop: " << ele.first->getName() << " <--- Blocks: ";
@@ -93,7 +95,8 @@ class HI_LoopInFormationCollect : public LoopPass
                 if (vec_ele->isInvalid())
                 {
                     print_info("Pass finalization encounter invalid loop");
-                    errs() << "Loop-ID:" << Loop_id[vec_ele] << " is invalid when being printed by pass.\n";
+                    errs() << "Loop-ID:" << Loop_id[vec_ele]
+                           << " is invalid when being printed by pass.\n";
                     continue;
                 }
                 *Loop_out << vec_ele->getName() << " ";

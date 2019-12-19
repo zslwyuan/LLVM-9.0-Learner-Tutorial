@@ -207,14 +207,16 @@ using namespace llvm;
 class HI_ReplaceSelectAccess : public FunctionPass
 {
   public:
-    HI_ReplaceSelectAccess(const char *ReplaceSelectAccess_Log_Name, bool DEBUG = 0) : FunctionPass(ID), DEBUG(DEBUG)
+    HI_ReplaceSelectAccess(const char *ReplaceSelectAccess_Log_Name, bool DEBUG = 0)
+        : FunctionPass(ID), DEBUG(DEBUG)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;
         BasicBlock_Counter = 0;
         Loop_Counter = 0;
         callCounter = 0;
-        ReplaceSelectAccess_Log = new raw_fd_ostream(ReplaceSelectAccess_Log_Name, ErrInfo, sys::fs::F_None);
+        ReplaceSelectAccess_Log =
+            new raw_fd_ostream(ReplaceSelectAccess_Log_Name, ErrInfo, sys::fs::F_None);
         tmp_stream = new raw_string_ostream(tmp_stream_str);
     } // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.
 

@@ -139,11 +139,15 @@ int main(int argc, const char **argv)
         print_info("Enable LoopExtractor Pass");
 
         std::map<std::string, std::vector<int>> IRFunc2BeginLine;
-        auto hi_ir2sourcecode = new HI_IR2SourceCode("HI_IR2SourceCode", IRLoop2LoopLabel, IRFunc2BeginLine, IRLoop2OriginTripCount, debugFlag);
+        auto hi_ir2sourcecode =
+            new HI_IR2SourceCode("HI_IR2SourceCode", IRLoop2LoopLabel, IRFunc2BeginLine,
+                                 IRLoop2OriginTripCount, debugFlag);
         PM_pre.add(hi_ir2sourcecode);
         print_info("Enable HI_IR2SourceCode Pass");
 
-        auto hi_PragmaTargetExtraction = new HI_PragmaTargetExtraction(top_str.c_str(), IRLoop2LoopLabel, FuncParamLine2OutermostSize, IRFunc2BeginLine, debugFlag);
+        auto hi_PragmaTargetExtraction =
+            new HI_PragmaTargetExtraction(top_str.c_str(), IRLoop2LoopLabel,
+                                          FuncParamLine2OutermostSize, IRFunc2BeginLine, debugFlag);
         PM_pre.add(hi_PragmaTargetExtraction);
         print_info("Enable HI_PragmaTargetExtraction Pass");
 
@@ -181,11 +185,13 @@ int main(int argc, const char **argv)
         PM0.add(CFGSimplification_pass22);
         print_info("Enable CFGSimplificationPass Pass");
 
-        auto hi_separateconstoffsetfromgep = new HI_SeparateConstOffsetFromGEP("HI_SeparateConstOffsetFromGEP", true, debugFlag);
+        auto hi_separateconstoffsetfromgep =
+            new HI_SeparateConstOffsetFromGEP("HI_SeparateConstOffsetFromGEP", true, debugFlag);
         PM0.add(hi_separateconstoffsetfromgep);
         print_info("Enable HI_SeparateConstOffsetFromGEP Pass");
 
-        auto hi_loopunroll = new HI_LoopUnroll(IRLoop2LoopLabel, LoopLabel2UnrollFactor, 1, false, None); //"HI_LoopUnroll"
+        auto hi_loopunroll = new HI_LoopUnroll(IRLoop2LoopLabel, LoopLabel2UnrollFactor, 1, false,
+                                               None); //"HI_LoopUnroll"
         PM0.add(hi_loopunroll);
         print_info("Enable HI_LoopUnroll Pass");
 
@@ -219,11 +225,13 @@ int main(int argc, const char **argv)
         PM1.add(CFGSimplification_pass_PM1);
         print_info("Enable CFGSimplificationPass Pass");
 
-        auto hi_functioninstantiation = new HI_FunctionInstantiation("HI_FunctionInstantiation", top_str);
+        auto hi_functioninstantiation =
+            new HI_FunctionInstantiation("HI_FunctionInstantiation", top_str);
         PM1.add(hi_functioninstantiation);
         print_info("Enable HI_FunctionInstantiation Pass");
 
-        auto hi_replaceselectaccess = new HI_ReplaceSelectAccess("HI_ReplaceSelectAccess", debugFlag);
+        auto hi_replaceselectaccess =
+            new HI_ReplaceSelectAccess("HI_ReplaceSelectAccess", debugFlag);
         PM1.add(hi_replaceselectaccess);
         print_info("Enable HI_ReplaceSelectAccess Pass");
 
@@ -262,15 +270,18 @@ int main(int argc, const char **argv)
         PM2.add(CFGSimplification_pass2);
         print_info("Enable CFGSimplificationPass Pass");
 
-        auto hi_removeredundantaccessPM2 = new HI_RemoveRedundantAccess("HI_RemoveRedundantAccessPM2", top_str, (debugFlag));
+        auto hi_removeredundantaccessPM2 =
+            new HI_RemoveRedundantAccess("HI_RemoveRedundantAccessPM2", top_str, (debugFlag));
         PM2.add(hi_removeredundantaccessPM2);
         print_info("Enable HI_RemoveRedundantAccess Pass");
 
-        auto hi_intstructionmovebackward1 = new HI_IntstructionMoveBackward("HI_IntstructionMoveBackward1", (debugFlag));
+        auto hi_intstructionmovebackward1 =
+            new HI_IntstructionMoveBackward("HI_IntstructionMoveBackward1", (debugFlag));
         PM2.add(hi_intstructionmovebackward1);
         print_info("Enable HI_IntstructionMoveBackward Pass");
 
-        auto hi_removeredundantaccessPM2_2 = new HI_RemoveRedundantAccess("HI_RemoveRedundantAccessPM2_2", top_str, (debugFlag));
+        auto hi_removeredundantaccessPM2_2 =
+            new HI_RemoveRedundantAccess("HI_RemoveRedundantAccessPM2_2", top_str, (debugFlag));
         PM2.add(hi_removeredundantaccessPM2_2);
         print_info("Enable HI_RemoveRedundantAccess Pass");
 
@@ -295,7 +306,9 @@ int main(int argc, const char **argv)
 
         std::map<std::string, std::string> IRLoop2LoopLabel_eval;
         // std::map<std::string, std::vector<int>> IRFunc2BeginLine_eval;
-        auto hi_ir2sourcecode_eval = new HI_IR2SourceCode("HI_IR2SourceCode_eval", IRLoop2LoopLabel_eval, IRFunc2BeginLine, IRLoop2OriginTripCount_eval, debugFlag);
+        auto hi_ir2sourcecode_eval =
+            new HI_IR2SourceCode("HI_IR2SourceCode_eval", IRLoop2LoopLabel_eval, IRFunc2BeginLine,
+                                 IRLoop2OriginTripCount_eval, debugFlag);
         PM3.add(hi_ir2sourcecode_eval);
         print_info("Enable HI_IR2SourceCode Pass");
         PM3.run(*Mod_tmp);
@@ -314,7 +327,9 @@ int main(int argc, const char **argv)
         PM4.add(scalarevolutionwrapperpass);
         print_info("Enable ScalarEvolutionWrapperPass Pass");
 
-        auto hi_MuxInsertionArrayPartition = new HI_MuxInsertionArrayPartition(configFile_str.c_str(), top_str.c_str(), FuncParamLine2OutermostSize, IRFunc2BeginLine, debugFlag);
+        auto hi_MuxInsertionArrayPartition = new HI_MuxInsertionArrayPartition(
+            configFile_str.c_str(), top_str.c_str(), FuncParamLine2OutermostSize, IRFunc2BeginLine,
+            debugFlag);
         print_info("Enable HI_MuxInsertionArrayPartition Pass");
         PM4.add(hi_MuxInsertionArrayPartition);
 
@@ -348,15 +363,22 @@ int main(int argc, const char **argv)
         //         HI_WithDirectiveTimingResourceEvaluation.h         //
         ////////////////////////////////////////////////////////////////
 
-        std::string logName_evaluation = "HI_WithDirectiveTimingResourceEvaluation__forCheck_" + cntStr;
+        std::string logName_evaluation =
+            "HI_WithDirectiveTimingResourceEvaluation__forCheck_" + cntStr;
         std::string logName_array = "ArrayLog__forCheck_" + cntStr;
-        auto hi_withdirectivetimingresourceevaluation = new HI_WithDirectiveTimingResourceEvaluation(configFile_str.c_str(), logName_evaluation.c_str(), "BRAM_info_0", logName_array.c_str(), top_str.c_str(), IRLoop2LoopLabel_eval, IRLoop2OriginTripCount, LoopLabel2II, LoopLabel2UnrollFactor, FuncParamLine2OutermostSize, IRFunc2BeginLine, BiOp_Info_name2list_map, debugFlag);
+        auto hi_withdirectivetimingresourceevaluation =
+            new HI_WithDirectiveTimingResourceEvaluation(
+                configFile_str.c_str(), logName_evaluation.c_str(), "BRAM_info_0",
+                logName_array.c_str(), top_str.c_str(), IRLoop2LoopLabel_eval,
+                IRLoop2OriginTripCount, LoopLabel2II, LoopLabel2UnrollFactor,
+                FuncParamLine2OutermostSize, IRFunc2BeginLine, BiOp_Info_name2list_map, debugFlag);
         print_info("Enable HI_WithDirectiveTimingResourceEvaluation Pass");
         PM_eval.add(hi_withdirectivetimingresourceevaluation);
 
         PM_eval.run(*Mod_tmp);
 
-        assert(hi_withdirectivetimingresourceevaluation->topFunctionFound && "The specified top function is not found in the program");
+        assert(hi_withdirectivetimingresourceevaluation->topFunctionFound &&
+               "The specified top function is not found in the program");
 
         print_status("Writing LLVM IR to File");
 

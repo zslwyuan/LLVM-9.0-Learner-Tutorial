@@ -16,7 +16,9 @@
 
 using namespace llvm;
 
-bool HI_Mul2Shl::runOnFunction(llvm::Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
+bool HI_Mul2Shl::runOnFunction(
+    llvm::Function &F) // The runOnModule declaration will overide the virtual one in ModulePass,
+                       // which will be executed for each Module.
 {
     print_status("Running HI_Mul2Shl pass.");
     std::set<long long> power2;
@@ -71,8 +73,10 @@ bool HI_Mul2Shl::runOnFunction(llvm::Function &F) // The runOnModule declaration
                             IRBuilder<> Builder(&I);
                             std::string oriName = I.getName();
                             Value *Shl0 = Builder.CreateShl(VarForMul, i - 1, oriName + ".shl.0");
-                            Value *Shl1 = Builder.CreateShl(VarForMul, log2int(addVal), oriName + ".shl.1");
-                            Value *Add_For_Mul = Builder.CreateAdd(Shl0, Shl1, oriName + ".mul.add");
+                            Value *Shl1 =
+                                Builder.CreateShl(VarForMul, log2int(addVal), oriName + ".shl.1");
+                            Value *Add_For_Mul =
+                                Builder.CreateAdd(Shl0, Shl1, oriName + ".mul.add");
                             I.replaceAllUsesWith(Add_For_Mul);
                             I.eraseFromParent();
                             if (DEBUG)
@@ -87,8 +91,10 @@ bool HI_Mul2Shl::runOnFunction(llvm::Function &F) // The runOnModule declaration
                             IRBuilder<> Builder(&I);
                             std::string oriName = I.getName();
                             Value *Shl0 = Builder.CreateShl(VarForMul, i, oriName + ".shl.0");
-                            Value *Shl1 = Builder.CreateShl(VarForMul, log2int(subVal), oriName + ".shl.1");
-                            Value *Sub_For_Mul = Builder.CreateSub(Shl0, Shl1, oriName + ".mul.sub");
+                            Value *Shl1 =
+                                Builder.CreateShl(VarForMul, log2int(subVal), oriName + ".shl.1");
+                            Value *Sub_For_Mul =
+                                Builder.CreateSub(Shl0, Shl1, oriName + ".mul.sub");
                             I.replaceAllUsesWith(Sub_For_Mul);
                             I.eraseFromParent();
                             if (DEBUG)
@@ -107,7 +113,9 @@ bool HI_Mul2Shl::runOnFunction(llvm::Function &F) // The runOnModule declaration
     return changed;
 }
 
-char HI_Mul2Shl::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_Mul2Shl::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 void HI_Mul2Shl::getAnalysisUsage(AnalysisUsage &AU) const
 {

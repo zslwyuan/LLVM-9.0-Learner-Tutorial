@@ -44,7 +44,9 @@ bool HI_GEP_OffsetCombine::runOnFunction(Function &F)
     return Changed;
 }
 
-char HI_GEP_OffsetCombine::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_GEP_OffsetCombine::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 // introduce the dependence of Pass
 void HI_GEP_OffsetCombine::getAnalysisUsage(AnalysisUsage &AU) const

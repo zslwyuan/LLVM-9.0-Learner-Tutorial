@@ -19,8 +19,11 @@ void ReplaceAll(std::string &strSource, const std::string &strOld, const std::st
 
 void pathAdvice()
 {
-    std::cout << "===============================================================================" << std::endl;
-    std::cout << "if undefined reference occurs, please check whether the following include paths are required." << std::endl;
+    std::cout << "==============================================================================="
+              << std::endl;
+    std::cout << "if undefined reference occurs, please check whether the following include paths "
+                 "are required."
+              << std::endl;
     std::string line;
     std::string cmd_str = "clang++ ../testcase/test.c  -v 2> ciinfor";
     print_cmd(cmd_str.c_str());
@@ -48,7 +51,8 @@ void pathAdvice()
             break;
         }
     }
-    std::cout << "===============================================================================" << std::endl;
+    std::cout << "==============================================================================="
+              << std::endl;
 }
 
 using namespace clang;
@@ -70,7 +74,9 @@ int main(int argc, const char **argv)
     Rewriter TheRewriter;
 
     // run the Clang Tool, creating a new FrontendAction, which will run the AST consumer
-    Tool.run(HI_rewrite_newFrontendActionFactory<HI_LoopLabeler_FrontendAction>("PLog", TheRewriter, "rewriteOut").get());
+    Tool.run(HI_rewrite_newFrontendActionFactory<HI_LoopLabeler_FrontendAction>("PLog", TheRewriter,
+                                                                                "rewriteOut")
+                 .get());
 
     return 0;
 }

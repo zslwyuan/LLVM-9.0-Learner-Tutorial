@@ -208,7 +208,12 @@ using namespace llvm;
 class HI_IR2SourceCode : public ModulePass
 {
   public:
-    HI_IR2SourceCode(const char *IR2Src_Log_Name, std::map<std::string, std::string> &_IRLoop2LoopLabel, std::map<std::string, std::vector<int>> &IRFunc2BeginLine, std::map<std::string, int> &IRLoop2OriginTripCount, bool DEBUG = false) : ModulePass(ID), IRLoop2LoopLabel(_IRLoop2LoopLabel), IRFunc2BeginLine(IRFunc2BeginLine), IRLoop2OriginTripCount(IRLoop2OriginTripCount), DEBUG(DEBUG)
+    HI_IR2SourceCode(const char *IR2Src_Log_Name,
+                     std::map<std::string, std::string> &_IRLoop2LoopLabel,
+                     std::map<std::string, std::vector<int>> &IRFunc2BeginLine,
+                     std::map<std::string, int> &IRLoop2OriginTripCount, bool DEBUG = false)
+        : ModulePass(ID), IRLoop2LoopLabel(_IRLoop2LoopLabel), IRFunc2BeginLine(IRFunc2BeginLine),
+          IRLoop2OriginTripCount(IRLoop2OriginTripCount), DEBUG(DEBUG)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;

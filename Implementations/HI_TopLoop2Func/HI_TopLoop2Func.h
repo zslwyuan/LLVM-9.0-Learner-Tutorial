@@ -208,10 +208,13 @@ using namespace llvm;
 class HI_TopLoop2Func : public ModulePass
 {
   public:
-    HI_TopLoop2Func(const char *IR2Src_Log_Name, std::map<std::string, std::string> &TopLoopIR2FuncName, std::vector<std::string> &FuncNames, std::string top_str, bool DEBUG = false)
+    HI_TopLoop2Func(const char *IR2Src_Log_Name,
+                    std::map<std::string, std::string> &TopLoopIR2FuncName,
+                    std::vector<std::string> &FuncNames, std::string top_str, bool DEBUG = false)
         :
 
-          ModulePass(ID), TopLoopIR2FuncName(TopLoopIR2FuncName), FuncNames(FuncNames), top_str(top_str), DEBUG(DEBUG)
+          ModulePass(ID), TopLoopIR2FuncName(TopLoopIR2FuncName), FuncNames(FuncNames),
+          top_str(top_str), DEBUG(DEBUG)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;

@@ -1,6 +1,7 @@
 #include "ap_int.h"
 
-void f(int A[50][100], ap_int<271> *result0, ap_int<13> *result1, ap_int<13> *result2, ap_int<271> *result3, ap_int<13> *result4)
+void f(int A[50][100], ap_int<271> *result0, ap_int<13> *result1, ap_int<13> *result2,
+       ap_int<271> *result3, ap_int<13> *result4)
 {
     int N = 100;
     int M = 50;

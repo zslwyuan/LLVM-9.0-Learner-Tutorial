@@ -48,7 +48,8 @@
   %4 = ptrtoint [24 x i32]* %C to i64
 */
 
-void kernel_2mm(int ni, int nj, int nk, int nl, double alpha, double beta, double tmp[NI][NJ], double A[NI][NK], double B[NK][NJ], double C[NJ][NL], double D[NI][NL])
+void kernel_2mm(int ni, int nj, int nk, int nl, double alpha, double beta, double tmp[NI][NJ],
+                double A[NI][NK], double B[NK][NJ], double C[NJ][NL], double D[NI][NL])
 {
     int i, j, k;
 

@@ -15,12 +15,14 @@
 using namespace llvm;
 
 // find the array declaration in the function F and trace the accesses to them
-void HI_PragmaTargetExtraction::findMemoryDeclarationAndAnalyzeAccessin(Function *F, bool isTopFunction)
+void HI_PragmaTargetExtraction::findMemoryDeclarationAndAnalyzeAccessin(Function *F,
+                                                                        bool isTopFunction)
 {
     if (DEBUG)
         *arrayTarget_Log << "checking the BRAM information in Function: " << F->getName() << "\n";
     if (DEBUG)
-        *arrayTarget_Log << "\n\nchecking the BRAM information in Function: " << F->getName() << "\n";
+        *arrayTarget_Log << "\n\nchecking the BRAM information in Function: " << F->getName()
+                         << "\n";
     ValueVisited.clear();
 
     // for top function in HLS, arrays in interface may involve BRAM
@@ -40,21 +42,27 @@ void HI_PragmaTargetExtraction::findMemoryDeclarationAndAnalyzeAccessin(Function
                 if (tmp_PtrType->getElementType()->isArrayTy())
                 {
                     if (DEBUG)
-                        *arrayTarget_Log << "  get array information of [" << it->getName() << "] from argument and its address=" << it << "\n";
+                        *arrayTarget_Log << "  get array information of [" << it->getName()
+                                         << "] from argument and its address=" << it << "\n";
                     Target2ArrayInfo[it] = getArrayInfo(it);
-                    Array2Info[std::pair<std::string, std::string>(F->getName(), it->getName())] = Target2ArrayInfo[it];
+                    Array2Info[std::pair<std::string, std::string>(F->getName(), it->getName())] =
+                        Target2ArrayInfo[it];
                     FuncTargetSet.insert(std::pair<Function *, Value *>(F, it));
                     TraceAccessForTarget(it, it);
                     if (DEBUG)
                         *arrayTarget_Log << Target2ArrayInfo[it] << "\n";
                 }
-                else if (tmp_PtrType->getElementType()->isIntegerTy() || tmp_PtrType->getElementType()->isFloatingPointTy() || tmp_PtrType->getElementType()->isDoubleTy())
+                else if (tmp_PtrType->getElementType()->isIntegerTy() ||
+                         tmp_PtrType->getElementType()->isFloatingPointTy() ||
+                         tmp_PtrType->getElementType()->isDoubleTy())
                 {
                     if (DEBUG)
-                        *arrayTarget_Log << "  get array information of [" << it->getName() << "] from argument and its address=" << it << "\n";
+                        *arrayTarget_Log << "  get array information of [" << it->getName()
+                                         << "] from argument and its address=" << it << "\n";
                     FuncTargetSet.insert(std::pair<Function *, Value *>(F, it));
                     Target2ArrayInfo[it] = getArrayInfo(it);
-                    Array2Info[std::pair<std::string, std::string>(F->getName(), it->getName())] = Target2ArrayInfo[it];
+                    Array2Info[std::pair<std::string, std::string>(F->getName(), it->getName())] =
+                        Target2ArrayInfo[it];
                     TraceAccessForTarget(it, it);
                     if (DEBUG)
                         *arrayTarget_Log << Target2ArrayInfo[it] << "\n";
@@ -80,9 +88,11 @@ void HI_PragmaTargetExtraction::findMemoryDeclarationAndAnalyzeAccessin(Function
             if (AllocaInst *allocI = dyn_cast<AllocaInst>(&I))
             {
                 if (DEBUG)
-                    *arrayTarget_Log << "  get array information of [" << *allocI << "] from allocaInst and its address=" << allocI << "\n";
+                    *arrayTarget_Log << "  get array information of [" << *allocI
+                                     << "] from allocaInst and its address=" << allocI << "\n";
                 Target2ArrayInfo[allocI] = getArrayInfo(allocI);
-                Array2Info[std::pair<std::string, std::string>(F->getName(), allocI->getName())] = Target2ArrayInfo[allocI];
+                Array2Info[std::pair<std::string, std::string>(F->getName(), allocI->getName())] =
+                    Target2ArrayInfo[allocI];
                 FuncTargetSet.insert(std::pair<Function *, Value *>(F, allocI));
                 TraceAccessForTarget(allocI, allocI);
                 if (DEBUG)
@@ -112,12 +122,14 @@ void HI_PragmaTargetExtraction::findMemoryDeclarationAndAnalyzeAccessin(Function
     arrayTarget_Log->flush();
 }
 
-// find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
-// record the corresponding target array which the access instructions try to touch
+// find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr,
+// Store, Load instructions record the corresponding target array which the access instructions try
+// to touch
 void HI_PragmaTargetExtraction::TraceAccessForTarget(Value *cur_node, Value *ori_node)
 {
     if (DEBUG)
-        *arrayTarget_Log << "\n\n\nTracing the access to Array " << ori_node->getName() << " and looking for the users of " << *cur_node << "\n";
+        *arrayTarget_Log << "\n\n\nTracing the access to Array " << ori_node->getName()
+                         << " and looking for the users of " << *cur_node << "\n";
 
     if (Instruction *tmpI = dyn_cast<Instruction>(cur_node))
     {
@@ -159,7 +171,8 @@ void HI_PragmaTargetExtraction::TraceAccessForTarget(Value *cur_node, Value *ori
     for (auto it = cur_node->use_begin(), ie = cur_node->use_end(); it != ie; ++it)
     {
         if (DEBUG)
-            *arrayTarget_Log << "    find user of " << ori_node->getName() << " --> " << *it->getUser() << "\n";
+            *arrayTarget_Log << "    find user of " << ori_node->getName() << " --> "
+                             << *it->getUser() << "\n";
         Instruction2Target[it->getUser()].push_back(ori_node);
         // Load and Store Instructions are leaf nodes in the DFS
         if (LoadInst *LoadI = dyn_cast<LoadInst>(it->getUser()))
@@ -172,7 +185,8 @@ void HI_PragmaTargetExtraction::TraceAccessForTarget(Value *cur_node, Value *ori
                     *arrayTarget_Log << "    is an LOAD instruction: " << *LoadI << "\n";
                 std::vector<Value *> tmp_vec;
                 tmp_vec.push_back(ori_node);
-                Access2TargetMap.insert(std::pair<Instruction *, std::vector<Value *>>(LoadI, tmp_vec));
+                Access2TargetMap.insert(
+                    std::pair<Instruction *, std::vector<Value *>>(LoadI, tmp_vec));
             }
             else
             {
@@ -188,7 +202,8 @@ void HI_PragmaTargetExtraction::TraceAccessForTarget(Value *cur_node, Value *ori
                     *arrayTarget_Log << "    is an STORE instruction: " << *StoreI << "\n";
                 std::vector<Value *> tmp_vec;
                 tmp_vec.push_back(ori_node);
-                Access2TargetMap.insert(std::pair<Instruction *, std::vector<Value *>>(StoreI, tmp_vec));
+                Access2TargetMap.insert(
+                    std::pair<Instruction *, std::vector<Value *>>(StoreI, tmp_vec));
             }
             else
             {
@@ -203,7 +218,8 @@ void HI_PragmaTargetExtraction::TraceAccessForTarget(Value *cur_node, Value *ori
                 *arrayTarget_Log << "    is an CALL instruction: " << *CallI << "\n";
             for (int i = 0; i < CallI->getNumArgOperands(); ++i)
             {
-                if (CallI->getArgOperand(i) == cur_node) // find which argument is exactly the pointer we are tracing
+                if (CallI->getArgOperand(i) ==
+                    cur_node) // find which argument is exactly the pointer we are tracing
                 {
                     auto arg_it = CallI->getCalledFunction()->arg_begin();
                     auto arg_ie = CallI->getCalledFunction()->arg_end();
@@ -234,7 +250,8 @@ HI_PragmaArrayInfo HI_PragmaTargetExtraction::getArrayInfo(Value *target)
 
     PointerType *ptr_type = dyn_cast<PointerType>(target->getType());
     if (DEBUG)
-        *arrayTarget_Log << "\n\nchecking type : " << *ptr_type << " and its ElementType is: [" << *ptr_type->getElementType() << "]\n";
+        *arrayTarget_Log << "\n\nchecking type : " << *ptr_type << " and its ElementType is: ["
+                         << *ptr_type->getElementType() << "]\n";
     Type *tmp_type = ptr_type->getElementType();
     int total_ele = 1;
     int tmp_dim_size[10];
@@ -242,7 +259,10 @@ HI_PragmaArrayInfo HI_PragmaTargetExtraction::getArrayInfo(Value *target)
     while (auto array_T = dyn_cast<ArrayType>(tmp_type))
     {
         if (DEBUG)
-            *arrayTarget_Log << "----- element type of : " << *tmp_type << " is " << *(array_T->getElementType()) << " and the number of its elements is " << (array_T->getNumElements()) << "\n";
+            *arrayTarget_Log << "----- element type of : " << *tmp_type << " is "
+                             << *(array_T->getElementType())
+                             << " and the number of its elements is " << (array_T->getNumElements())
+                             << "\n";
         total_ele *= (array_T->getNumElements());
         tmp_dim_size[num_dims] = (array_T->getNumElements());
         num_dims++;
@@ -259,7 +279,8 @@ HI_PragmaArrayInfo HI_PragmaTargetExtraction::getArrayInfo(Value *target)
     res_array_info.sub_element_num[0] = 1;
     for (int i = 1; i < num_dims; i++)
     {
-        res_array_info.sub_element_num[i] = res_array_info.sub_element_num[i - 1] * res_array_info.dim_size[i - 1];
+        res_array_info.sub_element_num[i] =
+            res_array_info.sub_element_num[i - 1] * res_array_info.dim_size[i - 1];
     }
 
     if (auto arg_v = dyn_cast<Argument>(target))
@@ -268,7 +289,9 @@ HI_PragmaArrayInfo HI_PragmaTargetExtraction::getArrayInfo(Value *target)
         if (num_dims == 0)
             res_array_info.sub_element_num[num_dims] = 1;
         else
-            res_array_info.sub_element_num[num_dims] = res_array_info.sub_element_num[num_dims - 1] * res_array_info.dim_size[num_dims - 1];
+            res_array_info.sub_element_num[num_dims] =
+                res_array_info.sub_element_num[num_dims - 1] *
+                res_array_info.dim_size[num_dims - 1];
 
         std::string FuncName = demangleFunctionName(arg_v->getParent()->getName());
         std::string funcLine;
@@ -277,11 +300,14 @@ HI_PragmaArrayInfo HI_PragmaTargetExtraction::getArrayInfo(Value *target)
         for (int possibleLine : IRFunc2BeginLine[FuncName])
         {
             funcLine = std::to_string(possibleLine);
-            if (FuncParamLine2OutermostSize.find(FuncName + "-" + argName + "-" + funcLine) != FuncParamLine2OutermostSize.end())
+            if (FuncParamLine2OutermostSize.find(FuncName + "-" + argName + "-" + funcLine) !=
+                FuncParamLine2OutermostSize.end())
                 break;
         }
 
-        res_array_info.dim_size[num_dims] = FuncParamLine2OutermostSize[FuncName + "-" + argName + "-" + funcLine]; // set to nearly infinite
+        res_array_info.dim_size[num_dims] =
+            FuncParamLine2OutermostSize[FuncName + "-" + argName + "-" +
+                                        funcLine]; // set to nearly infinite
         res_array_info.num_dims++;
         res_array_info.isArgument = 1;
     }
@@ -293,7 +319,8 @@ HI_PragmaArrayInfo HI_PragmaTargetExtraction::getArrayInfo(Value *target)
     return res_array_info;
 }
 
-AliasResult HI_PragmaTargetExtraction::HI_AAResult::alias(const MemoryLocation &LocA, const MemoryLocation &LocB)
+AliasResult HI_PragmaTargetExtraction::HI_AAResult::alias(const MemoryLocation &LocA,
+                                                          const MemoryLocation &LocB)
 {
     //   auto PtrA = LocA.Ptr;
     //   auto PtrB = LocB.Ptr;
@@ -313,13 +340,16 @@ AliasResult HI_PragmaTargetExtraction::HI_AAResult::alias(const MemoryLocation &
 
 raw_ostream &operator<<(raw_ostream &stream, const HI_PragmaArrayInfo &tb)
 {
-    stream << "HI_PragmaArrayInfo for: << (" << tb.target << ") " << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
+    stream << "HI_PragmaArrayInfo for: << (" << tb.target << ") " << *tb.target
+           << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
     for (int i = 0; i < tb.num_dims; i++)
     {
         if (tb.cyclic)
-            stream << "dim-" << i << "C-s" << tb.dim_size[i] << "-p" << tb.partition_size[i] << ",  ";
+            stream << "dim-" << i << "C-s" << tb.dim_size[i] << "-p" << tb.partition_size[i]
+                   << ",  ";
         else
-            stream << "dim-" << i << "B-s" << tb.dim_size[i] << "-p" << tb.partition_size[i] << ",  ";
+            stream << "dim-" << i << "B-s" << tb.dim_size[i] << "-p" << tb.partition_size[i]
+                   << ",  ";
     }
 
     // for (int i = 0; i<tb.num_dims; i++)

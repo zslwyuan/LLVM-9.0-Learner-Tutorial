@@ -59,8 +59,8 @@ bool HI_MuxInsertionArrayPartition::MuxInsert(BasicBlock *B)
 
                     if (cur_access_info.unpredictable)
                     {
-                        // if the access has unpredictable pattern, schedule the accesses for all the
-                        // partition
+                        // if the access has unpredictable pattern, schedule the accesses for all
+                        // the partition
                         target_partitions = getAllPartitionFor(I);
                         // assert(false && "unfinished.");
                     }
@@ -76,15 +76,21 @@ bool HI_MuxInsertionArrayPartition::MuxInsert(BasicBlock *B)
                         if (target_partitions.size() > 32)
                         {
                             muxWithMoreThan32 = 1;
-                            std::string tmp_loop_name = LI->getLoopFor(B)->getHeader()->getParent()->getName();
+                            std::string tmp_loop_name =
+                                LI->getLoopFor(B)->getHeader()->getParent()->getName();
                             tmp_loop_name += "-";
                             tmp_loop_name += LI->getLoopFor(B)->getHeader()->getName();
                             muxTooMuchLoopIRName = tmp_loop_name;
                             return true;
                         }
                         if (DEBUG)
-                            *BRAM_log << "----------- A Memory Access Instruction: " << *I << " is found,\n-----------  information fot this access is:  " << getAccessInfoForAccessInst(I) << "\n-----------  the access is to partition num=" << target_partitions.size() << ""
-                                      << "\n-----------  do the mux insertion for it\n";
+                            *BRAM_log
+                                << "----------- A Memory Access Instruction: " << *I
+                                << " is found,\n-----------  information fot this access is:  "
+                                << getAccessInfoForAccessInst(I)
+                                << "\n-----------  the access is to partition num="
+                                << target_partitions.size() << ""
+                                << "\n-----------  do the mux insertion for it\n";
                         IRBuilder<> Builder(I->getNextNode());
                         // Create the arguments vector from the my argument list
                         SmallVector<llvm::Type *, 5> ArgTys;
@@ -97,19 +103,29 @@ bool HI_MuxInsertionArrayPartition::MuxInsert(BasicBlock *B)
                         Type *RetTy = I->getType();
 
                         // Create a new function with MyArgs as arguments
-                        std::string funcName = "HIPartitionMux" + std::to_string(target_partitions.size()) + "_" + std::to_string(mux_cnt++);
-                        Value *newF_val = B->getParent()->getParent()->getOrInsertFunction(funcName, FunctionType::get(RetTy, ArgTys, false)).getCallee();
+                        std::string funcName = "HIPartitionMux" +
+                                               std::to_string(target_partitions.size()) + "_" +
+                                               std::to_string(mux_cnt++);
+                        Value *newF_val = B->getParent()
+                                              ->getParent()
+                                              ->getOrInsertFunction(
+                                                  funcName, FunctionType::get(RetTy, ArgTys, false))
+                                              .getCallee();
                         Function *newF = dyn_cast<Function>(newF_val);
                         assert(newF && "the Function has to been created successfully.");
                         if (DEBUG)
-                            *BRAM_log << "----------- create mux function for it : " << newF->getName() << "\n";
+                            *BRAM_log
+                                << "----------- create mux function for it : " << newF->getName()
+                                << "\n";
 
                         ArgsForMux.push_back(I);
-                        ArgsForMux.push_back(ConstantInt::get(llvm::Type::getInt32Ty(B->getContext()), target_partitions.size()));
+                        ArgsForMux.push_back(ConstantInt::get(
+                            llvm::Type::getInt32Ty(B->getContext()), target_partitions.size()));
 
                         Value *newMux = Builder.CreateCall(newF_val, ArgsForMux);
                         if (DEBUG)
-                            *BRAM_log << "----------- insert mux function call: " << *newMux << " and relace the original use of the Load\n";
+                            *BRAM_log << "----------- insert mux function call: " << *newMux
+                                      << " and relace the original use of the Load\n";
                         // BRAM_log->flush();
                         HI_takeOverAllUsesWith(I, newMux);
                         muxed_load.insert(I);
@@ -137,11 +153,13 @@ void HI_MuxInsertionArrayPartition::HI_takeOverAllUsesWith(Value *Old, Value *Ne
     while (replaced)
     {
         replaced = 0;
-        for (auto tmp_use = Old->use_begin(), tmp_use_end = Old->use_end(); tmp_use != tmp_use_end; tmp_use++)
+        for (auto tmp_use = Old->use_begin(), tmp_use_end = Old->use_end(); tmp_use != tmp_use_end;
+             tmp_use++)
         {
             Use &U = *tmp_use;
             if (DEBUG)
-                *BRAM_log << "----------- checking user : [" << *U.getUser() << "] of " << *Old << "\n";
+                *BRAM_log << "----------- checking user : [" << *U.getUser() << "] of " << *Old
+                          << "\n";
             if (U.getUser() != New)
             {
 

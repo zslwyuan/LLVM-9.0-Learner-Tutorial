@@ -15,7 +15,8 @@
 using namespace llvm;
 
 // find the array declaration in the function F and trace the accesses to them
-void HI_ArraySensitiveToLoopLevel::findMemoryDeclarationAndAnalyzeAccessin(Function *F, bool isTopFunction)
+void HI_ArraySensitiveToLoopLevel::findMemoryDeclarationAndAnalyzeAccessin(Function *F,
+                                                                           bool isTopFunction)
 {
     if (DEBUG)
         *BRAM_log << "checking the BRAM information in Function: " << F->getName() << "\n";
@@ -41,17 +42,21 @@ void HI_ArraySensitiveToLoopLevel::findMemoryDeclarationAndAnalyzeAccessin(Funct
                 if (tmp_PtrType->getElementType()->isArrayTy())
                 {
                     if (DEBUG)
-                        *ArrayLog << "  get array information of [" << it->getName() << "] from argument and its address=" << it << "\n";
+                        *ArrayLog << "  get array information of [" << it->getName()
+                                  << "] from argument and its address=" << it << "\n";
                     Target2ArrayInfo[it] = getArrayInfo(it);
                     TraceAccessForTarget(it, it);
                     Instruction2Target[it].push_back(it);
                     if (DEBUG)
                         *ArrayLog << Target2ArrayInfo[it] << "\n";
                 }
-                else if (tmp_PtrType->getElementType()->isIntegerTy() || tmp_PtrType->getElementType()->isFloatingPointTy() || tmp_PtrType->getElementType()->isDoubleTy())
+                else if (tmp_PtrType->getElementType()->isIntegerTy() ||
+                         tmp_PtrType->getElementType()->isFloatingPointTy() ||
+                         tmp_PtrType->getElementType()->isDoubleTy())
                 {
                     if (DEBUG)
-                        *ArrayLog << "  get array information of [" << it->getName() << "] from argument and its address=" << it << "\n";
+                        *ArrayLog << "  get array information of [" << it->getName()
+                                  << "] from argument and its address=" << it << "\n";
                     Target2ArrayInfo[it] = getArrayInfo(it);
                     TraceAccessForTarget(it, it);
                     Instruction2Target[it].push_back(it);
@@ -79,7 +84,8 @@ void HI_ArraySensitiveToLoopLevel::findMemoryDeclarationAndAnalyzeAccessin(Funct
             if (AllocaInst *allocI = dyn_cast<AllocaInst>(&I))
             {
                 if (DEBUG)
-                    *ArrayLog << "  get array information of [" << *allocI << "] from allocaInst and its address=" << allocI << "\n";
+                    *ArrayLog << "  get array information of [" << *allocI
+                              << "] from allocaInst and its address=" << allocI << "\n";
                 Target2ArrayInfo[allocI] = getArrayInfo(allocI);
                 TraceAccessForTarget(allocI, allocI);
                 Instruction2Target[allocI].push_back(allocI);
@@ -110,12 +116,14 @@ void HI_ArraySensitiveToLoopLevel::findMemoryDeclarationAndAnalyzeAccessin(Funct
     // ArrayLog->flush();
 }
 
-// find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
-// record the corresponding target array which the access instructions try to touch
+// find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr,
+// Store, Load instructions record the corresponding target array which the access instructions try
+// to touch
 void HI_ArraySensitiveToLoopLevel::TraceAccessForTarget(Value *cur_node, Value *ori_node)
 {
     if (DEBUG)
-        *BRAM_log << "\n\n\nTracing the access to Array " << ori_node->getName() << " and looking for the users of " << *cur_node << "\n";
+        *BRAM_log << "\n\n\nTracing the access to Array " << ori_node->getName()
+                  << " and looking for the users of " << *cur_node << "\n";
 
     if (Instruction *tmpI = dyn_cast<Instruction>(cur_node))
     {
@@ -157,7 +165,8 @@ void HI_ArraySensitiveToLoopLevel::TraceAccessForTarget(Value *cur_node, Value *
     for (auto it = cur_node->use_begin(), ie = cur_node->use_end(); it != ie; ++it)
     {
         if (DEBUG)
-            *BRAM_log << "    find user of " << ori_node->getName() << " --> " << *it->getUser() << "\n";
+            *BRAM_log << "    find user of " << ori_node->getName() << " --> " << *it->getUser()
+                      << "\n";
         Instruction2Target[it->getUser()].push_back(ori_node);
 
         // Load and Store Instructions are leaf nodes in the DFS
@@ -169,7 +178,8 @@ void HI_ArraySensitiveToLoopLevel::TraceAccessForTarget(Value *cur_node, Value *
                     *BRAM_log << "    is an LOAD instruction: " << *LoadI << "\n";
                 std::vector<Value *> tmp_vec;
                 tmp_vec.push_back(ori_node);
-                Access2TargetMap.insert(std::pair<Instruction *, std::vector<Value *>>(LoadI, tmp_vec));
+                Access2TargetMap.insert(
+                    std::pair<Instruction *, std::vector<Value *>>(LoadI, tmp_vec));
             }
             else
             {
@@ -184,7 +194,8 @@ void HI_ArraySensitiveToLoopLevel::TraceAccessForTarget(Value *cur_node, Value *
                     *BRAM_log << "    is an STORE instruction: " << *StoreI << "\n";
                 std::vector<Value *> tmp_vec;
                 tmp_vec.push_back(ori_node);
-                Access2TargetMap.insert(std::pair<Instruction *, std::vector<Value *>>(StoreI, tmp_vec));
+                Access2TargetMap.insert(
+                    std::pair<Instruction *, std::vector<Value *>>(StoreI, tmp_vec));
             }
             else
             {
@@ -198,7 +209,8 @@ void HI_ArraySensitiveToLoopLevel::TraceAccessForTarget(Value *cur_node, Value *
                 *BRAM_log << "    is an CALL instruction: " << *CallI << "\n";
             for (int i = 0; i < CallI->getNumArgOperands(); ++i)
             {
-                if (CallI->getArgOperand(i) == cur_node) // find which argument is exactly the pointer we are tracing
+                if (CallI->getArgOperand(i) ==
+                    cur_node) // find which argument is exactly the pointer we are tracing
                 {
                     auto arg_it = CallI->getCalledFunction()->arg_begin();
                     auto arg_ie = CallI->getCalledFunction()->arg_end();
@@ -224,17 +236,18 @@ void HI_ArraySensitiveToLoopLevel::TraceAccessForTarget(Value *cur_node, Value *
     ValueVisited.erase(cur_node);
 }
 
-// // schedule the access to potential target (since an instructon may use the address for different target
+// // schedule the access to potential target (since an instructon may use the address for different
+// target
 // // (e.g. address comes from PHINode) or different parttions, we need to schedule all of them)
 // HI_ArraySensitiveToLoopLevel::timingBase
 // HI_ArraySensitiveToLoopLevel::scheduleBRAMAccess(Instruction *access, BasicBlock *cur_block,
-//                                                              HI_ArraySensitiveToLoopLevel::timingBase cur_Timing,
-//                                                              partition_info target_partition)
+//                                                              HI_ArraySensitiveToLoopLevel::timingBase
+//                                                              cur_Timing, partition_info
+//                                                              target_partition)
 // {
-//     assert(Access2TargetMap.find(access) != Access2TargetMap.end() && "The access should be recorded in the BRAM access info.\n");
-//     timingBase res(0,0,1,clock_period);
-//     Value *reftarget = Access2TargetMap[access][0];
-//     if (Alias2Target.find(reftarget) != Alias2Target.end())
+//     assert(Access2TargetMap.find(access) != Access2TargetMap.end() && "The access should be
+//     recorded in the BRAM access info.\n"); timingBase res(0,0,1,clock_period); Value *reftarget =
+//     Access2TargetMap[access][0]; if (Alias2Target.find(reftarget) != Alias2Target.end())
 //         reftarget = Alias2Target[reftarget];
 //     if (Access2TargetMap[access].size()>1)
 //     {
@@ -254,14 +267,16 @@ void HI_ArraySensitiveToLoopLevel::TraceAccessForTarget(Value *cur_node, Value *
 //                 for (auto target:Access2TargetMap[access])
 //                     llvm::errs()  <<  "    " <<*target << "\n";
 //             }
-//             assert(tmp_target==tmp_reftarget && "currently, we do not support 1-access-multi-target.");
+//             assert(tmp_target==tmp_reftarget && "currently, we do not support
+//             1-access-multi-target.");
 //         }
 //     }
 //     Value* target = reftarget;
 
-//     if (DEBUG) *BRAM_log << "\n\n\n sceduling access instruction: " << *access << " for the target [" << target->getName() << "]" << " of Block:" << cur_block->getName() <<"\n";
-//     timingBase targetTiming = handleBRAMAccessFor(access, target, cur_block, cur_Timing, target_partition);
-//     if (access->getOpcode()==Instruction::Store)
+//     if (DEBUG) *BRAM_log << "\n\n\n sceduling access instruction: " << *access << " for the
+//     target [" << target->getName() << "]" << " of Block:" << cur_block->getName() <<"\n";
+//     timingBase targetTiming = handleBRAMAccessFor(access, target, cur_block, cur_Timing,
+//     target_partition); if (access->getOpcode()==Instruction::Store)
 //     {
 //         if (DEBUG) *BRAM_log << " sceduled access Store instruction: " << *access <<
 //                     " for the target ["  << target->getName() <<
@@ -289,12 +304,16 @@ void HI_ArraySensitiveToLoopLevel::TraceAccessForTarget(Value *cur_node, Value *
 // HI_ArraySensitiveToLoopLevel::timingBase
 // HI_ArraySensitiveToLoopLevel::handleBRAMAccessFor(Instruction *access, Value *target,
 //                                                               BasicBlock *cur_block,
-//                                                               HI_ArraySensitiveToLoopLevel::timingBase cur_Timing,
-//                                                               partition_info target_partition)
+//                                                               HI_ArraySensitiveToLoopLevel::timingBase
+//                                                               cur_Timing, partition_info
+//                                                               target_partition)
 // {
-//     if (scheduledAccess_timing.find(std::pair<Instruction*,std::pair<Value*, partition_info>>(access, std::pair<Value*, partition_info>(target, target_partition))) != scheduledAccess_timing.end())
+//     if (scheduledAccess_timing.find(std::pair<Instruction*,std::pair<Value*,
+//     partition_info>>(access, std::pair<Value*, partition_info>(target, target_partition))) !=
+//     scheduledAccess_timing.end())
 //     {
-//         return scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*, partition_info>>(access, std::pair<Value*, partition_info>(target, target_partition))];
+//         return scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*,
+//         partition_info>>(access, std::pair<Value*, partition_info>(target, target_partition))];
 //     }
 
 //     std::string LoadOrStore;
@@ -304,29 +323,45 @@ void HI_ArraySensitiveToLoopLevel::TraceAccessForTarget(Value *cur_node, Value *
 //         LoadOrStore = "load";
 
 //     // if the access can take place at cur_Timing, schedule and record it
-//     if (checkBRAMAvailabilty(access, target, LoadOrStore, cur_block, cur_Timing, target_partition))
+//     if (checkBRAMAvailabilty(access, target, LoadOrStore, cur_block, cur_Timing,
+//     target_partition))
 //     {
-//         if (DEBUG) *BRAM_log << "    the access instruction: " << *access << " for the target [" << target->getName() << "] can be scheduled in cycle #" <<cur_Timing.latency << " of Block:" << cur_block->getName() <<"\n";
-//         if (DEBUG) *BRAM_log << "    cur_timing is " << cur_Timing << " opTiming is " << getInstructionLatency(access) << " ";
-//         scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*, partition_info>>(access, std::pair<Value*, partition_info>(target, target_partition))] = cur_Timing + getInstructionLatency(access);
-//         if (DEBUG) *BRAM_log << "resultTiming is "<< scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*, partition_info>>(access, std::pair<Value*, partition_info>(target, target_partition))] << "\n";
+//         if (DEBUG) *BRAM_log << "    the access instruction: " << *access << " for the target ["
+//         << target->getName() << "] can be scheduled in cycle #" <<cur_Timing.latency << " of
+//         Block:" << cur_block->getName() <<"\n"; if (DEBUG) *BRAM_log << "    cur_timing is " <<
+//         cur_Timing << " opTiming is " << getInstructionLatency(access) << " ";
+//         scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*, partition_info>>(access,
+//         std::pair<Value*, partition_info>(target, target_partition))] = cur_Timing +
+//         getInstructionLatency(access); if (DEBUG) *BRAM_log << "resultTiming is "<<
+//         scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*, partition_info>>(access,
+//         std::pair<Value*, partition_info>(target, target_partition))] << "\n";
 //         insertBRAMAccessInfo(target, cur_block, cur_Timing.latency, access, target_partition);
-//         return scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*, partition_info>>(access, std::pair<Value*, partition_info>(target, target_partition))];
+//         return scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*,
+//         partition_info>>(access, std::pair<Value*, partition_info>(target, target_partition))];
 //     }
 //     else
 //     {
 //         // otherwise, try later time slots and see whether the schedule can be successful.
 //         while (1)
 //         {
-//             if (DEBUG) *BRAM_log << "    the access instruction: " << *access << " for the target [" << target->getName() << "] CANNOT be scheduled in cycle #" <<cur_Timing.latency << " of Block:" << cur_block->getName() <<"\n";
-//             cur_Timing.latency++;
+//             if (DEBUG) *BRAM_log << "    the access instruction: " << *access << " for the target
+//             [" << target->getName() << "] CANNOT be scheduled in cycle #" <<cur_Timing.latency <<
+//             " of Block:" << cur_block->getName() <<"\n"; cur_Timing.latency++;
 //             cur_Timing.timing=0;
-//             if (checkBRAMAvailabilty(access, target, LoadOrStore, cur_block, cur_Timing, target_partition))
+//             if (checkBRAMAvailabilty(access, target, LoadOrStore, cur_block, cur_Timing,
+//             target_partition))
 //             {
-//                 if (DEBUG) *BRAM_log << "    the access instruction: " << *access << " for the target [" << target->getName() << "] can be scheduled in cycle #" <<cur_Timing.latency << " of Block:" << cur_block->getName() <<"\n";
-//                 scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*, partition_info>>(access, std::pair<Value*, partition_info>(target, target_partition))] = cur_Timing + getInstructionLatency(access);
-//                 insertBRAMAccessInfo(target, cur_block, cur_Timing.latency, access, target_partition);
-//                 return scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*, partition_info>>(access, std::pair<Value*, partition_info>(target, target_partition))];
+//                 if (DEBUG) *BRAM_log << "    the access instruction: " << *access << " for the
+//                 target [" << target->getName() << "] can be scheduled in cycle #"
+//                 <<cur_Timing.latency << " of Block:" << cur_block->getName() <<"\n";
+//                 scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*,
+//                 partition_info>>(access, std::pair<Value*, partition_info>(target,
+//                 target_partition))] = cur_Timing + getInstructionLatency(access);
+//                 insertBRAMAccessInfo(target, cur_block, cur_Timing.latency, access,
+//                 target_partition); return
+//                 scheduledAccess_timing[std::pair<Instruction*,std::pair<Value*,
+//                 partition_info>>(access, std::pair<Value*, partition_info>(target,
+//                 target_partition))];
 //             }
 //             // BRAM_log->flush();
 //         }
@@ -335,14 +370,18 @@ void HI_ArraySensitiveToLoopLevel::TraceAccessForTarget(Value *cur_node, Value *
 // }
 
 // // check whether the access to target array can be scheduled in a specific cycle
-// bool HI_ArraySensitiveToLoopLevel::checkBRAMAvailabilty(Instruction* access, Value *target, std::string StoreOrLoad,
+// bool HI_ArraySensitiveToLoopLevel::checkBRAMAvailabilty(Instruction* access, Value *target,
+// std::string StoreOrLoad,
 //                                                                     BasicBlock *cur_block,
-//                                                                     HI_ArraySensitiveToLoopLevel::timingBase cur_Timing,
-//                                                                     partition_info target_partition)
+//                                                                     HI_ArraySensitiveToLoopLevel::timingBase
+//                                                                     cur_Timing, partition_info
+//                                                                     target_partition)
 // {
-//     if (DEBUG) *BRAM_log << "       checking the access to the target [" << target->getName() << "] in cycle #" << cur_Timing.latency << " of Block:" << cur_block->getName() <<"  --> ";
-//     timingBase opTiming =  getInstructionLatency(access); // get_inst_TimingInfo_result(StoreOrLoad.c_str(),-1,-1,clock_period_str);
-//     timingBase res = cur_Timing + opTiming;
+//     if (DEBUG) *BRAM_log << "       checking the access to the target [" << target->getName() <<
+//     "] in cycle #" << cur_Timing.latency << " of Block:" << cur_block->getName() <<"  --> ";
+//     timingBase opTiming =  getInstructionLatency(access); //
+//     get_inst_TimingInfo_result(StoreOrLoad.c_str(),-1,-1,clock_period_str); timingBase res =
+//     cur_Timing + opTiming;
 
 //     if (StoreOrLoad == "load" && (res.latency-1 != cur_Timing.latency))
 //     {
@@ -361,7 +400,8 @@ void HI_ArraySensitiveToLoopLevel::TraceAccessForTarget(Value *cur_node, Value *
 //         if (DEBUG) *BRAM_log << " No access scheduled in the block yet\n";
 //         return true;
 //     }
-//     if (target2LastAccessCycleInBlock[target].find(cur_block) == target2LastAccessCycleInBlock[target].end())
+//     if (target2LastAccessCycleInBlock[target].find(cur_block) ==
+//     target2LastAccessCycleInBlock[target].end())
 //     {
 //         if (DEBUG) *BRAM_log << " No access for the target in the block yet\n";
 //         return true;
@@ -387,27 +427,31 @@ void HI_ArraySensitiveToLoopLevel::TraceAccessForTarget(Value *cur_node, Value *
 //     {
 //         Instruction *preI = lat_Inst_pair.second;
 //         HI_AccessInfo preAccessInfo = getAccessInfoForAccessInst(preI);
-//         if (lat_Inst_pair.first.first == cur_Timing.latency && (lat_Inst_pair.first.second == target_partition /* ||  preAccessInfo.unpredictable || curAccessInfo.unpredictable */))
+//         if (lat_Inst_pair.first.first == cur_Timing.latency && (lat_Inst_pair.first.second ==
+//         target_partition /* ||  preAccessInfo.unpredictable || curAccessInfo.unpredictable */))
 //             cnt ++;
 //     }
 
-//     if (DEBUG) *BRAM_log << "for partition #" << target_partition << ": " << cnt << " access(es) in this cycle\n";
-//     // consider the number of BRAM port (currently it is a constant (2). Later, consider array partitioning)
-//     if (cnt>= 2)
+//     if (DEBUG) *BRAM_log << "for partition #" << target_partition << ": " << cnt << " access(es)
+//     in this cycle\n";
+//     // consider the number of BRAM port (currently it is a constant (2). Later, consider array
+//     partitioning) if (cnt>= 2)
 //         return false;
 
 //     return true;
 // }
 
 // // record the schedule information
-// void HI_ArraySensitiveToLoopLevel::insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int cur_latency, Instruction* access, partition_info target_partition)
+// void HI_ArraySensitiveToLoopLevel::insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int
+// cur_latency, Instruction* access, partition_info target_partition)
 // {
 //     if (DEBUG) *BRAM_log << "       inserting the access to the target [" << target->getName()
 //               << "] in its partition #" << target_partition
 //               << " in cycle #" << cur_latency
 //               << " of Block:" << cur_block->getName() << "  --> ";
 
-//     std::pair<Value*, partition_info> tmp_pair = std::pair<Value*, partition_info>(target,target_partition);
+//     std::pair<Value*, partition_info> tmp_pair = std::pair<Value*,
+//     partition_info>(target,target_partition);
 
 //     if (partition2cnt.find(target_partition) == partition2cnt.end())
 //         partition2cnt[target_partition] = std::pair<int, int>(0, 0);
@@ -425,19 +469,22 @@ void HI_ArraySensitiveToLoopLevel::TraceAccessForTarget(Value *cur_node, Value *
 //             checkCnt++;
 //             if (checkCnt>=2)
 //             {
-//                 if (DEBUG) *BRAM_log << " error with block: " << cur_block->getName() << " at cycle#" << cur_latency << "\n";
-//                 llvm::errs() << " error with block: " << cur_block->getName() << " at cycle#" << cur_latency << "\n";
-//                 break;
+//                 if (DEBUG) *BRAM_log << " error with block: " << cur_block->getName() << " at
+//                 cycle#" << cur_latency << "\n"; llvm::errs() << " error with block: " <<
+//                 cur_block->getName() << " at cycle#" << cur_latency << "\n"; break;
 //             }
 //         }
 //     }
-//     targetPartition2BlockCycleAccessCnt[tmp_pair].push_back(std::pair<BasicBlock*, int>(cur_block,cur_latency));
-//     // td::map<BasicBlock*,std::map<std::pair<Value*, partition_info>, int>> accessCounterForBlock;
-//     if (accessCounterForBlock.find(cur_block) == accessCounterForBlock.end())
+//     targetPartition2BlockCycleAccessCnt[tmp_pair].push_back(std::pair<BasicBlock*,
+//     int>(cur_block,cur_latency));
+//     // td::map<BasicBlock*,std::map<std::pair<Value*, partition_info>, int>>
+//     accessCounterForBlock; if (accessCounterForBlock.find(cur_block) ==
+//     accessCounterForBlock.end())
 //     {
 //         accessCounterForBlock[cur_block][tmp_pair] = 1;
 //     }
-//     else if (accessCounterForBlock[cur_block].find(tmp_pair) == accessCounterForBlock[cur_block].end())
+//     else if (accessCounterForBlock[cur_block].find(tmp_pair) ==
+//     accessCounterForBlock[cur_block].end())
 //     {
 //         accessCounterForBlock[cur_block][tmp_pair] = 1;
 //     }
@@ -448,24 +495,28 @@ void HI_ArraySensitiveToLoopLevel::TraceAccessForTarget(Value *cur_node, Value *
 
 //     if (target2LastAccessCycleInBlock.find(target) == target2LastAccessCycleInBlock.end())
 //     {
-//         std::map<BasicBlock*,std::vector<std::pair<std::pair<int, partition_info>,Instruction*>>> tmp_map;
-//         std::vector<std::pair<std::pair<int, partition_info>,Instruction*>> tmp_vec;
-//         tmp_vec.push_back(std::pair<std::pair<int, partition_info>,Instruction*>(std::pair<int, partition_info>(cur_latency,target_partition),access));
-//         tmp_map[cur_block] = tmp_vec;
+//         std::map<BasicBlock*,std::vector<std::pair<std::pair<int, partition_info>,Instruction*>>>
+//         tmp_map; std::vector<std::pair<std::pair<int, partition_info>,Instruction*>> tmp_vec;
+//         tmp_vec.push_back(std::pair<std::pair<int, partition_info>,Instruction*>(std::pair<int,
+//         partition_info>(cur_latency,target_partition),access)); tmp_map[cur_block] = tmp_vec;
 //         target2LastAccessCycleInBlock[target] = tmp_map;
 //         if (DEBUG) *BRAM_log << "(new map new vector)\n";
 //         return;
 //     }
-//     if (target2LastAccessCycleInBlock[target].find(cur_block) == target2LastAccessCycleInBlock[target].end())
+//     if (target2LastAccessCycleInBlock[target].find(cur_block) ==
+//     target2LastAccessCycleInBlock[target].end())
 //     {
 //         std::vector<std::pair<std::pair<int, partition_info>,Instruction*>> tmp_vec;
-//         tmp_vec.push_back(std::pair<std::pair<int, partition_info>,Instruction*>(std::pair<int, partition_info>(cur_latency,target_partition),access));
+//         tmp_vec.push_back(std::pair<std::pair<int, partition_info>,Instruction*>(std::pair<int,
+//         partition_info>(cur_latency,target_partition),access));
 //         target2LastAccessCycleInBlock[target][cur_block] = tmp_vec;
 //         if (DEBUG) *BRAM_log << "(new vector)\n";
 //         return;
 //     }
 //     if (DEBUG) *BRAM_log << "(existed vector)\n";
-//     target2LastAccessCycleInBlock[target][cur_block].push_back(std::pair<std::pair<int, partition_info>,Instruction*>(std::pair<int, partition_info>(cur_latency, target_partition),access));
+//     target2LastAccessCycleInBlock[target][cur_block].push_back(std::pair<std::pair<int,
+//     partition_info>,Instruction*>(std::pair<int, partition_info>(cur_latency,
+//     target_partition),access));
 // }
 
 // evaluate the number of LUT needed by the BRAM MUXs
@@ -481,7 +532,9 @@ HI_ArraySensitiveToLoopLevel::resourceBase HI_ArraySensitiveToLoopLevel::BRAM_MU
         int access_counter_for_value = read_counter_for_value + write_counter_for_value;
 
         if (DEBUG)
-            *Evaluating_log << " for partition:" << partition2cnt_pair.first << " read_counter_for_value=" << read_counter_for_value << " write_counter_for_value=" << write_counter_for_value << "\n";
+            *Evaluating_log << " for partition:" << partition2cnt_pair.first
+                            << " read_counter_for_value=" << read_counter_for_value
+                            << " write_counter_for_value=" << write_counter_for_value << "\n";
         if (DEBUG)
             Evaluating_log->flush();
 
@@ -538,22 +591,24 @@ HI_ArraySensitiveToLoopLevel::resourceBase HI_ArraySensitiveToLoopLevel::BRAM_MU
     //     int access_counter_for_value = 0;
     //     int read_counter_for_value = 0;
     //     int write_counter_for_value = 0;
-    //     if (DEBUG) *Evaluating_log << " The access to target: [" << Val_IT.first->getName() <<"] includes:\n";
-    //     for (auto B2Cycles : Val_IT.second)
+    //     if (DEBUG) *Evaluating_log << " The access to target: [" << Val_IT.first->getName() <<"]
+    //     includes:\n"; for (auto B2Cycles : Val_IT.second)
     //     {
     //         access_counter_for_value += B2Cycles.second.size();
-    //         if (DEBUG) *Evaluating_log << " in block: [" <<B2Cycles.first->getParent()->getName() << "-" <<B2Cycles.first->getName() <<"] cycles: ";
-    //         for (auto C_tmp : B2Cycles.second)
+    //         if (DEBUG) *Evaluating_log << " in block: [" <<B2Cycles.first->getParent()->getName()
+    //         << "-" <<B2Cycles.first->getName() <<"] cycles: "; for (auto C_tmp : B2Cycles.second)
     //         {
     //             if (auto readI = dyn_cast<LoadInst>(C_tmp.second))
     //             {
     //                 read_counter_for_value ++ ;
-    //                 if (DEBUG) *Evaluating_log << " --- R(c" << C_tmp.first.first << ",p" << C_tmp.first.second <<") ";
+    //                 if (DEBUG) *Evaluating_log << " --- R(c" << C_tmp.first.first << ",p" <<
+    //                 C_tmp.first.second <<") ";
     //             }
     //             if (auto writeI = dyn_cast<StoreInst>(C_tmp.second))
     //             {
     //                 write_counter_for_value ++ ;
-    //                 if (DEBUG) *Evaluating_log << " --- W(c" << C_tmp.first.first << ",p" << C_tmp.first.second <<") ";
+    //                 if (DEBUG) *Evaluating_log << " --- W(c" << C_tmp.first.first << ",p" <<
+    //                 C_tmp.first.second <<") ";
     //             }
     //         }
     //         if (DEBUG) *Evaluating_log << " \n";
@@ -614,17 +669,22 @@ HI_ArraySensitiveToLoopLevel::resourceBase HI_ArraySensitiveToLoopLevel::BRAM_MU
 }
 
 // get the number of BRAMs which are needed by the alloca instruction
-HI_ArraySensitiveToLoopLevel::resourceBase HI_ArraySensitiveToLoopLevel::get_BRAM_Num_For(AllocaInst *alloca_I)
+HI_ArraySensitiveToLoopLevel::resourceBase
+HI_ArraySensitiveToLoopLevel::get_BRAM_Num_For(AllocaInst *alloca_I)
 {
     resourceBase res(0, 0, 0, 0, clock_period);
     if (DEBUG)
-        *BRAM_log << "\n\nchecking allocation instruction [" << *alloca_I << "] and its type is: " << *alloca_I->getType() << " and its ElementType is: [" << *alloca_I->getType()->getElementType() << "]\n";
+        *BRAM_log << "\n\nchecking allocation instruction [" << *alloca_I
+                  << "] and its type is: " << *alloca_I->getType() << " and its ElementType is: ["
+                  << *alloca_I->getType()->getElementType() << "]\n";
     Type *tmp_type = alloca_I->getType()->getElementType();
     int total_ele = 1;
     while (auto array_T = dyn_cast<ArrayType>(tmp_type))
     {
         if (DEBUG)
-            *BRAM_log << "----- element type of : " << *tmp_type << " is " << *(array_T->getElementType()) << " and the number of its elements is " << (array_T->getNumElements()) << "\n";
+            *BRAM_log << "----- element type of : " << *tmp_type << " is "
+                      << *(array_T->getElementType()) << " and the number of its elements is "
+                      << (array_T->getNumElements()) << "\n";
         total_ele *= (array_T->getNumElements());
         tmp_type = array_T->getElementType();
     }
@@ -638,13 +698,17 @@ HI_ArraySensitiveToLoopLevel::resourceBase HI_ArraySensitiveToLoopLevel::get_BRA
     assert(BW != 0 && "we should get BW for the basic element type.\n");
     res = get_BRAM_Num_For(BW, total_ele);
     if (DEBUG)
-        *BRAM_log << "checked allocation instruction [" << *alloca_I << "] and its basic elemenet type is: [" << *tmp_type << "] with BW=[" << BW << "] and the total number of basic elements is: [" << total_ele << "] and it need BRAMs [" << res.BRAM << "].\n\n";
+        *BRAM_log << "checked allocation instruction [" << *alloca_I
+                  << "] and its basic elemenet type is: [" << *tmp_type << "] with BW=[" << BW
+                  << "] and the total number of basic elements is: [" << total_ele
+                  << "] and it need BRAMs [" << res.BRAM << "].\n\n";
 
     return res;
 }
 
 // get the number of BRAMs which are needed by the alloca instruction
-HI_ArraySensitiveToLoopLevel::resourceBase HI_ArraySensitiveToLoopLevel::get_BRAM_Num_For(int width, int depth)
+HI_ArraySensitiveToLoopLevel::resourceBase HI_ArraySensitiveToLoopLevel::get_BRAM_Num_For(int width,
+                                                                                          int depth)
 {
     resourceBase res(0, 0, 0, 0, clock_period);
     if (depth <= 0)
@@ -720,7 +784,8 @@ void HI_ArraySensitiveToLoopLevel::TryArrayAccessProcess(Instruction *I, ScalarE
     if (processNaiveAccess(I))
         return;
 
-    // handle the situation for access instruction, which address come from ITP, where the I in ITP come from addition
+    // handle the situation for access instruction, which address come from ITP, where the I in ITP
+    // come from addition
     /*
     1.  get the initial value of access address by using SCEV
     2.  calculate the index of the access for different dimension
@@ -735,16 +800,20 @@ void HI_ArraySensitiveToLoopLevel::TryArrayAccessProcess(Instruction *I, ScalarE
     if (!ITP_I)
         return;
 
-    bool isMemoryAccess = dyn_cast<LoadInst>(ITP_I->use_begin()->getUser()) || dyn_cast<StoreInst>(ITP_I->use_begin()->getUser());
+    bool isMemoryAccess = dyn_cast<LoadInst>(ITP_I->use_begin()->getUser()) ||
+                          dyn_cast<StoreInst>(ITP_I->use_begin()->getUser());
 
     if (DEBUG)
         *ArrayLog << *I << " --> is under processing of ArrayAccessProcess\n";
     // ArrayLog->flush();
-    // if (!(ITP_I->hasOneUse() && isMemoryAccess))truction:   store i32 %add20.1, i32* %10, align 4, !db
+    // if (!(ITP_I->hasOneUse() && isMemoryAccess))truction:   store i32 %add20.1, i32* %10, align
+    // 4, !db
     // {
-    //     llvm::errs() << "ERROR at : " << *I << "===>" << ITP_I->hasOneUse() << "-->" << isMemoryAccess << "\n";
+    //     llvm::errs() << "ERROR at : " << *I << "===>" << ITP_I->hasOneUse() << "-->" <<
+    //     isMemoryAccess << "\n";
     // }
-    // assert(ITP_I->hasOneUse() && isMemoryAccess && "This instruction shoudl be directly used for one memory access.");
+    // assert(ITP_I->hasOneUse() && isMemoryAccess && "This instruction shoudl be directly used for
+    // one memory access.");
 
     Instruction *sample_accessI = dyn_cast<Instruction>(ITP_I->use_begin()->getUser());
 
@@ -782,11 +851,12 @@ void HI_ArraySensitiveToLoopLevel::TryArrayAccessProcess(Instruction *I, ScalarE
         handleSAREAccess(I, SARE);
         return;
     }
-    else // it is a complex SCEV and hard to predict the access pattern, we assume that it could access all possible elements.
-         // in the array
+    else // it is a complex SCEV and hard to predict the access pattern, we assume that it could
+         // access all possible elements. in the array
     {
 
-        const SCEVAddRecExpr *SAREtmp = dyn_cast<SCEVAddRecExpr>(bypassExtTruntSCEV(SAE->getOperand(0)));
+        const SCEVAddRecExpr *SAREtmp =
+            dyn_cast<SCEVAddRecExpr>(bypassExtTruntSCEV(SAE->getOperand(0)));
         const SCEVUnknown *SU = dyn_cast<SCEVUnknown>(findUnknown(tmp_S));
         const PtrToIntInst *PTI_I = dyn_cast<PtrToIntInst>(SU->getValue());
         if (SAE && SAREtmp && SU && PTI_I)
@@ -804,7 +874,10 @@ void HI_ArraySensitiveToLoopLevel::TryArrayAccessProcess(Instruction *I, ScalarE
 }
 
 // generate AccessInformation according to the target and the initial access
-HI_ArraySensitiveToLoopLevel::HI_AccessInfo HI_ArraySensitiveToLoopLevel::getAccessInfoFor(Value *target, Instruction *access, int initial_offset, std::vector<int> *inc_indices, std::vector<int> *trip_counts, bool unpredictable)
+HI_ArraySensitiveToLoopLevel::HI_AccessInfo
+HI_ArraySensitiveToLoopLevel::getAccessInfoFor(Value *target, Instruction *access,
+                                               int initial_offset, std::vector<int> *inc_indices,
+                                               std::vector<int> *trip_counts, bool unpredictable)
 {
 
     if (Alias2Target.find(target) != Alias2Target.end())
@@ -858,7 +931,8 @@ HI_ArraySensitiveToLoopLevel::HI_AccessInfo HI_ArraySensitiveToLoopLevel::getAcc
             res.partition_id[i] = res.index[i] % res.partition_size[i];
         else
         {
-            res.partition_id[i] = res.index[i] / ((res.dim_size[i] + res.partition_size[i] - 1) / res.partition_size[i]);
+            res.partition_id[i] = res.index[i] / ((res.dim_size[i] + res.partition_size[i] - 1) /
+                                                  res.partition_size[i]);
         }
     }
     if (!res.num_dims)
@@ -900,9 +974,12 @@ const SCEV *HI_ArraySensitiveToLoopLevel::findTheActualStartValue(const SCEVAddR
 }
 
 // get the index incremental value of the array access in the loop
-void HI_ArraySensitiveToLoopLevel::findTheIncrementalIndexAndTripCount(Value *target, const SCEVAddRecExpr *S, std::vector<int> &inc_indices, std::vector<int> &trip_counts)
+void HI_ArraySensitiveToLoopLevel::findTheIncrementalIndexAndTripCount(
+    Value *target, const SCEVAddRecExpr *S, std::vector<int> &inc_indices,
+    std::vector<int> &trip_counts)
 {
-    const SCEVConstant *IncrementalIndex = dyn_cast<SCEVConstant>(bypassExtTruntSCEV(S->getOperand(1)));
+    const SCEVConstant *IncrementalIndex =
+        dyn_cast<SCEVConstant>(bypassExtTruntSCEV(S->getOperand(1)));
     assert(IncrementalIndex && "the incremental index should be found.");
     int inc_const = IncrementalIndex->getAPInt().getSExtValue();
     inc_indices.push_back(inc_const);
@@ -912,7 +989,8 @@ void HI_ArraySensitiveToLoopLevel::findTheIncrementalIndexAndTripCount(Value *ta
     tmp_loop_name += "-";
     tmp_loop_name += S->getLoop()->getHeader()->getName();
     if (DEBUG)
-        *ArrayLog << "we are checking loop: " << IRLoop2LoopLabel[tmp_loop_name] << " (tmp_loop_name=" << tmp_loop_name << ")\n";
+        *ArrayLog << "we are checking loop: " << IRLoop2LoopLabel[tmp_loop_name]
+                  << " (tmp_loop_name=" << tmp_loop_name << ")\n";
     if (DEBUG)
         *ArrayLog << "its inc_const=" << inc_const << "\n";
     if (DEBUG)
@@ -920,9 +998,13 @@ void HI_ArraySensitiveToLoopLevel::findTheIncrementalIndexAndTripCount(Value *ta
     for (int i = 0; i < refArrayInfo.num_dims; i++)
     {
         if (DEBUG)
-            *ArrayLog << " refArrayInfo.sub_element_num[i+1]=" << refArrayInfo.sub_element_num[i] * refArrayInfo.dim_size[i] << " refArrayInfo.sub_element_num[i]=" << refArrayInfo.sub_element_num[i] << "\n";
+            *ArrayLog << " refArrayInfo.sub_element_num[i+1]="
+                      << refArrayInfo.sub_element_num[i] * refArrayInfo.dim_size[i]
+                      << " refArrayInfo.sub_element_num[i]=" << refArrayInfo.sub_element_num[i]
+                      << "\n";
 
-        if (inc_const < refArrayInfo.sub_element_num[i] * refArrayInfo.dim_size[i] && inc_const >= refArrayInfo.sub_element_num[i])
+        if (inc_const < refArrayInfo.sub_element_num[i] * refArrayInfo.dim_size[i] &&
+            inc_const >= refArrayInfo.sub_element_num[i])
         {
             if (inc_const % refArrayInfo.sub_element_num[i] == 0)
             {
@@ -941,12 +1023,20 @@ void HI_ArraySensitiveToLoopLevel::findTheIncrementalIndexAndTripCount(Value *ta
                 }
 
                 if (DEBUG)
-                    *ArrayLog << "loop: " << IRLoop2LoopLabel[tmp_loop_name] << " should drive the partitioning of dimension#" << (i + 1) << "(WARNING reverse order) of Array: [" << target->getName() << "] in function: [" << targetF->getName() << "]\n";
+                    *ArrayLog << "loop: " << IRLoop2LoopLabel[tmp_loop_name]
+                              << " should drive the partitioning of dimension#" << (i + 1)
+                              << "(WARNING reverse order) of Array: [" << target->getName()
+                              << "] in function: [" << targetF->getName() << "]\n";
 
-                std::pair<std::string, std::pair<std::string, int>> info_triple = std::pair<std::string, std::pair<std::string, int>>(targetF->getName(), std::pair<std::string, int>(target->getName(), i + 1));
+                std::pair<std::string, std::pair<std::string, int>> info_triple =
+                    std::pair<std::string, std::pair<std::string, int>>(
+                        targetF->getName(), std::pair<std::string, int>(target->getName(), i + 1));
 
-                // if (LoopLabel2DrivenArrayDimensions[IRLoop2LoopLabel[tmp_loop_name]].find(info_triple) == LoopLabel2DrivenArrayDimensions[IRLoop2LoopLabel[tmp_loop_name]].end())
-                LoopLabel2DrivenArrayDimensions[IRLoop2LoopLabel[tmp_loop_name]].insert(info_triple);
+                // if
+                // (LoopLabel2DrivenArrayDimensions[IRLoop2LoopLabel[tmp_loop_name]].find(info_triple)
+                // == LoopLabel2DrivenArrayDimensions[IRLoop2LoopLabel[tmp_loop_name]].end())
+                LoopLabel2DrivenArrayDimensions[IRLoop2LoopLabel[tmp_loop_name]].insert(
+                    info_triple);
 
                 break;
             }
@@ -1030,7 +1120,9 @@ void HI_ArraySensitiveToLoopLevel::findTheIncrementalIndexAndTripCount(Value *ta
 // check the memory access in the function
 void HI_ArraySensitiveToLoopLevel::TraceMemoryAccessinFunction(Function &F)
 {
-    if (F.getName().find("llvm.") != std::string::npos || F.getName().find("HIPartitionMux") != std::string::npos) // bypass the "llvm.xxx" functions..
+    if (F.getName().find("llvm.") != std::string::npos ||
+        F.getName().find("HIPartitionMux") !=
+            std::string::npos) // bypass the "llvm.xxx" functions..
         return;
     findMemoryAccessin(&F);
 }
@@ -1050,7 +1142,8 @@ void HI_ArraySensitiveToLoopLevel::findMemoryAccessin(Function *F)
             if (IntToPtrInst *ITP_I = dyn_cast<IntToPtrInst>(&I))
             {
                 if (DEBUG)
-                    *ArrayLog << "find a IntToPtrInst: [" << *ITP_I << "] backtrace to its operands.\n";
+                    *ArrayLog << "find a IntToPtrInst: [" << *ITP_I
+                              << "] backtrace to its operands.\n";
                 TraceAccessRelatedInstructionForTarget(ITP_I);
             }
             else if (I.getOpcode() == Instruction::Load || I.getOpcode() == Instruction::Store)
@@ -1065,7 +1158,8 @@ void HI_ArraySensitiveToLoopLevel::findMemoryAccessin(Function *F)
     // ArrayLog->flush();
 }
 
-// find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
+// find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr,
+// Store, Load instructions
 void HI_ArraySensitiveToLoopLevel::TraceAccessRelatedInstructionForTarget(Value *cur_node)
 {
     if (DEBUG)
@@ -1104,7 +1198,8 @@ HI_ArraySensitiveToLoopLevel::HI_ArrayInfo HI_ArraySensitiveToLoopLevel::getArra
 
     PointerType *ptr_type = dyn_cast<PointerType>(target->getType());
     if (DEBUG)
-        *ArrayLog << "\n\nchecking type : " << *ptr_type << " and its ElementType is: [" << *ptr_type->getElementType() << "]\n";
+        *ArrayLog << "\n\nchecking type : " << *ptr_type << " and its ElementType is: ["
+                  << *ptr_type->getElementType() << "]\n";
     Type *tmp_type = ptr_type->getElementType();
     int total_ele = 1;
     int tmp_dim_size[10];
@@ -1112,7 +1207,9 @@ HI_ArraySensitiveToLoopLevel::HI_ArrayInfo HI_ArraySensitiveToLoopLevel::getArra
     while (auto array_T = dyn_cast<ArrayType>(tmp_type))
     {
         if (DEBUG)
-            *ArrayLog << "----- element type of : " << *tmp_type << " is " << *(array_T->getElementType()) << " and the number of its elements is " << (array_T->getNumElements()) << "\n";
+            *ArrayLog << "----- element type of : " << *tmp_type << " is "
+                      << *(array_T->getElementType()) << " and the number of its elements is "
+                      << (array_T->getNumElements()) << "\n";
         total_ele *= (array_T->getNumElements());
         tmp_dim_size[num_dims] = (array_T->getNumElements());
         num_dims++;
@@ -1129,7 +1226,8 @@ HI_ArraySensitiveToLoopLevel::HI_ArrayInfo HI_ArraySensitiveToLoopLevel::getArra
     res_array_info.sub_element_num[0] = 1;
     for (int i = 1; i < num_dims; i++)
     {
-        res_array_info.sub_element_num[i] = res_array_info.sub_element_num[i - 1] * res_array_info.dim_size[i - 1];
+        res_array_info.sub_element_num[i] =
+            res_array_info.sub_element_num[i - 1] * res_array_info.dim_size[i - 1];
     }
 
     if (auto arg_v = dyn_cast<Argument>(target))
@@ -1138,7 +1236,9 @@ HI_ArraySensitiveToLoopLevel::HI_ArrayInfo HI_ArraySensitiveToLoopLevel::getArra
         if (num_dims == 0)
             res_array_info.sub_element_num[num_dims] = 1;
         else
-            res_array_info.sub_element_num[num_dims] = res_array_info.sub_element_num[num_dims - 1] * res_array_info.dim_size[num_dims - 1];
+            res_array_info.sub_element_num[num_dims] =
+                res_array_info.sub_element_num[num_dims - 1] *
+                res_array_info.dim_size[num_dims - 1];
 
         std::string FuncName = demangleFunctionName(arg_v->getParent()->getName());
         std::string funcLine;
@@ -1147,16 +1247,21 @@ HI_ArraySensitiveToLoopLevel::HI_ArrayInfo HI_ArraySensitiveToLoopLevel::getArra
         for (int possibleLine : IRFunc2BeginLine[FuncName])
         {
             funcLine = std::to_string(possibleLine);
-            if (FuncParamLine2OutermostSize.find(FuncName + "-" + argName + "-" + funcLine) != FuncParamLine2OutermostSize.end())
+            if (FuncParamLine2OutermostSize.find(FuncName + "-" + argName + "-" + funcLine) !=
+                FuncParamLine2OutermostSize.end())
                 break;
         }
 
-        res_array_info.dim_size[num_dims] = FuncParamLine2OutermostSize[FuncName + "-" + argName + "-" + funcLine]; // set to nearly infinite
+        res_array_info.dim_size[num_dims] =
+            FuncParamLine2OutermostSize[FuncName + "-" + argName + "-" +
+                                        funcLine]; // set to nearly infinite
         res_array_info.num_dims++;
         res_array_info.isArgument = 1;
     }
 
-    res_array_info.sub_element_num[res_array_info.num_dims] = res_array_info.sub_element_num[res_array_info.num_dims - 1] * res_array_info.dim_size[res_array_info.num_dims - 1];
+    res_array_info.sub_element_num[res_array_info.num_dims] =
+        res_array_info.sub_element_num[res_array_info.num_dims - 1] *
+        res_array_info.dim_size[res_array_info.num_dims - 1];
 
     res_array_info.elementType = tmp_type;
     res_array_info.target = target;
@@ -1167,7 +1272,8 @@ HI_ArraySensitiveToLoopLevel::HI_ArrayInfo HI_ArraySensitiveToLoopLevel::getArra
 }
 
 // get the targer partition for the specific memory access instruction
-std::vector<HI_ArraySensitiveToLoopLevel::partition_info> HI_ArraySensitiveToLoopLevel::getPartitionFor(Instruction *access)
+std::vector<HI_ArraySensitiveToLoopLevel::partition_info>
+HI_ArraySensitiveToLoopLevel::getPartitionFor(Instruction *access)
 {
     int partition_factor = -1, partition_dimension = -1;
 
@@ -1193,10 +1299,11 @@ std::vector<HI_ArraySensitiveToLoopLevel::partition_info> HI_ArraySensitiveToLoo
                 for (auto target : Access2TargetMap[access])
                     llvm::errs() << "    " << *target << "\n";
             }
-            assert(tmp_target == tmp_reftarget && "currently, we do not support 1-access-multi-target.");
+            assert(tmp_target == tmp_reftarget &&
+                   "currently, we do not support 1-access-multi-target.");
         }
-        // llvm::errs() << "handling access: " << *access << " (addr=" <<access << ") include following targets:  \n";
-        // for (auto target : targetVec)
+        // llvm::errs() << "handling access: " << *access << " (addr=" <<access << ") include
+        // following targets:  \n"; for (auto target : targetVec)
         // {
         //     llvm::errs() << "    " << *target << " (addr=" <<target << ") \n";
         // }
@@ -1206,7 +1313,8 @@ std::vector<HI_ArraySensitiveToLoopLevel::partition_info> HI_ArraySensitiveToLoo
     HI_AccessInfo tmp_res = getAccessInfoForAccessInst(access);
     std::vector<partition_info> partitions;
 
-    assert(!tmp_res.unpredictable && "unpredictable access shoudl not be considered to use getPartitionFor.");
+    assert(!tmp_res.unpredictable &&
+           "unpredictable access shoudl not be considered to use getPartitionFor.");
 
     int tripCountMax = 1;
     if (LI->getLoopFor(access->getParent()))
@@ -1218,12 +1326,15 @@ std::vector<HI_ArraySensitiveToLoopLevel::partition_info> HI_ArraySensitiveToLoo
     {
 
         // ArrayLog->flush();
-        // some time the remainder loop after unrolling will lead to fake out-of-range access, ignore it.
-        partition_info newPartitionForCheck = getAccessPartitionBasedOnAccessInfoAndInc(tmp_res, tmp_offset);
+        // some time the remainder loop after unrolling will lead to fake out-of-range access,
+        // ignore it.
+        partition_info newPartitionForCheck =
+            getAccessPartitionBasedOnAccessInfoAndInc(tmp_res, tmp_offset);
         if (DEBUG)
             *ArrayLog << tmp_offset << "-" << newPartitionForCheck << ", ";
-        // int cur_dim_index = (tmp_offset / tmp_res.sub_element_num[partition_dimension] % tmp_res.sub_element_num[partition_dimension+1]);
-        // if (!tryRecordPartition(partitions, newPartitionForCheck))
+        // int cur_dim_index = (tmp_offset / tmp_res.sub_element_num[partition_dimension] %
+        // tmp_res.sub_element_num[partition_dimension+1]); if (!tryRecordPartition(partitions,
+        // newPartitionForCheck))
         //     break;
         tryRecordPartition(partitions, newPartitionForCheck);
     }
@@ -1236,7 +1347,8 @@ std::vector<HI_ArraySensitiveToLoopLevel::partition_info> HI_ArraySensitiveToLoo
 }
 
 // try to record a partition as a potential target
-bool HI_ArraySensitiveToLoopLevel::tryRecordPartition(std::vector<partition_info> &partitions, partition_info try_target)
+bool HI_ArraySensitiveToLoopLevel::tryRecordPartition(std::vector<partition_info> &partitions,
+                                                      partition_info try_target)
 {
     for (auto val : partitions)
         if (val == try_target)
@@ -1253,7 +1365,8 @@ void HI_ArraySensitiveToLoopLevel::ArrayAccessCheckForFunction(Function *F)
     {
         for (auto &I : B)
         {
-            TryArrayAccessProcess(&I, SE /*, demangleFunctionName(F->getName()) == top_function_name*/);
+            TryArrayAccessProcess(&I,
+                                  SE /*, demangleFunctionName(F->getName()) == top_function_name*/);
             // checkAliasFor(&I);
         }
     }
@@ -1267,9 +1380,11 @@ void HI_ArraySensitiveToLoopLevel::ArrayAccessCheckForFunction(Function *F)
 }
 
 /*
-    get the access information for the load/store instruction, by tracing back to the address instruction
+    get the access information for the load/store instruction, by tracing back to the address
+   instruction
 */
-HI_ArraySensitiveToLoopLevel::HI_AccessInfo HI_ArraySensitiveToLoopLevel::getAccessInfoForAccessInst(Instruction *Load_or_Store)
+HI_ArraySensitiveToLoopLevel::HI_AccessInfo
+HI_ArraySensitiveToLoopLevel::getAccessInfoForAccessInst(Instruction *Load_or_Store)
 {
     Instruction *pointer_I = nullptr;
     Value *pointer_V = nullptr;
@@ -1287,16 +1402,19 @@ HI_ArraySensitiveToLoopLevel::HI_AccessInfo HI_ArraySensitiveToLoopLevel::getAcc
     if (pointer_I)
         address_addI = (pointer_I->getOperand(0));
     else
-        address_addI = pointer_V; // the access may not need the calculation of address, take the pointer directly
+        address_addI = pointer_V; // the access may not need the calculation of address, take the
+                                  // pointer directly
 
     assert(address_addI && "The pointer for this access should be found.\n");
     if (AddressInst2AccessInfo.find(address_addI) == AddressInst2AccessInfo.end())
         llvm::errs() << *address_addI << "<=======\n";
-    assert(AddressInst2AccessInfo.find(address_addI) != AddressInst2AccessInfo.end() && "The pointer should be checked by TryArrayAccessProcess() previously.");
+    assert(AddressInst2AccessInfo.find(address_addI) != AddressInst2AccessInfo.end() &&
+           "The pointer should be checked by TryArrayAccessProcess() previously.");
     return AddressInst2AccessInfo[address_addI];
 }
 
-AliasResult HI_ArraySensitiveToLoopLevel::HI_AAResult::alias(const MemoryLocation &LocA, const MemoryLocation &LocB)
+AliasResult HI_ArraySensitiveToLoopLevel::HI_AAResult::alias(const MemoryLocation &LocA,
+                                                             const MemoryLocation &LocB)
 {
     //   auto PtrA = LocA.Ptr;
     //   auto PtrB = LocB.Ptr;
@@ -1325,7 +1443,8 @@ bool HI_ArraySensitiveToLoopLevel::checkAccessAlias(Instruction *I0, Instruction
     {
         pointer_I0 = dyn_cast<Instruction>(I0->getOperand(1));
     }
-    assert(pointer_I0 && pointer_I0->getOpcode() == Instruction::IntToPtr && "ITP should be found for the access instruction");
+    assert(pointer_I0 && pointer_I0->getOpcode() == Instruction::IntToPtr &&
+           "ITP should be found for the access instruction");
     if (I1->getOpcode() == Instruction::Load)
     {
         pointer_I1 = dyn_cast<Instruction>(I1->getOperand(0));
@@ -1334,7 +1453,8 @@ bool HI_ArraySensitiveToLoopLevel::checkAccessAlias(Instruction *I0, Instruction
     {
         pointer_I1 = dyn_cast<Instruction>(I1->getOperand(1));
     }
-    assert(pointer_I1 && pointer_I1->getOpcode() == Instruction::IntToPtr && "ITP should be found for the access instruction");
+    assert(pointer_I1 && pointer_I1->getOpcode() == Instruction::IntToPtr &&
+           "ITP should be found for the access instruction");
 
     std::string tmp0(""), tmp1("");
     raw_string_ostream *SCEV_Stream0 = new raw_string_ostream(tmp0);
@@ -1445,7 +1565,9 @@ bool HI_ArraySensitiveToLoopLevel::hasRAWHazard(Instruction *loadI, int cycle)
                 if (Inst_Schedule[preI].second >= cycle && !noAliasHazard(loadI, preI))
                 {
                     if (DEBUG)
-                        *BRAM_log << "\nload instruction: " << *loadI << " RAW hazard with store instruction: " << *preI << " at cycle#" << Inst_Schedule[preI].second << "\n";
+                        *BRAM_log << "\nload instruction: " << *loadI
+                                  << " RAW hazard with store instruction: " << *preI << " at cycle#"
+                                  << Inst_Schedule[preI].second << "\n";
                     return true;
                 }
             }
@@ -1456,7 +1578,8 @@ bool HI_ArraySensitiveToLoopLevel::hasRAWHazard(Instruction *loadI, int cycle)
 
 Value *HI_ArraySensitiveToLoopLevel::getTargetFromInst(Instruction *accessI)
 {
-    // assert(Access2TargetMap[accessI].size()==1 && "currently, we do not support 1-access-multi-target.");
+    // assert(Access2TargetMap[accessI].size()==1 && "currently, we do not support
+    // 1-access-multi-target.");
     if (Access2TargetMap[accessI].size() > 1)
     {
         Value *reftarget = Access2TargetMap[accessI][0];
@@ -1475,7 +1598,8 @@ Value *HI_ArraySensitiveToLoopLevel::getTargetFromInst(Instruction *accessI)
                 for (auto target : Access2TargetMap[accessI])
                     llvm::errs() << "    " << *target << "\n";
             }
-            assert(tmp_target == tmp_reftarget && "currently, we do not support 1-access-multi-target.");
+            assert(tmp_target == tmp_reftarget &&
+                   "currently, we do not support 1-access-multi-target.");
         }
     }
     Value *target = Access2TargetMap[accessI][0];
@@ -1485,7 +1609,9 @@ Value *HI_ArraySensitiveToLoopLevel::getTargetFromInst(Instruction *accessI)
         return Alias2Target[target];
 }
 
-HI_ArraySensitiveToLoopLevel::partition_info HI_ArraySensitiveToLoopLevel::getAccessPartitionBasedOnAccessInfoAndInc(HI_ArraySensitiveToLoopLevel::HI_AccessInfo refInfo, int cur_offset)
+HI_ArraySensitiveToLoopLevel::partition_info
+HI_ArraySensitiveToLoopLevel::getAccessPartitionBasedOnAccessInfoAndInc(
+    HI_ArraySensitiveToLoopLevel::HI_AccessInfo refInfo, int cur_offset)
 {
     partition_info res_partiton_info;
     res_partiton_info.num_dims = refInfo.num_dims;
@@ -1509,7 +1635,9 @@ HI_ArraySensitiveToLoopLevel::partition_info HI_ArraySensitiveToLoopLevel::getAc
         }
         else
         {
-            refInfo.partition_id[i] = refInfo.index[i] / ((refInfo.dim_size[i] + refInfo.partition_size[i] - 1) / refInfo.partition_size[i]);
+            refInfo.partition_id[i] =
+                refInfo.index[i] /
+                ((refInfo.dim_size[i] + refInfo.partition_size[i] - 1) / refInfo.partition_size[i]);
             res_partiton_info.partition_id[i] = refInfo.partition_id[i];
         }
     }
@@ -1519,7 +1647,8 @@ HI_ArraySensitiveToLoopLevel::partition_info HI_ArraySensitiveToLoopLevel::getAc
 bool HI_ArraySensitiveToLoopLevel::processNaiveAccess(Instruction *Load_or_Store)
 {
 
-    if (Load_or_Store->getOpcode() != Instruction::Load && Load_or_Store->getOpcode() != Instruction::Store)
+    if (Load_or_Store->getOpcode() != Instruction::Load &&
+        Load_or_Store->getOpcode() != Instruction::Store)
         return false;
 
     Instruction *pointer_I = nullptr;
@@ -1540,32 +1669,41 @@ bool HI_ArraySensitiveToLoopLevel::processNaiveAccess(Instruction *Load_or_Store
         Value *target = pointer_V;
         if (Target2ArrayInfo.find(target) == Target2ArrayInfo.end())
         {
-            if (Alias2Target.find(target) != Alias2Target.end()) // it could be argument. We need to trace back to get its original array declaration
+            if (Alias2Target.find(target) !=
+                Alias2Target.end()) // it could be argument. We need to trace back to get its
+                                    // original array declaration
             {
                 target = Alias2Target[target];
             }
             else
             {
-                llvm::errs() << "ERRORS: cannot find target [" << *target << "] in Target2ArrayInfo and its address=" << target << "\n";
-                assert(Target2ArrayInfo.find(target) != Target2ArrayInfo.end() && Alias2Target.find(target) != Alias2Target.end() && "Fail to find the array inforamtion for the target.");
+                llvm::errs() << "ERRORS: cannot find target [" << *target
+                             << "] in Target2ArrayInfo and its address=" << target << "\n";
+                assert(Target2ArrayInfo.find(target) != Target2ArrayInfo.end() &&
+                       Alias2Target.find(target) != Alias2Target.end() &&
+                       "Fail to find the array inforamtion for the target.");
             }
         }
         if (auto arg_pointer = dyn_cast<Argument>(target))
         {
             if (DEBUG)
                 ArrayLog->flush();
-            AddressInst2AccessInfo[target] = getAccessInfoFor(target, Load_or_Store, 0, nullptr, nullptr);
+            AddressInst2AccessInfo[target] =
+                getAccessInfoFor(target, Load_or_Store, 0, nullptr, nullptr);
             if (DEBUG)
-                *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[target] << "\n\n\n";
+                *ArrayLog << " -----> access info with array index: "
+                          << AddressInst2AccessInfo[target] << "\n\n\n";
             // ArrayLog->flush();
         }
         else if (auto alloc_pointer = dyn_cast<AllocaInst>(target))
         {
             if (DEBUG)
                 ArrayLog->flush();
-            AddressInst2AccessInfo[target] = getAccessInfoFor(target, Load_or_Store, 0, nullptr, nullptr);
+            AddressInst2AccessInfo[target] =
+                getAccessInfoFor(target, Load_or_Store, 0, nullptr, nullptr);
             if (DEBUG)
-                *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[target] << "\n\n\n";
+                *ArrayLog << " -----> access info with array index: "
+                          << AddressInst2AccessInfo[target] << "\n\n\n";
             // ArrayLog->flush();
         }
     }
@@ -1581,9 +1719,11 @@ void HI_ArraySensitiveToLoopLevel::handleSAREAccess(Instruction *I, const SCEVAd
         int initial_const = -1;
 
         if (DEBUG)
-            *ArrayLog << *I << " --> is add rec Affine Add: " << *SARE << " it operand (0) " << *SARE->getOperand(0) << " it operand (1) " << *SARE->getOperand(1) << "\n";
+            *ArrayLog << *I << " --> is add rec Affine Add: " << *SARE << " it operand (0) "
+                      << *SARE->getOperand(0) << " it operand (1) " << *SARE->getOperand(1) << "\n";
         if (DEBUG)
-            *ArrayLog << " -----> intial offset expression: " << *findTheActualStartValue(SARE) << "\n";
+            *ArrayLog << " -----> intial offset expression: " << *findTheActualStartValue(SARE)
+                      << "\n";
 
         std::vector<int> inc_indices, trip_counts;
         Value *refTarget = Instruction2Target[I][0];
@@ -1594,7 +1734,8 @@ void HI_ArraySensitiveToLoopLevel::handleSAREAccess(Instruction *I, const SCEVAd
                 assert(false && "currently, we do not support multiple different targets.");
             }
         }
-        findTheIncrementalIndexAndTripCount(Instruction2Target[I][0], SARE, inc_indices, trip_counts);
+        findTheIncrementalIndexAndTripCount(Instruction2Target[I][0], SARE, inc_indices,
+                                            trip_counts);
         if (DEBUG)
             *ArrayLog << " -----> inccremental value: ";
         if (DEBUG)
@@ -1621,7 +1762,8 @@ void HI_ArraySensitiveToLoopLevel::handleSAREAccess(Instruction *I, const SCEVAd
             // find the constant in the SCEV and that will be the initial offset
             for (int i = 0; i < initial_expr_add->getNumOperands(); i++)
             {
-                if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(initial_expr_add->getOperand(i)))
+                if (const SCEVConstant *start_V =
+                        dyn_cast<SCEVConstant>(initial_expr_add->getOperand(i)))
                 {
                     initial_const = start_V->getAPInt().getSExtValue();
                     if (DEBUG)
@@ -1631,45 +1773,64 @@ void HI_ArraySensitiveToLoopLevel::handleSAREAccess(Instruction *I, const SCEVAd
                     if (initial_const < 0)
                     {
                         llvm::errs() << " -----> intial offset const: " << initial_const << "\n";
-                        llvm::errs() << "    -----> (1<<getMinSignedBits)-1 " << ((initial_const) & ((1 << start_V->getAPInt().getMinSignedBits()) - 1)) << " [" << start_V->getAPInt().getMinSignedBits() << "]"
+                        llvm::errs() << "    -----> (1<<getMinSignedBits)-1 "
+                                     << ((initial_const) &
+                                         ((1 << start_V->getAPInt().getMinSignedBits()) - 1))
+                                     << " [" << start_V->getAPInt().getMinSignedBits() << "]"
                                      << "\n";
-                        llvm::errs() << "    -----> (1<<getActiveBits)-1 " << ((initial_const) & ((1 << start_V->getAPInt().getActiveBits()) - 1)) << " [" << start_V->getAPInt().getActiveBits() << "]"
+                        llvm::errs()
+                            << "    -----> (1<<getActiveBits)-1 "
+                            << ((initial_const) & ((1 << start_V->getAPInt().getActiveBits()) - 1))
+                            << " [" << start_V->getAPInt().getActiveBits() << "]"
+                            << "\n";
+                        llvm::errs() << "    -----> (getZExtValue) "
+                                     << (((1 << start_V->getAPInt().getZExtValue()) - 1)) << " bw=["
+                                     << start_V->getAPInt().getBitWidth() << "]"
                                      << "\n";
-                        llvm::errs() << "    -----> (getZExtValue) " << (((1 << start_V->getAPInt().getZExtValue()) - 1)) << " bw=[" << start_V->getAPInt().getBitWidth() << "]"
-                                     << "\n";
-                        initial_const = (initial_const) & ((1 << start_V->getAPInt().getZExtValue()) - 1);
+                        initial_const =
+                            (initial_const) & ((1 << start_V->getAPInt().getZExtValue()) - 1);
                     }
                 }
                 else
                 {
-                    if (const SCEVUnknown *array_value_scev = dyn_cast<SCEVUnknown>(initial_expr_add->getOperand(i)))
+                    if (const SCEVUnknown *array_value_scev =
+                            dyn_cast<SCEVUnknown>(initial_expr_add->getOperand(i)))
                     {
                         if (DEBUG)
-                            *ArrayLog << " -----> access target: " << *array_value_scev->getValue() << "\n";
+                            *ArrayLog << " -----> access target: " << *array_value_scev->getValue()
+                                      << "\n";
                         if (auto tmp_PTI_I = dyn_cast<PtrToIntInst>(array_value_scev->getValue()))
                         {
                             target = tmp_PTI_I->getOperand(0);
                         }
                         else
                         {
-                            assert(target && "There should be an PtrToInt Instruction for the addition operation.\n");
+                            assert(target && "There should be an PtrToInt Instruction for the "
+                                             "addition operation.\n");
                         }
 
                         if (Target2ArrayInfo.find(target) == Target2ArrayInfo.end())
                         {
-                            if (Alias2Target.find(target) != Alias2Target.end()) // it could be argument. We need to trace back to get its original array declaration
+                            if (Alias2Target.find(target) !=
+                                Alias2Target.end()) // it could be argument. We need to trace back
+                                                    // to get its original array declaration
                             {
                                 target = Alias2Target[target];
                             }
                             else
                             {
-                                llvm::errs() << "ERRORS: cannot find target [" << *target << "] in Target2ArrayInfo and its address=" << target << "\n";
-                                assert(Target2ArrayInfo.find(target) != Target2ArrayInfo.end() && Alias2Target.find(target) != Alias2Target.end() && "Fail to find the array inforamtion for the target.");
+                                llvm::errs()
+                                    << "ERRORS: cannot find target [" << *target
+                                    << "] in Target2ArrayInfo and its address=" << target << "\n";
+                                assert(Target2ArrayInfo.find(target) != Target2ArrayInfo.end() &&
+                                       Alias2Target.find(target) != Alias2Target.end() &&
+                                       "Fail to find the array inforamtion for the target.");
                             }
                         }
 
                         if (DEBUG)
-                            *ArrayLog << " -----> access target info: " << Target2ArrayInfo[target] << "\n";
+                            *ArrayLog << " -----> access target info: " << Target2ArrayInfo[target]
+                                      << "\n";
                         // ArrayLog->flush();
                     }
                     else
@@ -1695,19 +1856,25 @@ void HI_ArraySensitiveToLoopLevel::handleSAREAccess(Instruction *I, const SCEVAd
             }
             else
             {
-                assert(target && "There should be an PtrToInt Instruction for the addition operation.\n");
+                assert(target &&
+                       "There should be an PtrToInt Instruction for the addition operation.\n");
             }
 
             if (Target2ArrayInfo.find(target) == Target2ArrayInfo.end())
             {
-                if (Alias2Target.find(target) != Alias2Target.end()) // it could be argument. We need to trace back to get its original array declaration
+                if (Alias2Target.find(target) !=
+                    Alias2Target.end()) // it could be argument. We need to trace back to get its
+                                        // original array declaration
                 {
                     target = Alias2Target[target];
                 }
                 else
                 {
-                    llvm::errs() << "ERRORS: cannot find target [" << *target << "] in Target2ArrayInfo and its address=" << target << "\n";
-                    assert(Target2ArrayInfo.find(target) != Target2ArrayInfo.end() && Alias2Target.find(target) != Alias2Target.end() && "Fail to find the array inforamtion for the target.");
+                    llvm::errs() << "ERRORS: cannot find target [" << *target
+                                 << "] in Target2ArrayInfo and its address=" << target << "\n";
+                    assert(Target2ArrayInfo.find(target) != Target2ArrayInfo.end() &&
+                           Alias2Target.find(target) != Alias2Target.end() &&
+                           "Fail to find the array inforamtion for the target.");
                 }
             }
 
@@ -1726,9 +1893,11 @@ void HI_ArraySensitiveToLoopLevel::handleSAREAccess(Instruction *I, const SCEVAd
         assert(target && "the target array should be found.\n");
         if (DEBUG)
             ArrayLog->flush();
-        AddressInst2AccessInfo[I] = getAccessInfoFor(target, I, initial_const, &inc_indices, &trip_counts);
+        AddressInst2AccessInfo[I] =
+            getAccessInfoFor(target, I, initial_const, &inc_indices, &trip_counts);
         if (DEBUG)
-            *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[I] << "\n\n\n";
+            *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[I]
+                      << "\n\n\n";
         // ArrayLog->flush();
     }
 }
@@ -1749,7 +1918,9 @@ void HI_ArraySensitiveToLoopLevel::handleDirectAccess(Instruction *I, const SCEV
 
     target = PTI->getOperand(0);
 
-    if (Alias2Target.find(target) != Alias2Target.end()) // it could be argument. We need to trace back to get its original array declaration
+    if (Alias2Target.find(target) !=
+        Alias2Target.end()) // it could be argument. We need to trace back to get its original array
+                            // declaration
     {
         target = Alias2Target[target];
     }
@@ -1760,11 +1931,13 @@ void HI_ArraySensitiveToLoopLevel::handleDirectAccess(Instruction *I, const SCEV
         ArrayLog->flush();
     AddressInst2AccessInfo[I] = getAccessInfoFor(target, I, initial_const, nullptr, nullptr);
     if (DEBUG)
-        *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[I] << "\n\n\n";
+        *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[I]
+                  << "\n\n\n";
     // ArrayLog->flush();
 }
 
-void HI_ArraySensitiveToLoopLevel::handleConstantOffsetAccess(Instruction *I, const SCEVAddExpr *SAE)
+void HI_ArraySensitiveToLoopLevel::handleConstantOffsetAccess(Instruction *I,
+                                                              const SCEVAddExpr *SAE)
 {
     auto constOffset = dyn_cast<SCEVConstant>(SAE->getOperand(0));
     auto ptrUnknown = dyn_cast<SCEVUnknown>(SAE->getOperand(1));
@@ -1785,7 +1958,9 @@ void HI_ArraySensitiveToLoopLevel::handleConstantOffsetAccess(Instruction *I, co
 
     target = PTI->getOperand(0);
 
-    if (Alias2Target.find(target) != Alias2Target.end()) // it could be argument. We need to trace back to get its original array declaration
+    if (Alias2Target.find(target) !=
+        Alias2Target.end()) // it could be argument. We need to trace back to get its original array
+                            // declaration
     {
         target = Alias2Target[target];
     }
@@ -1796,7 +1971,8 @@ void HI_ArraySensitiveToLoopLevel::handleConstantOffsetAccess(Instruction *I, co
         ArrayLog->flush();
     AddressInst2AccessInfo[I] = getAccessInfoFor(target, I, initial_const, nullptr, nullptr);
     if (DEBUG)
-        *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[I] << "\n\n\n";
+        *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[I]
+                  << "\n\n\n";
     // ArrayLog->flush();
 }
 
@@ -1815,9 +1991,11 @@ void HI_ArraySensitiveToLoopLevel::handleUnstandardSCEVAccess(Instruction *I, co
         int initial_const = -1;
 
         if (DEBUG)
-            *ArrayLog << *I << " --> is add rec Affine Add: " << *SARE << " it operand (0) " << *SARE->getOperand(0) << " it operand (1) " << *SARE->getOperand(1) << "\n";
+            *ArrayLog << *I << " --> is add rec Affine Add: " << *SARE << " it operand (0) "
+                      << *SARE->getOperand(0) << " it operand (1) " << *SARE->getOperand(1) << "\n";
         if (DEBUG)
-            *ArrayLog << " -----> intial offset expression: " << *findTheActualStartValue(SARE) << "\n";
+            *ArrayLog << " -----> intial offset expression: " << *findTheActualStartValue(SARE)
+                      << "\n";
 
         std::vector<int> inc_indices, trip_counts;
         Value *refTarget = Instruction2Target[I][0];
@@ -1828,7 +2006,8 @@ void HI_ArraySensitiveToLoopLevel::handleUnstandardSCEVAccess(Instruction *I, co
                 assert(false && "currently, we do not support multiple different targets.");
             }
         }
-        findTheIncrementalIndexAndTripCount(Instruction2Target[I][0], SARE, inc_indices, trip_counts);
+        findTheIncrementalIndexAndTripCount(Instruction2Target[I][0], SARE, inc_indices,
+                                            trip_counts);
         if (DEBUG)
             *ArrayLog << " -----> inccremental value: ";
         if (DEBUG)
@@ -1863,13 +2042,22 @@ void HI_ArraySensitiveToLoopLevel::handleUnstandardSCEVAccess(Instruction *I, co
             if (initial_const < 0)
             {
                 llvm::errs() << " -----> intial offset const: " << initial_const << "\n";
-                llvm::errs() << "    -----> (1<<getMinSignedBits)-1 " << ((initial_const) & ((1 << initial_const_scev->getAPInt().getMinSignedBits()) - 1)) << " [" << initial_const_scev->getAPInt().getMinSignedBits() << "]"
+                llvm::errs() << "    -----> (1<<getMinSignedBits)-1 "
+                             << ((initial_const) &
+                                 ((1 << initial_const_scev->getAPInt().getMinSignedBits()) - 1))
+                             << " [" << initial_const_scev->getAPInt().getMinSignedBits() << "]"
                              << "\n";
-                llvm::errs() << "    -----> (1<<getActiveBits)-1 " << ((initial_const) & ((1 << initial_const_scev->getAPInt().getActiveBits()) - 1)) << " [" << initial_const_scev->getAPInt().getActiveBits() << "]"
+                llvm::errs() << "    -----> (1<<getActiveBits)-1 "
+                             << ((initial_const) &
+                                 ((1 << initial_const_scev->getAPInt().getActiveBits()) - 1))
+                             << " [" << initial_const_scev->getAPInt().getActiveBits() << "]"
                              << "\n";
-                llvm::errs() << "    -----> (getZExtValue) " << (((1 << initial_const_scev->getAPInt().getZExtValue()) - 1)) << " bw=[" << initial_const_scev->getAPInt().getBitWidth() << "]"
+                llvm::errs() << "    -----> (getZExtValue) "
+                             << (((1 << initial_const_scev->getAPInt().getZExtValue()) - 1))
+                             << " bw=[" << initial_const_scev->getAPInt().getBitWidth() << "]"
                              << "\n";
-                initial_const = (initial_const) & ((1 << initial_const_scev->getAPInt().getZExtValue()) - 1);
+                initial_const =
+                    (initial_const) & ((1 << initial_const_scev->getAPInt().getZExtValue()) - 1);
             }
 
             if (const SCEVUnknown *array_value_scev = dyn_cast<SCEVUnknown>(SU))
@@ -1882,19 +2070,25 @@ void HI_ArraySensitiveToLoopLevel::handleUnstandardSCEVAccess(Instruction *I, co
                 }
                 else
                 {
-                    assert(target && "There should be an PtrToInt Instruction for the addition operation.\n");
+                    assert(target &&
+                           "There should be an PtrToInt Instruction for the addition operation.\n");
                 }
 
                 if (Target2ArrayInfo.find(target) == Target2ArrayInfo.end())
                 {
-                    if (Alias2Target.find(target) != Alias2Target.end()) // it could be argument. We need to trace back to get its original array declaration
+                    if (Alias2Target.find(target) !=
+                        Alias2Target.end()) // it could be argument. We need to trace back to get
+                                            // its original array declaration
                     {
                         target = Alias2Target[target];
                     }
                     else
                     {
-                        llvm::errs() << "ERRORS: cannot find target [" << *target << "] in Target2ArrayInfo and its address=" << target << "\n";
-                        assert(Target2ArrayInfo.find(target) != Target2ArrayInfo.end() && Alias2Target.find(target) != Alias2Target.end() && "Fail to find the array inforamtion for the target.");
+                        llvm::errs() << "ERRORS: cannot find target [" << *target
+                                     << "] in Target2ArrayInfo and its address=" << target << "\n";
+                        assert(Target2ArrayInfo.find(target) != Target2ArrayInfo.end() &&
+                               Alias2Target.find(target) != Alias2Target.end() &&
+                               "Fail to find the array inforamtion for the target.");
                     }
                 }
 
@@ -1917,9 +2111,11 @@ void HI_ArraySensitiveToLoopLevel::handleUnstandardSCEVAccess(Instruction *I, co
             *ArrayLog << " -----> access target info: " << Target2ArrayInfo[target] << "\n";
         if (DEBUG)
             ArrayLog->flush();
-        AddressInst2AccessInfo[I] = getAccessInfoFor(target, I, initial_const, &inc_indices, &trip_counts);
+        AddressInst2AccessInfo[I] =
+            getAccessInfoFor(target, I, initial_const, &inc_indices, &trip_counts);
         if (DEBUG)
-            *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[I] << "\n\n\n";
+            *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[I]
+                      << "\n\n\n";
         // ArrayLog->flush();
     }
 }
@@ -1946,27 +2142,35 @@ void HI_ArraySensitiveToLoopLevel::handleComplexSCEVAccess(Instruction *I, const
         *ArrayLog << *I << " --> target array: " << *target << "\n";
     if (Target2ArrayInfo.find(target) == Target2ArrayInfo.end())
     {
-        if (Alias2Target.find(target) != Alias2Target.end()) // it could be argument. We need to trace back to get its original array declaration
+        if (Alias2Target.find(target) !=
+            Alias2Target.end()) // it could be argument. We need to trace back to get its original
+                                // array declaration
         {
             target = Alias2Target[target];
         }
         else
         {
-            llvm::errs() << "ERRORS: cannot find target [" << *target << "] in Target2ArrayInfo and its address=" << target << "\n";
-            assert(Target2ArrayInfo.find(target) != Target2ArrayInfo.end() && Alias2Target.find(target) != Alias2Target.end() && "Fail to find the array inforamtion for the target.");
+            llvm::errs() << "ERRORS: cannot find target [" << *target
+                         << "] in Target2ArrayInfo and its address=" << target << "\n";
+            assert(Target2ArrayInfo.find(target) != Target2ArrayInfo.end() &&
+                   Alias2Target.find(target) != Alias2Target.end() &&
+                   "Fail to find the array inforamtion for the target.");
         }
     }
 
     assert(target && "the target array should be found.\n");
     if (DEBUG)
         ArrayLog->flush();
-    AddressInst2AccessInfo[I] = getAccessInfoFor(target, I, -1, nullptr, nullptr, /*unpredictable*/ true);
+    AddressInst2AccessInfo[I] =
+        getAccessInfoFor(target, I, -1, nullptr, nullptr, /*unpredictable*/ true);
     if (DEBUG)
-        *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[I] << "\n\n\n";
+        *ArrayLog << " -----> access info with array index: " << AddressInst2AccessInfo[I]
+                  << "\n\n\n";
     // ArrayLog->flush();
 }
 
-bool std::operator<(const HI_ArraySensitiveToLoopLevel::partition_info &A, const HI_ArraySensitiveToLoopLevel::partition_info &B)
+bool std::operator<(const HI_ArraySensitiveToLoopLevel::partition_info &A,
+                    const HI_ArraySensitiveToLoopLevel::partition_info &B)
 {
     assert(A.num_dims == B.num_dims);
     if (A.target < B.target)
@@ -1988,7 +2192,8 @@ std::vector<int> HI_ArraySensitiveToLoopLevel::generatePotentialOffset(HI_Access
 {
     std::vector<int> res_offsets;
     if (accessInfo.reverse_loop_dep > 0)
-        getAllPotentialOffsetByRecuresiveSearch(accessInfo, accessInfo.reverse_loop_dep, accessInfo.initial_offset, res_offsets);
+        getAllPotentialOffsetByRecuresiveSearch(accessInfo, accessInfo.reverse_loop_dep,
+                                                accessInfo.initial_offset, res_offsets);
     else
         res_offsets.push_back(accessInfo.initial_offset); // offset unrelated to loop
     return res_offsets;
@@ -1996,7 +2201,8 @@ std::vector<int> HI_ArraySensitiveToLoopLevel::generatePotentialOffset(HI_Access
 
 // recursively emulate all the loops where the access is inside
 // to check the offset of the access
-void HI_ArraySensitiveToLoopLevel::getAllPotentialOffsetByRecuresiveSearch(HI_AccessInfo &accessInfo, int loopDep, int last_level_offset, std::vector<int> &res)
+void HI_ArraySensitiveToLoopLevel::getAllPotentialOffsetByRecuresiveSearch(
+    HI_AccessInfo &accessInfo, int loopDep, int last_level_offset, std::vector<int> &res)
 {
     if (loopDep == -1)
     {
@@ -2008,7 +2214,9 @@ void HI_ArraySensitiveToLoopLevel::getAllPotentialOffsetByRecuresiveSearch(HI_Ac
     {
         for (int i = 0; i < accessInfo.trip_count[loopDep - 1]; i++)
         {
-            getAllPotentialOffsetByRecuresiveSearch(accessInfo, loopDep - 1, last_level_offset + i * accessInfo.inc_index[loopDep - 1], res);
+            getAllPotentialOffsetByRecuresiveSearch(
+                accessInfo, loopDep - 1, last_level_offset + i * accessInfo.inc_index[loopDep - 1],
+                res);
         }
     }
     else
@@ -2016,14 +2224,16 @@ void HI_ArraySensitiveToLoopLevel::getAllPotentialOffsetByRecuresiveSearch(HI_Ac
         for (int i = 0; i < accessInfo.trip_count[loopDep - 1]; i++)
         {
             int res_offset = last_level_offset + i * accessInfo.inc_index[loopDep - 1];
-            if (res_offset < accessInfo.dim_size[accessInfo.num_dims - 1] * accessInfo.sub_element_num[accessInfo.num_dims - 1])
+            if (res_offset < accessInfo.dim_size[accessInfo.num_dims - 1] *
+                                 accessInfo.sub_element_num[accessInfo.num_dims - 1])
                 res.push_back(res_offset);
         }
     }
 }
 
 // get all the partitions for the access target of the access instruction
-std::vector<HI_ArraySensitiveToLoopLevel::partition_info> HI_ArraySensitiveToLoopLevel::getAllPartitionFor(Instruction *access)
+std::vector<HI_ArraySensitiveToLoopLevel::partition_info>
+HI_ArraySensitiveToLoopLevel::getAllPartitionFor(Instruction *access)
 {
     HI_AccessInfo tmp_info = getAccessInfoForAccessInst(access);
     std::vector<partition_info> res;
@@ -2033,7 +2243,9 @@ std::vector<HI_ArraySensitiveToLoopLevel::partition_info> HI_ArraySensitiveToLoo
 }
 
 // get all the partitions for the access target of the access instruction
-void HI_ArraySensitiveToLoopLevel::getAllPartitionBasedOnInfo(HI_AccessInfo &info, int curDim, std::vector<int> &tmp_partID, std::vector<partition_info> &res)
+void HI_ArraySensitiveToLoopLevel::getAllPartitionBasedOnInfo(HI_AccessInfo &info, int curDim,
+                                                              std::vector<int> &tmp_partID,
+                                                              std::vector<partition_info> &res)
 {
     if (curDim == info.num_dims)
     {
@@ -2057,7 +2269,8 @@ void HI_ArraySensitiveToLoopLevel::getAllPartitionBasedOnInfo(HI_AccessInfo &inf
     }
 }
 
-Optional<APInt> HI_ArraySensitiveToLoopLevel::computeConstantDifference(const SCEV *ori_More, const SCEV *ori_Less)
+Optional<APInt> HI_ArraySensitiveToLoopLevel::computeConstantDifference(const SCEV *ori_More,
+                                                                        const SCEV *ori_Less)
 {
     // We avoid subtracting expressions here because this function is usually
     // fairly deep in the call stack (i.e. is called many times).
@@ -2074,7 +2287,8 @@ Optional<APInt> HI_ArraySensitiveToLoopLevel::computeConstantDifference(const SC
         {
             if (LU->getValue() == LU->getValue())
             {
-                //*RemoveRedundantAccess_Log << "----- downgrade " << *nextI << " but no possibility of alias\n";
+                //*RemoveRedundantAccess_Log << "----- downgrade " << *nextI << " but no possibility
+                //of alias\n";
                 return computeConstantDifference(MA->getOperand(0), LA->getOperand(0));
             }
         }
@@ -2134,7 +2348,8 @@ Optional<APInt> HI_ArraySensitiveToLoopLevel::computeConstantDifference(const SC
 }
 
 // some accesses with offset which is not related to the loop of current level
-bool HI_ArraySensitiveToLoopLevel::checkConstantAccessInLoop(const SCEV *ori_More, const SCEV *ori_Less, Loop *curLoop)
+bool HI_ArraySensitiveToLoopLevel::checkConstantAccessInLoop(const SCEV *ori_More,
+                                                             const SCEV *ori_Less, Loop *curLoop)
 {
     // We avoid subtracting expressions here because this function is usually
     // fairly deep in the call stack (i.e. is called many times).
@@ -2151,7 +2366,8 @@ bool HI_ArraySensitiveToLoopLevel::checkConstantAccessInLoop(const SCEV *ori_Mor
         {
             if (LU->getValue() == LU->getValue())
             {
-                //*RemoveRedundantAccess_Log << "----- downgrade " << *nextI << " but no possibility of alias\n";
+                //*RemoveRedundantAccess_Log << "----- downgrade " << *nextI << " but no possibility
+                //of alias\n";
                 return checkConstantAccessInLoop(MA->getOperand(0), LA->getOperand(0), curLoop);
             }
         }
@@ -2181,7 +2397,8 @@ int HI_ArraySensitiveToLoopLevel::getStepLength(const SCEV *ori_More, const SCEV
         {
             if (LU->getValue() == LU->getValue())
             {
-                //*RemoveRedundantAccess_Log << "----- downgrade " << *nextI << " but no possibility of alias\n";
+                //*RemoveRedundantAccess_Log << "----- downgrade " << *nextI << " but no possibility
+                //of alias\n";
                 return getStepLength(MA->getOperand(0), LA->getOperand(0));
             }
         }
@@ -2203,7 +2420,8 @@ int HI_ArraySensitiveToLoopLevel::getStepLength(const SCEV *ori_More, const SCEV
     return C1->getAPInt().getSExtValue();
 }
 
-bool HI_ArraySensitiveToLoopLevel::splitBinaryAdd(const SCEV *Expr, const SCEV *&L, const SCEV *&R, SCEV::NoWrapFlags &Flags)
+bool HI_ArraySensitiveToLoopLevel::splitBinaryAdd(const SCEV *Expr, const SCEV *&L, const SCEV *&R,
+                                                  SCEV::NoWrapFlags &Flags)
 {
     const auto *AE = dyn_cast<SCEVAddExpr>(Expr);
     if (!AE || AE->getNumOperands() != 2)
@@ -2228,7 +2446,8 @@ bool HI_ArraySensitiveToLoopLevel::noAliasHazard(Instruction *I0, Instruction *I
     {
         pointer_I0 = dyn_cast<Instruction>(I0->getOperand(1));
     }
-    assert(pointer_I0 && pointer_I0->getOpcode() == Instruction::IntToPtr && "ITP should be found for the access instruction");
+    assert(pointer_I0 && pointer_I0->getOpcode() == Instruction::IntToPtr &&
+           "ITP should be found for the access instruction");
 
     if (I1->getOpcode() == Instruction::Load)
     {
@@ -2239,7 +2458,8 @@ bool HI_ArraySensitiveToLoopLevel::noAliasHazard(Instruction *I0, Instruction *I
         pointer_I1 = dyn_cast<Instruction>(I1->getOperand(1));
     }
 
-    assert(pointer_I1 && pointer_I1->getOpcode() == Instruction::IntToPtr && "ITP should be found for the access instruction");
+    assert(pointer_I1 && pointer_I1->getOpcode() == Instruction::IntToPtr &&
+           "ITP should be found for the access instruction");
 
     std::string tmp0(""), tmp1("");
     raw_string_ostream *SCEV_Stream0 = new raw_string_ostream(tmp0);

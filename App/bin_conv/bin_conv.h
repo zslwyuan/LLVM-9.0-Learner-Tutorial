@@ -11,8 +11,9 @@ const unsigned CONV1_W_PER_WORD = 4;
 const unsigned KH_PER_WORD = 4;
 const unsigned BYTE_SIZE = 8;
 const unsigned K = 3;
-const unsigned WT_L = 16 * 4 * 512;                                                                         // parameter to control wt mem size
-const unsigned C_WT_WORDS = ((WT_L + CONV_W_PER_WORD - 1) / CONV_W_PER_WORD + CONVOLVERS - 1) / CONVOLVERS; // wt words per convolver
+const unsigned WT_L = 16 * 4 * 512; // parameter to control wt mem size
+const unsigned C_WT_WORDS = ((WT_L + CONV_W_PER_WORD - 1) / CONV_W_PER_WORD + CONVOLVERS - 1) /
+                            CONVOLVERS; // wt words per convolver
 const unsigned WT_WORDS = C_WT_WORDS * CONVOLVERS;
 const unsigned KH_WORDS = WT_L / 128 * 16 / WORD_SIZE;
 

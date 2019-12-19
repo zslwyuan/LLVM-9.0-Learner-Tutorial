@@ -127,34 +127,57 @@ raw_ostream &operator<<(raw_ostream &stream, const HI_PragmaArrayInfo &tb);
 class HI_PragmaTargetExtraction : public ModulePass
 {
   public:
-    // Pass for simple evluation of the latency of the top function, without considering HLS directives
+    // Pass for simple evluation of the latency of the top function, without considering HLS
+    // directives
     HI_PragmaTargetExtraction( // const char* config_file_name,
         const char *top_function, std::map<std::string, std::string> &IRLoop2LoopLabel,
         // std::map<std::string, int> &LoopLabel2II,
-        std::map<std::string, int> &FuncParamLine2OutermostSize, std::map<std::string, std::vector<int>> &IRFunc2BeginLine, bool DEBUG = 0)
-        : ModulePass(ID), IRLoop2LoopLabel(IRLoop2LoopLabel), FuncParamLine2OutermostSize(FuncParamLine2OutermostSize), IRFunc2BeginLine(IRFunc2BeginLine), DEBUG(DEBUG), LoopIRName2NextLevelSubLoopIRNames(this->_LoopIRName2NextLevelSubLoopIRNames), LoopIRName2Depth(this->_LoopIRName2Depth), LoopIRName2Array(this->_LoopIRName2Array), TargetExtName2ArrayInfo(this->_TargetExtName2ArrayInfo)
+        std::map<std::string, int> &FuncParamLine2OutermostSize,
+        std::map<std::string, std::vector<int>> &IRFunc2BeginLine, bool DEBUG = 0)
+        : ModulePass(ID), IRLoop2LoopLabel(IRLoop2LoopLabel),
+          FuncParamLine2OutermostSize(FuncParamLine2OutermostSize),
+          IRFunc2BeginLine(IRFunc2BeginLine), DEBUG(DEBUG),
+          LoopIRName2NextLevelSubLoopIRNames(this->_LoopIRName2NextLevelSubLoopIRNames),
+          LoopIRName2Depth(this->_LoopIRName2Depth), LoopIRName2Array(this->_LoopIRName2Array),
+          TargetExtName2ArrayInfo(this->_TargetExtName2ArrayInfo)
 
     {
         // config_file = new std::ifstream(config_file_name);
-        loopTarget_log = new raw_fd_ostream("HI_PragmaTargetExtraction_loopTarget_log", ErrInfo, sys::fs::F_None);
+        loopTarget_log = new raw_fd_ostream("HI_PragmaTargetExtraction_loopTarget_log", ErrInfo,
+                                            sys::fs::F_None);
         top_function_name = std::string(top_function);
-        arrayTarget_Log = new raw_fd_ostream("HI_PragmaTargetExtraction_arrayTarget_Log", ErrInfo, sys::fs::F_None);
+        arrayTarget_Log = new raw_fd_ostream("HI_PragmaTargetExtraction_arrayTarget_Log", ErrInfo,
+                                             sys::fs::F_None);
         // get the configureation from the file, e.g. clock period
         // Generate_Config();
     }
 
-    // Pass for simple evluation of the latency of the top function, without considering HLS directives
+    // Pass for simple evluation of the latency of the top function, without considering HLS
+    // directives
     HI_PragmaTargetExtraction( // const char* config_file_name,
         const char *top_function, std::map<std::string, std::string> &IRLoop2LoopLabel,
         // std::map<std::string, int> &LoopLabel2II,
-        std::map<std::string, int> &FuncParamLine2OutermostSize, std::map<std::string, std::vector<int>> &IRFunc2BeginLine, std::map<std::string, std::vector<std::string>> &LoopIRName2NextLevelSubLoopIRNames, std::map<std::string, int> &LoopIRName2Depth, std::map<std::string, std::vector<std::pair<std::string, std::string>>> &LoopIRName2Array, std::map<std::pair<std::string, std::string>, HI_PragmaArrayInfo> &TargetExtName2ArrayInfo, bool DEBUG = 0)
-        : ModulePass(ID), IRLoop2LoopLabel(IRLoop2LoopLabel), FuncParamLine2OutermostSize(FuncParamLine2OutermostSize), IRFunc2BeginLine(IRFunc2BeginLine), DEBUG(DEBUG), LoopIRName2NextLevelSubLoopIRNames(LoopIRName2NextLevelSubLoopIRNames), LoopIRName2Depth(LoopIRName2Depth), LoopIRName2Array(LoopIRName2Array), TargetExtName2ArrayInfo(TargetExtName2ArrayInfo)
+        std::map<std::string, int> &FuncParamLine2OutermostSize,
+        std::map<std::string, std::vector<int>> &IRFunc2BeginLine,
+        std::map<std::string, std::vector<std::string>> &LoopIRName2NextLevelSubLoopIRNames,
+        std::map<std::string, int> &LoopIRName2Depth,
+        std::map<std::string, std::vector<std::pair<std::string, std::string>>> &LoopIRName2Array,
+        std::map<std::pair<std::string, std::string>, HI_PragmaArrayInfo> &TargetExtName2ArrayInfo,
+        bool DEBUG = 0)
+        : ModulePass(ID), IRLoop2LoopLabel(IRLoop2LoopLabel),
+          FuncParamLine2OutermostSize(FuncParamLine2OutermostSize),
+          IRFunc2BeginLine(IRFunc2BeginLine), DEBUG(DEBUG),
+          LoopIRName2NextLevelSubLoopIRNames(LoopIRName2NextLevelSubLoopIRNames),
+          LoopIRName2Depth(LoopIRName2Depth), LoopIRName2Array(LoopIRName2Array),
+          TargetExtName2ArrayInfo(TargetExtName2ArrayInfo)
 
     {
         // config_file = new std::ifstream(config_file_name);
-        loopTarget_log = new raw_fd_ostream("HI_PragmaTargetExtraction_loopTarget_log", ErrInfo, sys::fs::F_None);
+        loopTarget_log = new raw_fd_ostream("HI_PragmaTargetExtraction_loopTarget_log", ErrInfo,
+                                            sys::fs::F_None);
         top_function_name = std::string(top_function);
-        arrayTarget_Log = new raw_fd_ostream("HI_PragmaTargetExtraction_arrayTarget_Log", ErrInfo, sys::fs::F_None);
+        arrayTarget_Log = new raw_fd_ostream("HI_PragmaTargetExtraction_arrayTarget_Log", ErrInfo,
+                                             sys::fs::F_None);
         // get the configureation from the file, e.g. clock period
         // Generate_Config();
     }
@@ -263,8 +286,9 @@ class HI_PragmaTargetExtraction : public ModulePass
     // find the array declaration in the function F and trace the accesses to them
     void findMemoryDeclarationAndAnalyzeAccessin(Function *F, bool isTopFunction);
 
-    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
-    // record the corresponding target array which the access instructions try to touch
+    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr,
+    // Store, Load instructions record the corresponding target array which the access instructions
+    // try to touch
     void TraceAccessForTarget(Value *cur_node, Value *ori_node);
 
     /*
@@ -427,7 +451,8 @@ class HI_PragmaTargetExtraction : public ModulePass
 
     friend raw_ostream &operator<<(raw_ostream &stream, const HI_AccessInfo &tb)
     {
-        stream << "HI_AccessInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", "; // ", partition=" << tb.partition << ", ";
+        stream << "HI_AccessInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType
+               << ", num_dims=" << tb.num_dims << ", "; // ", partition=" << tb.partition << ", ";
         for (int i = 0; i < tb.num_dims; i++)
         {
             stream << "dim-" << i << "-size=" << tb.dim_size[i] << ", ";
@@ -601,7 +626,8 @@ class HI_PragmaTargetExtraction : public ModulePass
         return true;
     }
 
-    // Pass for simple evluation of the latency of the top function, without considering HLS directives
+    // Pass for simple evluation of the latency of the top function, without considering HLS
+    // directives
     void Generate_Config();
 
     // parse the argument for array partitioning

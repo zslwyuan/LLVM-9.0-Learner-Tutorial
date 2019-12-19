@@ -63,7 +63,8 @@ int main(int argc, char **argv)
     PM.add(createTargetTransformInfoWrapperPass(TargetIRAnalysis()));
     print_info("Enable TargetIRAnalysis Pass");
 
-    auto hi_separateconstoffsetfromgep = new HI_SeparateConstOffsetFromGEP("HI_SeparateConstOffsetFromGEP", true);
+    auto hi_separateconstoffsetfromgep =
+        new HI_SeparateConstOffsetFromGEP("HI_SeparateConstOffsetFromGEP", true);
     PM.add(hi_separateconstoffsetfromgep);
     print_info("Enable HI_SeparateConstOffsetFromGEP Pass");
     // auto separateconstoffsetfromgep = createSeparateConstOffsetFromGEPPass(true);
@@ -160,7 +161,8 @@ int main(int argc, char **argv)
     print_info("Enable HI_LoopDependenceAnalysis Pass");
     PM.add(hi_loopdependenceanalysis);
 
-    auto hi_simpletimingevaluation = new HI_SimpleTimingEvaluation("HI_SimpleTimingEvaluation", top_str.c_str());
+    auto hi_simpletimingevaluation =
+        new HI_SimpleTimingEvaluation("HI_SimpleTimingEvaluation", top_str.c_str());
     print_info("Enable HI_SimpleTimingEvaluation Pass");
     PM.add(hi_simpletimingevaluation);
 
@@ -175,7 +177,8 @@ int main(int argc, char **argv)
     PM.run(*Mod);
     print_status("Accomplished LLVM processing");
 
-    assert(hi_simpletimingevaluation->topFunctionFound && "The specified top function is not found in the program");
+    assert(hi_simpletimingevaluation->topFunctionFound &&
+           "The specified top function is not found in the program");
 
     print_status("Writing LLVM IR to File");
     std::error_code EC;

@@ -8,7 +8,8 @@ extern double BRAM_limit;
 extern int ClockNum_limit;
 extern bool all_sub_function_inline;
 
-void Parse_Config(const char *config_file_name, std::map<std::string, int> &LoopLabel2UnrollFactor, std::map<std::string, int> &LoopLabel2II)
+void Parse_Config(const char *config_file_name, std::map<std::string, int> &LoopLabel2UnrollFactor,
+                  std::map<std::string, int> &LoopLabel2II)
 {
     std::string tmp_s;
     std::string tmpStr_forParsing;
@@ -98,7 +99,8 @@ void parseArrayPartition(std::stringstream &iss)
         case hash_compile_time("dim"):
             consumeEqual(iss);
             iss >> tmp_val;
-            // ans_pragma.dim = std::stoi(tmp_val)-1;  // count from dim="0" to match the storage format
+            // ans_pragma.dim = std::stoi(tmp_val)-1;  // count from dim="0" to match the storage
+            // format
             break;
 
         case hash_compile_time("factor"):

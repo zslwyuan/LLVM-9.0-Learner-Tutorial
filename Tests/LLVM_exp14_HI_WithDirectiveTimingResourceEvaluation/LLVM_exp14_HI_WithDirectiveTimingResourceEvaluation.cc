@@ -19,8 +19,11 @@ void ReplaceAll(std::string &strSource, const std::string &strOld, const std::st
 
 void pathAdvice()
 {
-    std::cout << "===============================================================================" << std::endl;
-    std::cout << "if undefined reference occurs, please check whether the following include paths are required." << std::endl;
+    std::cout << "==============================================================================="
+              << std::endl;
+    std::cout << "if undefined reference occurs, please check whether the following include paths "
+                 "are required."
+              << std::endl;
     std::string line;
     std::string cmd_str = "clang++ ../testcase/test.c  -v 2> ciinfor";
     print_cmd(cmd_str.c_str());
@@ -48,7 +51,8 @@ void pathAdvice()
             break;
         }
     }
-    std::cout << "===============================================================================" << std::endl;
+    std::cout << "==============================================================================="
+              << std::endl;
 }
 
 using namespace clang;
@@ -80,9 +84,14 @@ int main(int argc, const char **argv)
     Rewriter TheRewriter0, TheRewriter1;
 
     // run the Clang Tool, creating a new FrontendAction, which will run the AST consumer
-    Tool.run(HI_LoopLabeler_rewrite_newFrontendActionFactory<HI_LoopLabeler_FrontendAction>("PLog", TheRewriter0, "tmp.cc").get());
+    Tool.run(HI_LoopLabeler_rewrite_newFrontendActionFactory<HI_LoopLabeler_FrontendAction>(
+                 "PLog", TheRewriter0, "tmp.cc")
+                 .get());
     std::map<std::string, int> FuncParamLine2OutermostSize;
-    Tool.run(HI_FunctionInterfaceInfo_rewrite_newFrontendActionFactory<HI_FunctionInterfaceInfo_FrontendAction>("PLog1", TheRewriter1, "tmp1.cc", FuncParamLine2OutermostSize, top_str).get());
+    Tool.run(HI_FunctionInterfaceInfo_rewrite_newFrontendActionFactory<
+                 HI_FunctionInterfaceInfo_FrontendAction>("PLog1", TheRewriter1, "tmp1.cc",
+                                                          FuncParamLine2OutermostSize, top_str)
+                 .get());
 
     LLVMInitializeX86TargetInfo();
     LLVMInitializeX86Target();
@@ -138,7 +147,8 @@ int main(int argc, const char **argv)
     print_info("Enable LoopExtractor Pass");
 
     std::map<std::string, std::vector<int>> IRFunc2BeginLine;
-    auto hi_ir2sourcecode = new HI_IR2SourceCode("HI_IR2SourceCode", IRLoop2LoopLabel, IRFunc2BeginLine, IRLoop2OriginTripCount);
+    auto hi_ir2sourcecode = new HI_IR2SourceCode("HI_IR2SourceCode", IRLoop2LoopLabel,
+                                                 IRFunc2BeginLine, IRLoop2OriginTripCount);
     PM_pre.add(hi_ir2sourcecode);
     print_info("Enable HI_IR2SourceCode Pass");
 
@@ -183,11 +193,13 @@ int main(int argc, const char **argv)
     PM1.add(CFGSimplification_pass2);
     print_info("Enable CFGSimplificationPass Pass");
 
-    auto hi_loopunroll = new HI_LoopUnroll(IRLoop2LoopLabel, LoopLabel2UnrollFactor, 1, false, None); //"HI_LoopUnroll"
+    auto hi_loopunroll = new HI_LoopUnroll(IRLoop2LoopLabel, LoopLabel2UnrollFactor, 1, false,
+                                           None); //"HI_LoopUnroll"
     PM1.add(hi_loopunroll);
     print_info("Enable HI_LoopUnroll Pass");
 
-    auto hi_separateconstoffsetfromgep = new HI_SeparateConstOffsetFromGEP("HI_SeparateConstOffsetFromGEP", true);
+    auto hi_separateconstoffsetfromgep =
+        new HI_SeparateConstOffsetFromGEP("HI_SeparateConstOffsetFromGEP", true);
     PM1.add(hi_separateconstoffsetfromgep);
     print_info("Enable HI_SeparateConstOffsetFromGEP Pass");
 
@@ -221,7 +233,8 @@ int main(int argc, const char **argv)
     // PM1.add(hi_varwidthreduce);
     // print_info("Enable HI_VarWidthReduce Pass");
 
-    auto hi_intstructionmovebackward = new HI_IntstructionMoveBackward("HI_IntstructionMoveBackward");
+    auto hi_intstructionmovebackward =
+        new HI_IntstructionMoveBackward("HI_IntstructionMoveBackward");
     PM1.add(hi_intstructionmovebackward);
     print_info("Enable HI_IntstructionMoveBackward Pass");
 
@@ -237,11 +250,13 @@ int main(int argc, const char **argv)
     PM11.add(hi_hlsduplicateinstrm);
     print_info("Enable HI_HLSDuplicateInstRm Pass");
 
-    auto hi_functioninstantiation = new HI_FunctionInstantiation("HI_FunctionInstantiation", top_str);
+    auto hi_functioninstantiation =
+        new HI_FunctionInstantiation("HI_FunctionInstantiation", top_str);
     PM11.add(hi_functioninstantiation);
     print_info("Enable HI_FunctionInstantiation Pass");
 
-    auto hi_removeredundantaccess = new HI_RemoveRedundantAccess("HI_RemoveRedundantAccess", top_str, (argc == 5 && std::string(argv[4]) == "DEBUG"));
+    auto hi_removeredundantaccess = new HI_RemoveRedundantAccess(
+        "HI_RemoveRedundantAccess", top_str, (argc == 5 && std::string(argv[4]) == "DEBUG"));
     PM11.add(hi_removeredundantaccess);
     print_info("Enable HI_RemoveRedundantAccess Pass");
 
@@ -271,7 +286,8 @@ int main(int argc, const char **argv)
     // PM.add(createCorrelatedValuePropagationPass());
     // print_info("Enable CorrelatedValuePropagation Pass");
 
-    auto hi_varwidthreduce1 = new HI_VarWidthReduce("VarWidth1", (argc == 5 && std::string(argv[4]) == "DEBUG"));
+    auto hi_varwidthreduce1 =
+        new HI_VarWidthReduce("VarWidth1", (argc == 5 && std::string(argv[4]) == "DEBUG"));
     PM2.add(hi_varwidthreduce1);
     print_info("Enable HI_VarWidthReduce Pass");
 
@@ -284,7 +300,8 @@ int main(int argc, const char **argv)
     PM2.add(CFGSimplification_pass4);
     print_info("Enable CFGSimplificationPass Pass");
 
-    auto hi_intstructionmovebackward1 = new HI_IntstructionMoveBackward("HI_IntstructionMoveBackward1");
+    auto hi_intstructionmovebackward1 =
+        new HI_IntstructionMoveBackward("HI_IntstructionMoveBackward1");
     PM2.add(hi_intstructionmovebackward1);
     print_info("Enable HI_IntstructionMoveBackward Pass");
 
@@ -303,7 +320,9 @@ int main(int argc, const char **argv)
     print_info("Enable CFGSimplificationPass Pass");
     std::map<std::string, std::string> IRLoop2LoopLabel_eval;
     std::map<std::string, std::vector<int>> IRFunc2BeginLine_eval;
-    auto hi_ir2sourcecode_eval = new HI_IR2SourceCode("HI_IR2SourceCode_eval", IRLoop2LoopLabel_eval, IRFunc2BeginLine_eval, IRLoop2OriginTripCount);
+    auto hi_ir2sourcecode_eval =
+        new HI_IR2SourceCode("HI_IR2SourceCode_eval", IRLoop2LoopLabel_eval, IRFunc2BeginLine_eval,
+                             IRLoop2OriginTripCount);
     PM3.add(hi_ir2sourcecode_eval);
     print_info("Enable HI_IR2SourceCode Pass");
     PM3.run(*Mod);
@@ -386,19 +405,28 @@ int main(int argc, const char **argv)
     print_info("Enable HI_LoopDependenceAnalysis Pass");
     PM.add(hi_loopdependenceanalysis);
 
-    // auto hi_simpletimingevaluation = new HI_SimpleTimingEvaluation("HI_SimpleTimingEvaluation",top_str.c_str());
-    // print_info("Enable HI_SimpleTimingEvaluation Pass");
-    // PM.add(hi_simpletimingevaluation);
+    // auto hi_simpletimingevaluation = new
+    // HI_SimpleTimingEvaluation("HI_SimpleTimingEvaluation",top_str.c_str()); print_info("Enable
+    // HI_SimpleTimingEvaluation Pass"); PM.add(hi_simpletimingevaluation);
 
-    auto hi_MuxInsertionArrayPartition = new HI_MuxInsertionArrayPartition(configFile_str.c_str(), top_str.c_str(), IRLoop2LoopLabel_eval, LoopLabel2II, FuncParamLine2OutermostSize, IRFunc2BeginLine, (argc == 5 && std::string(argv[4]) == "DEBUG"));
+    auto hi_MuxInsertionArrayPartition = new HI_MuxInsertionArrayPartition(
+        configFile_str.c_str(), top_str.c_str(), IRLoop2LoopLabel_eval, LoopLabel2II,
+        FuncParamLine2OutermostSize, IRFunc2BeginLine,
+        (argc == 5 && std::string(argv[4]) == "DEBUG"));
     print_info("Enable HI_MuxInsertionArrayPartition Pass");
     PM.add(hi_MuxInsertionArrayPartition);
 
-    auto hi_nodirectivetimingresourceevaluation = new HI_NoDirectiveTimingResourceEvaluation(configFile_str.c_str(), "HI_NoDirectiveTimingResourceEvaluation", "BRAM_info", top_str.c_str());
+    auto hi_nodirectivetimingresourceevaluation = new HI_NoDirectiveTimingResourceEvaluation(
+        configFile_str.c_str(), "HI_NoDirectiveTimingResourceEvaluation", "BRAM_info",
+        top_str.c_str());
     print_info("Enable HI_NoDirectiveTimingResourceEvaluation Pass");
     PM.add(hi_nodirectivetimingresourceevaluation);
 
-    auto hi_withdirectivetimingresourceevaluation = new HI_WithDirectiveTimingResourceEvaluation(configFile_str.c_str(), "HI_WithDirectiveTimingResourceEvaluation", "BRAM_info_0", "ArrayLog", top_str.c_str(), IRLoop2LoopLabel_eval, IRLoop2OriginTripCount, LoopLabel2II, LoopLabel2UnrollFactor, FuncParamLine2OutermostSize, IRFunc2BeginLine, (argc == 5 && std::string(argv[4]) == "DEBUG"));
+    auto hi_withdirectivetimingresourceevaluation = new HI_WithDirectiveTimingResourceEvaluation(
+        configFile_str.c_str(), "HI_WithDirectiveTimingResourceEvaluation", "BRAM_info_0",
+        "ArrayLog", top_str.c_str(), IRLoop2LoopLabel_eval, IRLoop2OriginTripCount, LoopLabel2II,
+        LoopLabel2UnrollFactor, FuncParamLine2OutermostSize, IRFunc2BeginLine,
+        (argc == 5 && std::string(argv[4]) == "DEBUG"));
     print_info("Enable HI_WithDirectiveTimingResourceEvaluation Pass");
     PM.add(hi_withdirectivetimingresourceevaluation);
 
@@ -424,7 +452,8 @@ int main(int argc, const char **argv)
     //     llvm::errs() << it.first << " <==== " << it.second << "\n";
     // }
 
-    assert(hi_nodirectivetimingresourceevaluation->topFunctionFound && "The specified top function is not found in the program");
+    assert(hi_nodirectivetimingresourceevaluation->topFunctionFound &&
+           "The specified top function is not found in the program");
 
     print_status("Writing LLVM IR to File");
 

@@ -14,14 +14,17 @@
 
 using namespace llvm;
 
-bool HI_LoopInFormationCollect::runOnLoop(Loop *L, LPPassManager &) // The runOnLoop declaration will overide the virtual one in LoopPass, which will be executed for each Loop.
+bool HI_LoopInFormationCollect::runOnLoop(
+    Loop *L, LPPassManager &) // The runOnLoop declaration will overide the virtual one in LoopPass,
+                              // which will be executed for each Loop.
 {
     // Loop_out->flush();
 
     SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
     LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     LAA = &getAnalysis<LoopAccessLegacyAnalysis>();
-    if (Loop_id.find(L) == Loop_id.end()) // traverse instructions in the block assign instruction ID
+    if (Loop_id.find(L) ==
+        Loop_id.end()) // traverse instructions in the block assign instruction ID
     {
         Loop_id[L] = ++Loop_Counter;
     }
@@ -34,8 +37,11 @@ bool HI_LoopInFormationCollect::runOnLoop(Loop *L, LPPassManager &) // The runOn
     //   else
     //  return false;
 
-    *Loop_out << "L_ID" << Loop_id[L] << "--getSmallConstantMaxTripCount=" << SE->getSmallConstantMaxTripCount(L) << "--depth=" << L->getLoopDepth() << "\n"; // estimate the trip count of the loop
-    // *Loop_out << "L_ID" <<Loop_id[L]<<"--getLoopEstimatedTripCount="<<getLoopEstimatedTripCount(L)<<"\n";
+    *Loop_out << "L_ID" << Loop_id[L]
+              << "--getSmallConstantMaxTripCount=" << SE->getSmallConstantMaxTripCount(L)
+              << "--depth=" << L->getLoopDepth() << "\n"; // estimate the trip count of the loop
+    // *Loop_out << "L_ID"
+    // <<Loop_id[L]<<"--getLoopEstimatedTripCount="<<getLoopEstimatedTripCount(L)<<"\n";
     *Loop_out << "-----------Loop content---------------\n";
     *Loop_out << *L;
     *Loop_out << "---------------Loop report----------------\n";
@@ -90,7 +96,9 @@ bool HI_LoopInFormationCollect::runOnLoop(Loop *L, LPPassManager &) // The runOn
     return false;
 }
 
-char HI_LoopInFormationCollect::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_LoopInFormationCollect::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 void HI_LoopInFormationCollect::getAnalysisUsage(AnalysisUsage &AU) const
 {

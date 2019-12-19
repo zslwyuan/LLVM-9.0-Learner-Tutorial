@@ -17,12 +17,16 @@
 using namespace llvm;
 
 /*
-    1.Analysis: check the value range of the instructions in the source code and determine the bitwidth (select the maximum bitwidth among input and output)
-    2.Forward Process: check the bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of the instruction
-    3.Check Redundancy: Some instructions could be truncated to be an operand, but itself is actually updated with the same bitwidth with the truncation.
-    4.Validation Check: Check whether there is any binary operation with operands in different types.
+    1.Analysis: check the value range of the instructions in the source code and determine the
+   bitwidth (select the maximum bitwidth among input and output) 2.Forward Process: check the
+   bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of
+   the instruction 3.Check Redundancy: Some instructions could be truncated to be an operand, but
+   itself is actually updated with the same bitwidth with the truncation. 4.Validation Check: Check
+   whether there is any binary operation with operands in different types.
 */
-bool HI_VarWidthReduce::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
+bool HI_VarWidthReduce::runOnFunction(
+    Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which
+                 // will be executed for each Module.
 {
     print_status("Running HI_VarWidthReduce pass.");
     SignedRanges.clear();
@@ -34,7 +38,9 @@ bool HI_VarWidthReduce::runOnFunction(Function &F) // The runOnModule declaratio
     else
     {
         if (DEBUG)
-            *VarWidthChangeLog << "\n============================================================\nstart to process function: [" << F.getName() << "]\n";
+            *VarWidthChangeLog << "\n============================================================"
+                                  "\nstart to process function: ["
+                               << F.getName() << "]\n";
     }
 
     const DataLayout &DL = F.getParent()->getDataLayout();
@@ -46,16 +52,20 @@ bool HI_VarWidthReduce::runOnFunction(Function &F) // The runOnModule declaratio
     }
     bool changed = 0;
 
-    // 1.Analysis: check the value range of the instructions in the source code and determine the bitwidth
+    // 1.Analysis: check the value range of the instructions in the source code and determine the
+    // bitwidth
     Bitwidth_Analysis(&F);
 
-    // 2.Forward Process: check the bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of the instruction
+    // 2.Forward Process: check the bitwidth of operands and output of an instruction, trunc/ext the
+    // operands, update the bitwidth of the instruction
     changed |= InsturctionUpdate_WidthCast(&F);
 
-    // 3.Check Redundancy: Some instructions could be truncated to be an operand, but itself is actually updated with the same bitwidth with the truncation.
+    // 3.Check Redundancy: Some instructions could be truncated to be an operand, but itself is
+    // actually updated with the same bitwidth with the truncation.
     changed |= RedundantCastRemove(&F);
 
-    // 4.Validation Check: Check whether there is any binary operation with operands in different types.
+    // 4.Validation Check: Check whether there is any binary operation with operands in different
+    // types.
     VarWidthReduce_Validation(&F);
 
     if (changed)
@@ -67,7 +77,9 @@ bool HI_VarWidthReduce::runOnFunction(Function &F) // The runOnModule declaratio
     return changed;
 }
 
-char HI_VarWidthReduce::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_VarWidthReduce::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 void HI_VarWidthReduce::getAnalysisUsage(AnalysisUsage &AU) const
 {
@@ -94,11 +106,14 @@ void HI_VarWidthReduce::Bitwidth_Analysis(Function *F)
                 KnownBits tmp_KB = computeKnownBits(&I, DL);
                 const SCEV *tmp_S = SE->getSCEV(&I);
 
-                // LLVM-Provided Value Range Evaluation (may be wrong with HLS because it takes array entries as memory address,
-                // but in HLS, array entries are just memory ports. Operations, e.g. addition, with memory port are just to get the right address)
-                bool isUnsignedInst = I.getOpcode() == Instruction::UDiv || I.getOpcode() == Instruction::URem;
+                // LLVM-Provided Value Range Evaluation (may be wrong with HLS because it takes
+                // array entries as memory address, but in HLS, array entries are just memory ports.
+                // Operations, e.g. addition, with memory port are just to get the right address)
+                bool isUnsignedInst =
+                    I.getOpcode() == Instruction::UDiv || I.getOpcode() == Instruction::URem;
 
-                if (I.mayReadFromMemory()) // if the instruction is actually a load instruction, the bitwidth should be the bitwidth of memory bitwidth
+                if (I.mayReadFromMemory()) // if the instruction is actually a load instruction, the
+                                           // bitwidth should be the bitwidth of memory bitwidth
                 {
                     Instruction_BitNeeded[&I] = I.getType()->getIntegerBitWidth();
                     I2NeedSign[&I] = 1;
@@ -107,17 +122,27 @@ void HI_VarWidthReduce::Bitwidth_Analysis(Function *F)
                 }
                 else // otherwise, extract the bitwidth from the value range
                 {
-                    ConstantRange tmp_CR1 = isUnsignedInst ? SE->getUnsignedRange(tmp_S) : SE->getSignedRange(tmp_S);
+                    ConstantRange tmp_CR1 =
+                        isUnsignedInst ? SE->getUnsignedRange(tmp_S) : SE->getSignedRange(tmp_S);
 
-                    // HI Value Range Evaluation, take the array entries as ZERO offsets and will not effect the result of the value range of address
+                    // HI Value Range Evaluation, take the array entries as ZERO offsets and will
+                    // not effect the result of the value range of address
 
-                    ConstantRange tmp_CR2 = isUnsignedInst ? ConstantRange(APInt(HI_getUnsignedRangeRef(tmp_S).getBitWidth(), 0), HI_getUnsignedRangeRef(tmp_S).getUpper()) : HI_getSignedRangeRef(tmp_S);
+                    ConstantRange tmp_CR2 =
+                        isUnsignedInst
+                            ? ConstantRange(APInt(HI_getUnsignedRangeRef(tmp_S).getBitWidth(), 0),
+                                            HI_getUnsignedRangeRef(tmp_S).getUpper())
+                            : HI_getSignedRangeRef(tmp_S);
 
                     I2NeedSign[&I] = !isUnsignedInst && tmp_CR2.getLower().isNegative();
 
                     if (DEBUG)
-                        *VarWidthChangeLog << I << " isUnsigned:" << isUnsignedInst << " ---- Ori-CR: " << tmp_CR1 << "(" << tmp_CR1.getUnsignedMin().getSExtValue() << "->" << tmp_CR1.getUnsignedMax().getSExtValue() << ")"
-                                           << "(bw=" << I.getType()->getIntegerBitWidth() << ") ---- HI-CR:" << tmp_CR2 << "(bw=";
+                        *VarWidthChangeLog << I << " isUnsigned:" << isUnsignedInst
+                                           << " ---- Ori-CR: " << tmp_CR1 << "("
+                                           << tmp_CR1.getUnsignedMin().getSExtValue() << "->"
+                                           << tmp_CR1.getUnsignedMax().getSExtValue() << ")"
+                                           << "(bw=" << I.getType()->getIntegerBitWidth()
+                                           << ") ---- HI-CR:" << tmp_CR2 << "(bw=";
 
                     if (ICmpInst *Icmp_I = dyn_cast<ICmpInst>(&I))
                     {
@@ -157,17 +182,22 @@ void HI_VarWidthReduce::Bitwidth_Analysis(Function *F)
 
 unsigned int HI_VarWidthReduce::HI_getBidwith(Value *I)
 {
-    if (I->getType()->isIntOrPtrTy() || I->getType()->isIntegerTy() || I->getType()->isIntOrIntVectorTy())
+    if (I->getType()->isIntOrPtrTy() || I->getType()->isIntegerTy() ||
+        I->getType()->isIntOrIntVectorTy())
     {
         const SCEV *tmp_S = SE->getSCEV(I);
 
         bool isUnsignedInst = false;
         if (auto InstI = dyn_cast<Instruction>(I))
         {
-            isUnsignedInst = InstI->getOpcode() == Instruction::UDiv || InstI->getOpcode() == Instruction::URem;
+            isUnsignedInst =
+                InstI->getOpcode() == Instruction::UDiv || InstI->getOpcode() == Instruction::URem;
         }
 
-        ConstantRange tmp_CR2 = isUnsignedInst ? ConstantRange(APInt(HI_getUnsignedRangeRef(tmp_S).getBitWidth(), 0), HI_getUnsignedRangeRef(tmp_S).getUpper()) : HI_getSignedRangeRef(tmp_S);
+        ConstantRange tmp_CR2 =
+            isUnsignedInst ? ConstantRange(APInt(HI_getUnsignedRangeRef(tmp_S).getBitWidth(), 0),
+                                           HI_getUnsignedRangeRef(tmp_S).getUpper())
+                           : HI_getSignedRangeRef(tmp_S);
         return bitNeededFor(tmp_CR2);
     }
     else
@@ -181,7 +211,8 @@ unsigned int HI_VarWidthReduce::HI_getBidwith(Value *I)
     }
 }
 
-// Forward Process: check the bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of the instruction
+// Forward Process: check the bitwidth of operands and output of an instruction, trunc/ext the
+// operands, update the bitwidth of the instruction
 bool HI_VarWidthReduce::InsturctionUpdate_WidthCast(Function *F)
 {
     const DataLayout &DL = F->getParent()->getDataLayout();
@@ -196,13 +227,15 @@ bool HI_VarWidthReduce::InsturctionUpdate_WidthCast(Function *F)
             std::vector<Instruction *> InstInBlock;
             for (auto &I : B)
                 InstInBlock.push_back(&I);
-            for (auto I : InstInBlock) // TODO: try to improve the way to handle instructions if you want to remove some of them
+            for (auto I : InstInBlock) // TODO: try to improve the way to handle instructions if you
+                                       // want to remove some of them
             {
                 if (Instruction_id.find(I) != Instruction_id.end())
                 {
                     Instruction_id.erase(I);
                     if (DEBUG)
-                        *VarWidthChangeLog << "\n\n\n find target instrction " << *I->getType() << ":" << I;
+                        *VarWidthChangeLog << "\n\n\n find target instrction " << *I->getType()
+                                           << ":" << I;
                     // VarWidthChangeLog->flush();
 
                     // bypass cast operations
@@ -215,40 +248,61 @@ bool HI_VarWidthReduce::InsturctionUpdate_WidthCast(Function *F)
                         if (DEBUG)
                             *VarWidthChangeLog << "\n" << *I->getType() << ":" << *I;
                         if (DEBUG)
-                            *VarWidthChangeLog << "------- under processing (targetBW=" << Instruction_BitNeeded[I] << ", curBW=" << (cast<IntegerType>(I->getType()))->getBitWidth() << ") ";
+                            *VarWidthChangeLog
+                                << "------- under processing (targetBW=" << Instruction_BitNeeded[I]
+                                << ", curBW=" << (cast<IntegerType>(I->getType()))->getBitWidth()
+                                << ") ";
                         // VarWidthChangeLog->flush();
 
                         // bypass load instructions
                         if (I->mayReadFromMemory())
                         {
                             if (DEBUG)
-                                *VarWidthChangeLog << "                         ------->  this could be a load inst (bypass).\n";
+                                *VarWidthChangeLog << "                         ------->  this "
+                                                      "could be a load inst (bypass).\n";
                             continue;
                         }
 
-                        // for comp instruction, we just need to ensure that, the two operands are in the same type
+                        // for comp instruction, we just need to ensure that, the two operands are
+                        // in the same type
                         if (ICmpInst *ICMP_I = dyn_cast<ICmpInst>(I))
                         {
-                            if (cast<IntegerType>(ICMP_I->getOperand(0)->getType())->getIntegerBitWidth() == cast<IntegerType>(ICMP_I->getOperand(1)->getType())->getIntegerBitWidth())
+                            if (cast<IntegerType>(ICMP_I->getOperand(0)->getType())
+                                    ->getIntegerBitWidth() ==
+                                cast<IntegerType>(ICMP_I->getOperand(1)->getType())
+                                    ->getIntegerBitWidth())
                             {
                                 if (DEBUG)
-                                    *VarWidthChangeLog << "\n                         -------> Inst: " << I << "  ---needs no update req=" << Instruction_BitNeeded[I] << " user width=" << (cast<IntegerType>(I->getType()))->getBitWidth() << " \n";
+                                    *VarWidthChangeLog
+                                        << "\n                         -------> Inst: " << I
+                                        << "  ---needs no update req=" << Instruction_BitNeeded[I]
+                                        << " user width="
+                                        << (cast<IntegerType>(I->getType()))->getBitWidth()
+                                        << " \n";
                                 continue;
                             }
                         }
 
                         // check whether all the elements (input+output) in the same type.
-                        if (Instruction_BitNeeded[I] == (cast<IntegerType>(I->getType()))->getBitWidth())
+                        if (Instruction_BitNeeded[I] ==
+                            (cast<IntegerType>(I->getType()))->getBitWidth())
                         {
                             bool neq = 0;
                             for (int i = 0; i < I->getNumOperands(); ++i)
                             {
-                                neq |= Instruction_BitNeeded[I] != (cast<IntegerType>(I->getOperand(i)->getType()))->getBitWidth();
+                                neq |=
+                                    Instruction_BitNeeded[I] !=
+                                    (cast<IntegerType>(I->getOperand(i)->getType()))->getBitWidth();
                             }
                             if (!neq)
                             {
                                 if (DEBUG)
-                                    *VarWidthChangeLog << "\n                         -------> Inst: " << I << "  ---needs no update req=" << Instruction_BitNeeded[I] << " user width=" << (cast<IntegerType>(I->getType()))->getBitWidth() << " \n";
+                                    *VarWidthChangeLog
+                                        << "\n                         -------> Inst: " << I
+                                        << "  ---needs no update req=" << Instruction_BitNeeded[I]
+                                        << " user width="
+                                        << (cast<IntegerType>(I->getType()))->getBitWidth()
+                                        << " \n";
                                 continue;
                             }
                         }
@@ -259,7 +313,8 @@ bool HI_VarWidthReduce::InsturctionUpdate_WidthCast(Function *F)
                         if (ICmpInst *ICMP_I = dyn_cast<ICmpInst>(I))
                         {
                             if (DEBUG)
-                                *VarWidthChangeLog << "          " << *ICMP_I << " is a ICmpInst\n ";
+                                *VarWidthChangeLog << "          " << *ICMP_I
+                                                   << " is a ICmpInst\n ";
                             ICMP_WidthCast(ICMP_I);
                             take_action = 1;
                             changed = 1;
@@ -277,7 +332,8 @@ bool HI_VarWidthReduce::InsturctionUpdate_WidthCast(Function *F)
                         else if (BinaryOperator *BOI = dyn_cast<BinaryOperator>(I))
                         {
                             if (DEBUG)
-                                *VarWidthChangeLog << "          " << *BOI << " is a BinaryOperator\n ";
+                                *VarWidthChangeLog << "          " << *BOI
+                                                   << " is a BinaryOperator\n ";
                             BOI_WidthCast(BOI);
                             take_action = 1;
                             changed = 1;
@@ -285,23 +341,22 @@ bool HI_VarWidthReduce::InsturctionUpdate_WidthCast(Function *F)
                         }
                         // else if (CallInst* Call_I = dyn_cast<CallInst>(&I))
                         // {
-                        //     if (DEBUG) *VarWidthChangeLog << "          "<< *Call_I << " is a CallInst\n ";
-                        //     CallInst_WidthCast(Call_I);
-                        //     take_action = 1;
-                        //     changed = 1;
-                        //     break;
+                        //     if (DEBUG) *VarWidthChangeLog << "          "<< *Call_I << " is a
+                        //     CallInst\n "; CallInst_WidthCast(Call_I); take_action = 1; changed =
+                        //     1; break;
                         // }
                         else
                         {
                             if (DEBUG)
-                                *VarWidthChangeLog << "and it is not a operator which HI_VarWidthReduce can be applied.(bypass)\n";
+                                *VarWidthChangeLog << "and it is not a operator which "
+                                                      "HI_VarWidthReduce can be applied.(bypass)\n";
                         }
                     }
                 }
                 else
                 {
-                    // if (DEBUG) *VarWidthChangeLog <<"\n\n\n find non-target instrction " <<*I.getType() <<":" << I ;
-                    // VarWidthChangeLog->flush();
+                    // if (DEBUG) *VarWidthChangeLog <<"\n\n\n find non-target instrction "
+                    // <<*I.getType() <<":" << I ; VarWidthChangeLog->flush();
                 }
             }
         }
@@ -312,12 +367,14 @@ bool HI_VarWidthReduce::InsturctionUpdate_WidthCast(Function *F)
     return changed;
 }
 
-// Check Redundancy: Some instructions could be truncated to be an operand, but itself is actually updated with the same bitwidth with the truncation.
+// Check Redundancy: Some instructions could be truncated to be an operand, but itself is actually
+// updated with the same bitwidth with the truncation.
 bool HI_VarWidthReduce::RedundantCastRemove(Function *F)
 {
     bool changed = 0;
     if (DEBUG)
-        *VarWidthChangeLog << "==============================================\n==============================================\n\n\n\n\n\n";
+        *VarWidthChangeLog << "==============================================\n===================="
+                              "==========================\n\n\n\n\n\n";
     for (BasicBlock &B : *F)
     {
         bool rmflag = 1;
@@ -327,21 +384,31 @@ bool HI_VarWidthReduce::RedundantCastRemove(Function *F)
             for (Instruction &I : B)
             {
                 if (DEBUG)
-                    *VarWidthChangeLog << "                         ------->checking redunctan CastI: " << I << "\n";
+                    *VarWidthChangeLog
+                        << "                         ------->checking redunctan CastI: " << I
+                        << "\n";
                 if (CastInst *CastI = dyn_cast<CastInst>(&I))
                 {
-                    if (CastI->getOpcode() != Instruction::Trunc && CastI->getOpcode() != Instruction::ZExt && CastI->getOpcode() != Instruction::SExt)
+                    if (CastI->getOpcode() != Instruction::Trunc &&
+                        CastI->getOpcode() != Instruction::ZExt &&
+                        CastI->getOpcode() != Instruction::SExt)
                     {
                         // Cast Instrctions are more than TRUNC/EXT
                         continue;
                     }
-                    // If bitwidth(A)==bitwidth(B) in TRUNT/EXT A to B, then it is not necessary to do the instruction
-                    if (CastI->getType()->getIntegerBitWidth() == I.getOperand(0)->getType()->getIntegerBitWidth())
+                    // If bitwidth(A)==bitwidth(B) in TRUNT/EXT A to B, then it is not necessary to
+                    // do the instruction
+                    if (CastI->getType()->getIntegerBitWidth() ==
+                        I.getOperand(0)->getType()->getIntegerBitWidth())
                     {
                         if (DEBUG)
-                            *VarWidthChangeLog << "                         ------->remove redunctan CastI: " << *CastI << "\n";
+                            *VarWidthChangeLog
+                                << "                         ------->remove redunctan CastI: "
+                                << *CastI << "\n";
                         if (DEBUG)
-                            *VarWidthChangeLog << "                         ------->replace CastI with its operand 0: " << *I.getOperand(0) << "\n";
+                            *VarWidthChangeLog << "                         ------->replace CastI "
+                                                  "with its operand 0: "
+                                               << *I.getOperand(0) << "\n";
                         // VarWidthChangeLog->flush();
                         ReplaceUses_withNewOperand_oriBW(&I, I.getOperand(0));
                         I.eraseFromParent();
@@ -359,7 +426,8 @@ bool HI_VarWidthReduce::RedundantCastRemove(Function *F)
 // Validation Check: Check whether there is any binary operation with operands in different types.
 void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
 {
-    // In some other passes in LLVM, if a insturction has operands in different types, errors could be generated
+    // In some other passes in LLVM, if a insturction has operands in different types, errors could
+    // be generated
     for (BasicBlock &B : *F)
     {
         bool take_action = 1;
@@ -385,19 +453,22 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
                 if (I->getType()->isIntegerTy())
                 {
                     if (DEBUG)
-                        *VarWidthChangeLog << " type-bw=" << I->getType()->getIntegerBitWidth() << "\n";
+                        *VarWidthChangeLog << " type-bw=" << I->getType()->getIntegerBitWidth()
+                                           << "\n";
 
                     if (DEBUG)
                         VarWidthChangeLog->flush();
 
                     if (TruncInst *TI = dyn_cast<TruncInst>(I))
                     {
-                        if (TI->getDestTy()->getIntegerBitWidth() > TI->getSrcTy()->getIntegerBitWidth())
+                        if (TI->getDestTy()->getIntegerBitWidth() >
+                            TI->getSrcTy()->getIntegerBitWidth())
                         {
                             if (DEBUG)
                                 *VarWidthChangeLog << "  should not be a truncI. correct it\n";
 
-                            Type *NewTy_OP = IntegerType::get(I->getType()->getContext(), Instruction_BitNeeded[I]);
+                            Type *NewTy_OP = IntegerType::get(I->getType()->getContext(),
+                                                              Instruction_BitNeeded[I]);
 
                             if (DEBUG)
                                 VarWidthChangeLog->flush();
@@ -408,37 +479,56 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
                             changed_id++;
                             if (I2NeedSign[I])
                             {
-                                ResultPtr = Builder.CreateSExtOrTrunc(TI->getOperand(0), TI->getDestTy(), regNameS.c_str()); // process the operand with SExtOrTrunc if it is signed.
+                                ResultPtr = Builder.CreateSExtOrTrunc(
+                                    TI->getOperand(0), TI->getDestTy(),
+                                    regNameS.c_str()); // process the operand with SExtOrTrunc if it
+                                                       // is signed.
                             }
                             else
                             {
-                                ResultPtr = Builder.CreateZExtOrTrunc(TI->getOperand(0), TI->getDestTy(), regNameS.c_str()); // process the operand with ZExtOrTrunc if it is unsigned.
+                                ResultPtr = Builder.CreateZExtOrTrunc(
+                                    TI->getOperand(0), TI->getDestTy(),
+                                    regNameS.c_str()); // process the operand with ZExtOrTrunc if it
+                                                       // is unsigned.
                             }
-                            // re-create the instruction to update the type(bitwidth) of it, otherwise, although the operans are changed, the output of instrcution will be remained.
+                            // re-create the instruction to update the type(bitwidth) of it,
+                            // otherwise, although the operans are changed, the output of
+                            // instrcution will be remained.
                             if (DEBUG)
-                                *VarWidthChangeLog << "                         ------->  new_BOI = " << *ResultPtr << "\n";
+                                *VarWidthChangeLog
+                                    << "                         ------->  new_BOI = " << *ResultPtr
+                                    << "\n";
                             ReplaceUses_withNewOperand_newBW(I, ResultPtr);
                             if (DEBUG)
-                                *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
+                                *VarWidthChangeLog
+                                    << "                         ------->  accomplish replacement "
+                                       "of original instruction in uses.\n";
                             // VarWidthChangeLog->flush();
                             I->eraseFromParent();
                             if (DEBUG)
-                                *VarWidthChangeLog << "                         ------->  accomplish erasing of original instruction.\n";
+                                *VarWidthChangeLog
+                                    << "                         ------->  accomplish erasing of "
+                                       "original instruction.\n";
                             // VarWidthChangeLog->flush();
                             if (DEBUG)
                                 VarWidthChangeLog->flush();
                             take_action = 1;
                             // break;
                         }
-                        else if (TI->getDestTy()->getIntegerBitWidth() == TI->getSrcTy()->getIntegerBitWidth())
+                        else if (TI->getDestTy()->getIntegerBitWidth() ==
+                                 TI->getSrcTy()->getIntegerBitWidth())
                         {
                             ReplaceUses_withNewOperand_newBW(I, TI->getOperand(0));
                             if (DEBUG)
-                                *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
+                                *VarWidthChangeLog
+                                    << "                         ------->  accomplish replacement "
+                                       "of original instruction in uses.\n";
                             // VarWidthChangeLog->flush();
                             I->eraseFromParent();
                             if (DEBUG)
-                                *VarWidthChangeLog << "                         ------->  accomplish erasing of original instruction.\n";
+                                *VarWidthChangeLog
+                                    << "                         ------->  accomplish erasing of "
+                                       "original instruction.\n";
                             take_action = 1;
                             if (DEBUG)
                                 VarWidthChangeLog->flush();
@@ -449,11 +539,13 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
                     }
                     else if (ZExtInst *ZI = dyn_cast<ZExtInst>(I))
                     {
-                        if (ZI->getDestTy()->getIntegerBitWidth() < ZI->getSrcTy()->getIntegerBitWidth())
+                        if (ZI->getDestTy()->getIntegerBitWidth() <
+                            ZI->getSrcTy()->getIntegerBitWidth())
                         {
                             if (DEBUG)
                                 *VarWidthChangeLog << "  should not be a truncI. correct it\n";
-                            Type *NewTy_OP = IntegerType::get(I->getType()->getContext(), Instruction_BitNeeded[I]);
+                            Type *NewTy_OP = IntegerType::get(I->getType()->getContext(),
+                                                              Instruction_BitNeeded[I]);
 
                             Value *ResultPtr;
                             IRBuilder<> Builder(ZI->getNextNode());
@@ -461,46 +553,67 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
                             changed_id++;
                             if (I2NeedSign[I])
                             {
-                                ResultPtr = Builder.CreateSExtOrTrunc(ZI->getOperand(0), ZI->getDestTy(), regNameS.c_str()); // process the operand with SExtOrTrunc if it is signed.
+                                ResultPtr = Builder.CreateSExtOrTrunc(
+                                    ZI->getOperand(0), ZI->getDestTy(),
+                                    regNameS.c_str()); // process the operand with SExtOrTrunc if it
+                                                       // is signed.
                             }
                             else
                             {
-                                ResultPtr = Builder.CreateZExtOrTrunc(ZI->getOperand(0), ZI->getDestTy(), regNameS.c_str()); // process the operand with ZExtOrTrunc if it is unsigned.
+                                ResultPtr = Builder.CreateZExtOrTrunc(
+                                    ZI->getOperand(0), ZI->getDestTy(),
+                                    regNameS.c_str()); // process the operand with ZExtOrTrunc if it
+                                                       // is unsigned.
                             }
-                            // re-create the instruction to update the type(bitwidth) of it, otherwise, although the operans are changed, the output of instrcution will be remained.
+                            // re-create the instruction to update the type(bitwidth) of it,
+                            // otherwise, although the operans are changed, the output of
+                            // instrcution will be remained.
                             if (DEBUG)
-                                *VarWidthChangeLog << "                         ------->  new_BOI = " << *ResultPtr << "\n";
+                                *VarWidthChangeLog
+                                    << "                         ------->  new_BOI = " << *ResultPtr
+                                    << "\n";
                             ReplaceUses_withNewOperand_newBW(I, ResultPtr);
                             if (DEBUG)
-                                *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
+                                *VarWidthChangeLog
+                                    << "                         ------->  accomplish replacement "
+                                       "of original instruction in uses.\n";
                             // VarWidthChangeLog->flush();
                             I->eraseFromParent();
                             if (DEBUG)
-                                *VarWidthChangeLog << "                         ------->  accomplish erasing of original instruction.\n";
+                                *VarWidthChangeLog
+                                    << "                         ------->  accomplish erasing of "
+                                       "original instruction.\n";
                             // VarWidthChangeLog->flush();
                             take_action = 1;
                             // break;
                         }
-                        else if (ZI->getDestTy()->getIntegerBitWidth() == ZI->getSrcTy()->getIntegerBitWidth())
+                        else if (ZI->getDestTy()->getIntegerBitWidth() ==
+                                 ZI->getSrcTy()->getIntegerBitWidth())
                         {
                             ReplaceUses_withNewOperand_newBW(I, ZI->getOperand(0));
                             if (DEBUG)
-                                *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
+                                *VarWidthChangeLog
+                                    << "                         ------->  accomplish replacement "
+                                       "of original instruction in uses.\n";
                             // VarWidthChangeLog->flush();
                             I->eraseFromParent();
                             if (DEBUG)
-                                *VarWidthChangeLog << "                         ------->  accomplish erasing of original instruction.\n";
+                                *VarWidthChangeLog
+                                    << "                         ------->  accomplish erasing of "
+                                       "original instruction.\n";
                             take_action = 1;
                             // break;
                         }
                     }
                     else if (SExtInst *SI = dyn_cast<SExtInst>(I))
                     {
-                        if (SI->getDestTy()->getIntegerBitWidth() < SI->getSrcTy()->getIntegerBitWidth())
+                        if (SI->getDestTy()->getIntegerBitWidth() <
+                            SI->getSrcTy()->getIntegerBitWidth())
                         {
                             if (DEBUG)
                                 *VarWidthChangeLog << "  should not be a truncI. correct it\n";
-                            Type *NewTy_OP = IntegerType::get(I->getType()->getContext(), Instruction_BitNeeded[I]);
+                            Type *NewTy_OP = IntegerType::get(I->getType()->getContext(),
+                                                              Instruction_BitNeeded[I]);
 
                             Value *ResultPtr;
                             IRBuilder<> Builder(SI->getNextNode());
@@ -508,35 +621,54 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
                             changed_id++;
                             if (I2NeedSign[I])
                             {
-                                ResultPtr = Builder.CreateSExtOrTrunc(SI->getOperand(0), SI->getDestTy(), regNameS.c_str()); // process the operand with SExtOrTrunc if it is signed.
+                                ResultPtr = Builder.CreateSExtOrTrunc(
+                                    SI->getOperand(0), SI->getDestTy(),
+                                    regNameS.c_str()); // process the operand with SExtOrTrunc if it
+                                                       // is signed.
                             }
                             else
                             {
-                                ResultPtr = Builder.CreateZExtOrTrunc(SI->getOperand(0), SI->getDestTy(), regNameS.c_str()); // process the operand with ZExtOrTrunc if it is unsigned.
+                                ResultPtr = Builder.CreateZExtOrTrunc(
+                                    SI->getOperand(0), SI->getDestTy(),
+                                    regNameS.c_str()); // process the operand with ZExtOrTrunc if it
+                                                       // is unsigned.
                             }
-                            // re-create the instruction to update the type(bitwidth) of it, otherwise, although the operans are changed, the output of instrcution will be remained.
+                            // re-create the instruction to update the type(bitwidth) of it,
+                            // otherwise, although the operans are changed, the output of
+                            // instrcution will be remained.
                             if (DEBUG)
-                                *VarWidthChangeLog << "                         ------->  new_BOI = " << *ResultPtr << "\n";
+                                *VarWidthChangeLog
+                                    << "                         ------->  new_BOI = " << *ResultPtr
+                                    << "\n";
                             ReplaceUses_withNewOperand_newBW(I, ResultPtr);
                             if (DEBUG)
-                                *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
+                                *VarWidthChangeLog
+                                    << "                         ------->  accomplish replacement "
+                                       "of original instruction in uses.\n";
                             // VarWidthChangeLog->flush();
                             I->eraseFromParent();
                             if (DEBUG)
-                                *VarWidthChangeLog << "                         ------->  accomplish erasing of original instruction.\n";
+                                *VarWidthChangeLog
+                                    << "                         ------->  accomplish erasing of "
+                                       "original instruction.\n";
                             // VarWidthChangeLog->flush();
                             take_action = 1;
                             // break;
                         }
-                        else if (SI->getDestTy()->getIntegerBitWidth() == SI->getSrcTy()->getIntegerBitWidth())
+                        else if (SI->getDestTy()->getIntegerBitWidth() ==
+                                 SI->getSrcTy()->getIntegerBitWidth())
                         {
                             ReplaceUses_withNewOperand_newBW(I, SI->getOperand(0));
                             if (DEBUG)
-                                *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
+                                *VarWidthChangeLog
+                                    << "                         ------->  accomplish replacement "
+                                       "of original instruction in uses.\n";
                             // VarWidthChangeLog->flush();
                             I->eraseFromParent();
                             if (DEBUG)
-                                *VarWidthChangeLog << "                         ------->  accomplish erasing of original instruction.\n";
+                                *VarWidthChangeLog
+                                    << "                         ------->  accomplish erasing of "
+                                       "original instruction.\n";
                             take_action = 1;
                             //  break;
                         }
@@ -557,7 +689,8 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
     }
 
     if (DEBUG)
-        *VarWidthChangeLog << "==============================================\n==============================================\n\n\n\n\n\n";
+        *VarWidthChangeLog << "==============================================\n===================="
+                              "==========================\n\n\n\n\n\n";
     for (BasicBlock &B : *F)
     {
         if (DEBUG)
@@ -575,8 +708,8 @@ void HI_VarWidthReduce::VarWidthReduce_Validation(Function *F)
     return;
 }
 
-// The replaceAllUsesWith function requires that the new use in the user has the same type with the original use.
-// Therefore, a new function to replace uses of an instruction is implemented
+// The replaceAllUsesWith function requires that the new use in the user has the same type with the
+// original use. Therefore, a new function to replace uses of an instruction is implemented
 void HI_VarWidthReduce::ReplaceUses_withNewOperand_newBW(Instruction *from, Value *to)
 {
     if (DEBUG)
@@ -585,10 +718,12 @@ void HI_VarWidthReduce::ReplaceUses_withNewOperand_newBW(Instruction *from, Valu
     {
         User *tmp_user = from->use_begin()->getUser();
         if (DEBUG)
-            *VarWidthChangeLog << "            ------  replacing the original inst in " << *from->use_begin()->getUser() << " with " << *to << "\n";
+            *VarWidthChangeLog << "            ------  replacing the original inst in "
+                               << *from->use_begin()->getUser() << " with " << *to << "\n";
 
-        // we should not replace the argument with new argument with different BW, it may go wrong to match the definition of the function
-        // therefore, we need to bitcast the value "to" to fit the bitwidth defined in the function definition
+        // we should not replace the argument with new argument with different BW, it may go wrong
+        // to match the definition of the function therefore, we need to bitcast the value "to" to
+        // fit the bitwidth defined in the function definition
         if (auto Call_I = dyn_cast<CallInst>(tmp_user))
         {
             if (DEBUG)
@@ -598,9 +733,14 @@ void HI_VarWidthReduce::ReplaceUses_withNewOperand_newBW(Instruction *from, Valu
             bool isUnsignedInst = false;
             if (auto InstI = dyn_cast<Instruction>(to))
             {
-                isUnsignedInst = InstI->getOpcode() == Instruction::UDiv || InstI->getOpcode() == Instruction::URem;
+                isUnsignedInst = InstI->getOpcode() == Instruction::UDiv ||
+                                 InstI->getOpcode() == Instruction::URem;
             }
-            ConstantRange tmp_CR = isUnsignedInst ? ConstantRange(APInt(HI_getUnsignedRangeRef(tmp_S).getBitWidth(), 0), HI_getUnsignedRangeRef(tmp_S).getUpper()) : HI_getSignedRangeRef(tmp_S);
+            ConstantRange tmp_CR =
+                isUnsignedInst
+                    ? ConstantRange(APInt(HI_getUnsignedRangeRef(tmp_S).getBitWidth(), 0),
+                                    HI_getUnsignedRangeRef(tmp_S).getUpper())
+                    : HI_getSignedRangeRef(tmp_S);
 
             Value *ResultPtr;
             IRBuilder<> Builder(Call_I);
@@ -608,11 +748,15 @@ void HI_VarWidthReduce::ReplaceUses_withNewOperand_newBW(Instruction *from, Valu
             changed_id++;
             if (tmp_CR.getLower().isNegative())
             {
-                ResultPtr = Builder.CreateSExtOrTrunc(to, from->use_begin()->get()->getType(), regNameS.c_str()); // process the operand with SExtOrTrunc if it is signed.
+                ResultPtr = Builder.CreateSExtOrTrunc(
+                    to, from->use_begin()->get()->getType(),
+                    regNameS.c_str()); // process the operand with SExtOrTrunc if it is signed.
             }
             else
             {
-                ResultPtr = Builder.CreateZExtOrTrunc(to, from->use_begin()->get()->getType(), regNameS.c_str()); // process the operand with ZExtOrTrunc if it is unsigned.
+                ResultPtr = Builder.CreateZExtOrTrunc(
+                    to, from->use_begin()->get()->getType(),
+                    regNameS.c_str()); // process the operand with ZExtOrTrunc if it is unsigned.
             }
             from->use_begin()->set(ResultPtr);
         }
@@ -624,7 +768,8 @@ void HI_VarWidthReduce::ReplaceUses_withNewOperand_newBW(Instruction *from, Valu
         if (DEBUG)
             *VarWidthChangeLog << "            ------  new user => " << *tmp_user << "\n";
         if (DEBUG)
-            *VarWidthChangeLog << "            ------  from->getNumUses() " << from->getNumUses() << "\n";
+            *VarWidthChangeLog << "            ------  from->getNumUses() " << from->getNumUses()
+                               << "\n";
     }
 }
 
@@ -643,13 +788,15 @@ void HI_VarWidthReduce::ReplaceUses_withNewOperand_oriBW(Instruction *from, Valu
     {
         User *tmp_user = tmpuse->getUser();
         if (DEBUG)
-            *VarWidthChangeLog << "            ------  replacing the original inst in " << *tmpuse->getUser() << " with " << *to << "\n";
+            *VarWidthChangeLog << "            ------  replacing the original inst in "
+                               << *tmpuse->getUser() << " with " << *to << "\n";
 
         from->use_begin()->set(to);
         if (DEBUG)
             *VarWidthChangeLog << "            ------  new user => " << *tmp_user << "\n";
         if (DEBUG)
-            *VarWidthChangeLog << "            ------  from->getNumUses() " << from->getNumUses() << "\n";
+            *VarWidthChangeLog << "            ------  from->getNumUses() " << from->getNumUses()
+                               << "\n";
     }
 }
 
@@ -682,7 +829,8 @@ unsigned int HI_VarWidthReduce::bitNeededFor(ConstantRange CR)
     }
 }
 
-// Forward Process of BinaryOperator: check the bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of the instruction
+// Forward Process of BinaryOperator: check the bitwidth of operands and output of an instruction,
+// trunc/ext the operands, update the bitwidth of the instruction
 void HI_VarWidthReduce::BOI_WidthCast(BinaryOperator *BOI)
 {
     Instruction &I = *(cast<Instruction>(BOI));
@@ -704,15 +852,18 @@ void HI_VarWidthReduce::BOI_WidthCast(BinaryOperator *BOI)
         }
     }
 
-    for (int i = 0; i < I.getNumOperands(); ++i) // check the operands to see whether a TRUNC/EXT is necessary
+    for (int i = 0; i < I.getNumOperands();
+         ++i) // check the operands to see whether a TRUNC/EXT is necessary
     {
         if (DEBUG)
-            *VarWidthChangeLog << "                         ------->  op#" << i << "==>" << *I.getOperand(i) << "\n";
+            *VarWidthChangeLog << "                         ------->  op#" << i << "==>"
+                               << *I.getOperand(i) << "\n";
         // VarWidthChangeLog->flush();
         if (ConstantInt *C_I = dyn_cast<ConstantInt>(I.getOperand(i)))
         {
             if (DEBUG)
-                *VarWidthChangeLog << "                         ------->  op#" << i << " " << *C_I << " is a constant.\n";
+                *VarWidthChangeLog << "                         ------->  op#" << i << " " << *C_I
+                                   << " is a constant.\n";
             // VarWidthChangeLog->flush();
             Type *NewTy_C = IntegerType::get(I.getType()->getContext(), Instruction_BitNeeded[&I]);
             Constant *New_C = ConstantInt::get(NewTy_C, *C_I->getValue().getRawData());
@@ -728,7 +879,8 @@ void HI_VarWidthReduce::BOI_WidthCast(BinaryOperator *BOI)
             if (Instruction *Op_I = dyn_cast<Instruction>(I.getOperand(i)))
             {
                 if (DEBUG)
-                    *VarWidthChangeLog << "                         ------->  op#" << i << " " << *Op_I << " is an instruction\n";
+                    *VarWidthChangeLog << "                         ------->  op#" << i << " "
+                                       << *Op_I << " is an instruction\n";
                 // VarWidthChangeLog->flush();
                 Instruction *InsertPoint = nullptr;
                 if (Op_I->getOpcode() == Instruction::PHI)
@@ -740,17 +892,24 @@ void HI_VarWidthReduce::BOI_WidthCast(BinaryOperator *BOI)
                 std::string regNameS = "bcast" + std::to_string(changed_id);
                 changed_id++;
                 // create a net type with specific bitwidth
-                Type *NewTy_OP = IntegerType::get(I.getType()->getContext(), Instruction_BitNeeded[&I]);
+                Type *NewTy_OP =
+                    IntegerType::get(I.getType()->getContext(), Instruction_BitNeeded[&I]);
                 if (I2NeedSign[&I])
                 {
-                    ResultPtr = Builder.CreateSExtOrTrunc(Op_I, NewTy_OP, regNameS.c_str()); // process the operand with SExtOrTrunc if it is signed.
+                    ResultPtr = Builder.CreateSExtOrTrunc(
+                        Op_I, NewTy_OP,
+                        regNameS.c_str()); // process the operand with SExtOrTrunc if it is signed.
                 }
                 else
                 {
-                    ResultPtr = Builder.CreateZExtOrTrunc(Op_I, NewTy_OP, regNameS.c_str()); // process the operand with ZExtOrTrunc if it is unsigned.
+                    ResultPtr = Builder.CreateZExtOrTrunc(
+                        Op_I, NewTy_OP,
+                        regNameS
+                            .c_str()); // process the operand with ZExtOrTrunc if it is unsigned.
                 }
                 if (DEBUG)
-                    *VarWidthChangeLog << "                         ------->  update" << I << " to ";
+                    *VarWidthChangeLog << "                         ------->  update" << I
+                                       << " to ";
                 // VarWidthChangeLog->flush();
                 I.setOperand(i, ResultPtr);
                 if (DEBUG)
@@ -761,28 +920,36 @@ void HI_VarWidthReduce::BOI_WidthCast(BinaryOperator *BOI)
     }
     // VarWidthChangeLog->flush();
     if (DEBUG)
-        *VarWidthChangeLog << "                         ------->  op0 type = " << *BOI->getOperand(0)->getType() << "\n";
+        *VarWidthChangeLog << "                         ------->  op0 type = "
+                           << *BOI->getOperand(0)->getType() << "\n";
     if (DEBUG)
-        *VarWidthChangeLog << "                         ------->  op1 type = " << *BOI->getOperand(1)->getType() << "\n";
+        *VarWidthChangeLog << "                         ------->  op1 type = "
+                           << *BOI->getOperand(1)->getType() << "\n";
 
-    // re-create the instruction to update the type(bitwidth) of it, otherwise, although the operans are changed, the output of instrcution will be remained.
+    // re-create the instruction to update the type(bitwidth) of it, otherwise, although the operans
+    // are changed, the output of instrcution will be remained.
     std::string regNameS = "new" + std::to_string(changed_id);
-    BinaryOperator *newBOI = BinaryOperator::Create(BOI->getOpcode(), BOI->getOperand(0), BOI->getOperand(1), "HI." + BOI->getName() + regNameS, BOI);
+    BinaryOperator *newBOI =
+        BinaryOperator::Create(BOI->getOpcode(), BOI->getOperand(0), BOI->getOperand(1),
+                               "HI." + BOI->getName() + regNameS, BOI);
     if (DEBUG)
         *VarWidthChangeLog << "                         ------->  new_BOI = " << *newBOI << "\n";
     // BOI->replaceAllUsesWith(newBOI) ;
     ReplaceUses_withNewOperand_newBW(BOI, newBOI);
     CopyInstMetadata(BOI, newBOI);
     if (DEBUG)
-        *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
+        *VarWidthChangeLog << "                         ------->  accomplish replacement of "
+                              "original instruction in uses.\n";
     // VarWidthChangeLog->flush();
     I.eraseFromParent();
     if (DEBUG)
-        *VarWidthChangeLog << "                         ------->  accomplish erasing of original instruction.\n";
+        *VarWidthChangeLog
+            << "                         ------->  accomplish erasing of original instruction.\n";
     // VarWidthChangeLog->flush();
 }
 
-// Forward Process of ICmpInst: check the bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of the instruction
+// Forward Process of ICmpInst: check the bitwidth of operands and output of an instruction,
+// trunc/ext the operands, update the bitwidth of the instruction
 void HI_VarWidthReduce::ICMP_WidthCast(ICmpInst *ICMP_I)
 {
     Instruction &I = *(cast<Instruction>(ICMP_I));
@@ -804,15 +971,18 @@ void HI_VarWidthReduce::ICMP_WidthCast(ICmpInst *ICMP_I)
         }
     }
 
-    for (int i = 0; i < I.getNumOperands(); ++i) // check the operands to see whether a TRUNC/EXT is necessary
+    for (int i = 0; i < I.getNumOperands();
+         ++i) // check the operands to see whether a TRUNC/EXT is necessary
     {
         if (DEBUG)
-            *VarWidthChangeLog << "                         ------->  op#" << i << "==>" << *I.getOperand(i) << "\n";
+            *VarWidthChangeLog << "                         ------->  op#" << i << "==>"
+                               << *I.getOperand(i) << "\n";
         // VarWidthChangeLog->flush();
         if (ConstantInt *C_I = dyn_cast<ConstantInt>(I.getOperand(i)))
         {
             if (DEBUG)
-                *VarWidthChangeLog << "                         ------->  op#" << i << " " << *C_I << " is a constant.\n";
+                *VarWidthChangeLog << "                         ------->  op#" << i << " " << *C_I
+                                   << " is a constant.\n";
             // VarWidthChangeLog->flush();
             //  if (C_I->getBitWidth()!= Instruction_BitNeeded[User_I])
             Type *NewTy_C = IntegerType::get(I.getType()->getContext(), Instruction_BitNeeded[&I]);
@@ -829,7 +999,8 @@ void HI_VarWidthReduce::ICMP_WidthCast(ICmpInst *ICMP_I)
             if (Instruction *Op_I = dyn_cast<Instruction>(I.getOperand(i)))
             {
                 if (DEBUG)
-                    *VarWidthChangeLog << "                         ------->  op#" << i << " " << *Op_I << " is an instruction\n";
+                    *VarWidthChangeLog << "                         ------->  op#" << i << " "
+                                       << *Op_I << " is an instruction\n";
                 // VarWidthChangeLog->flush();
                 Instruction *InsertPoint = nullptr;
                 if (Op_I->getOpcode() == Instruction::PHI)
@@ -841,17 +1012,24 @@ void HI_VarWidthReduce::ICMP_WidthCast(ICmpInst *ICMP_I)
                 changed_id++;
 
                 // create a net type with specific bitwidth
-                Type *NewTy_OP = IntegerType::get(I.getType()->getContext(), Instruction_BitNeeded[&I]);
+                Type *NewTy_OP =
+                    IntegerType::get(I.getType()->getContext(), Instruction_BitNeeded[&I]);
                 if (I2NeedSign[&I])
                 {
-                    ResultPtr = Builder.CreateSExtOrTrunc(Op_I, NewTy_OP, regNameS.c_str()); // process the operand with SExtOrTrunc if it is signed.
+                    ResultPtr = Builder.CreateSExtOrTrunc(
+                        Op_I, NewTy_OP,
+                        regNameS.c_str()); // process the operand with SExtOrTrunc if it is signed.
                 }
                 else
                 {
-                    ResultPtr = Builder.CreateZExtOrTrunc(Op_I, NewTy_OP, regNameS.c_str()); // process the operand with ZExtOrTrunc if it is unsigned.
+                    ResultPtr = Builder.CreateZExtOrTrunc(
+                        Op_I, NewTy_OP,
+                        regNameS
+                            .c_str()); // process the operand with ZExtOrTrunc if it is unsigned.
                 }
                 if (DEBUG)
-                    *VarWidthChangeLog << "                         ------->  update" << I << " to ";
+                    *VarWidthChangeLog << "                         ------->  update" << I
+                                       << " to ";
                 // VarWidthChangeLog->flush();
                 I.setOperand(i, ResultPtr);
                 if (DEBUG)
@@ -862,33 +1040,40 @@ void HI_VarWidthReduce::ICMP_WidthCast(ICmpInst *ICMP_I)
     }
     // VarWidthChangeLog->flush();
     if (DEBUG)
-        *VarWidthChangeLog << "                         ------->  op0 type = " << *ICMP_I->getOperand(0)->getType() << "\n";
+        *VarWidthChangeLog << "                         ------->  op0 type = "
+                           << *ICMP_I->getOperand(0)->getType() << "\n";
     if (DEBUG)
-        *VarWidthChangeLog << "                         ------->  op1 type = " << *ICMP_I->getOperand(1)->getType() << "\n";
+        *VarWidthChangeLog << "                         ------->  op1 type = "
+                           << *ICMP_I->getOperand(1)->getType() << "\n";
 
-    // re-create the instruction to update the type(bitwidth) of it, otherwise, although the operans are changed, the output of instrcution will be remained.
+    // re-create the instruction to update the type(bitwidth) of it, otherwise, although the operans
+    // are changed, the output of instrcution will be remained.
     std::string regNameS = "new" + std::to_string(changed_id);
-    ICmpInst *newCMP = new ICmpInst(ICMP_I,                              ///< Where to insert
-                                    ICMP_I->getPredicate(),              ///< The predicate to use for the comparison
-                                    ICMP_I->getOperand(0),               ///< The left-hand-side of the expression
-                                    ICMP_I->getOperand(1),               ///< The right-hand-side of the expression
-                                    "HI." + ICMP_I->getName() + regNameS ///< Name of the instruction
-    );
+    ICmpInst *newCMP =
+        new ICmpInst(ICMP_I,                 ///< Where to insert
+                     ICMP_I->getPredicate(), ///< The predicate to use for the comparison
+                     ICMP_I->getOperand(0),  ///< The left-hand-side of the expression
+                     ICMP_I->getOperand(1),  ///< The right-hand-side of the expression
+                     "HI." + ICMP_I->getName() + regNameS ///< Name of the instruction
+        );
     if (DEBUG)
         *VarWidthChangeLog << "                         ------->  new_CMP = " << *newCMP << "\n";
     // BOI->replaceAllUsesWith(newBOI) ;
     ReplaceUses_withNewOperand_newBW(ICMP_I, newCMP);
     CopyInstMetadata(ICMP_I, newCMP);
     if (DEBUG)
-        *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
+        *VarWidthChangeLog << "                         ------->  accomplish replacement of "
+                              "original instruction in uses.\n";
     // VarWidthChangeLog->flush();
     I.eraseFromParent();
     if (DEBUG)
-        *VarWidthChangeLog << "                         ------->  accomplish erasing of original instruction.\n";
+        *VarWidthChangeLog
+            << "                         ------->  accomplish erasing of original instruction.\n";
     // VarWidthChangeLog->flush();
 }
 
-// Forward Process of PHI: check the bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of the instruction
+// Forward Process of PHI: check the bitwidth of operands and output of an instruction, trunc/ext
+// the operands, update the bitwidth of the instruction
 void HI_VarWidthReduce::PHI_WidthCast(llvm::PHINode *PHI_I)
 {
     Instruction &I = *(cast<Instruction>(PHI_I));
@@ -909,15 +1094,18 @@ void HI_VarWidthReduce::PHI_WidthCast(llvm::PHINode *PHI_I)
         }
     }
 
-    for (int i = 0; i < I.getNumOperands(); ++i) // check the operands to see whether a TRUNC/EXT is necessary
+    for (int i = 0; i < I.getNumOperands();
+         ++i) // check the operands to see whether a TRUNC/EXT is necessary
     {
         if (DEBUG)
-            *VarWidthChangeLog << "                         ------->  op#" << i << "==>" << *I.getOperand(i) << "\n";
+            *VarWidthChangeLog << "                         ------->  op#" << i << "==>"
+                               << *I.getOperand(i) << "\n";
         // VarWidthChangeLog->flush();
         if (ConstantInt *C_I = dyn_cast<ConstantInt>(I.getOperand(i)))
         {
             if (DEBUG)
-                *VarWidthChangeLog << "                         ------->  op#" << i << " " << *C_I << " is a constant.\n";
+                *VarWidthChangeLog << "                         ------->  op#" << i << " " << *C_I
+                                   << " is a constant.\n";
             // VarWidthChangeLog->flush();
             //  if (C_I->getBitWidth()!= Instruction_BitNeeded[User_I])
             Type *NewTy_C = IntegerType::get(I.getType()->getContext(), Instruction_BitNeeded[&I]);
@@ -934,7 +1122,8 @@ void HI_VarWidthReduce::PHI_WidthCast(llvm::PHINode *PHI_I)
             if (Instruction *Op_I = dyn_cast<Instruction>(I.getOperand(i)))
             {
                 if (DEBUG)
-                    *VarWidthChangeLog << "                         ------->  op#" << i << " " << *Op_I << " is an instruction\n";
+                    *VarWidthChangeLog << "                         ------->  op#" << i << " "
+                                       << *Op_I << " is an instruction\n";
                 // VarWidthChangeLog->flush();
                 Instruction *InsertPoint = nullptr;
                 if (Op_I->getOpcode() == Instruction::PHI)
@@ -945,17 +1134,24 @@ void HI_VarWidthReduce::PHI_WidthCast(llvm::PHINode *PHI_I)
                 std::string regNameS = "bcast" + std::to_string(changed_id);
                 changed_id++;
                 // create a net type with specific bitwidth
-                Type *NewTy_OP = IntegerType::get(I.getType()->getContext(), Instruction_BitNeeded[&I]);
+                Type *NewTy_OP =
+                    IntegerType::get(I.getType()->getContext(), Instruction_BitNeeded[&I]);
                 if (I2NeedSign[&I])
                 {
-                    ResultPtr = Builder.CreateSExtOrTrunc(Op_I, NewTy_OP, regNameS.c_str()); // process the operand with SExtOrTrunc if it is signed.
+                    ResultPtr = Builder.CreateSExtOrTrunc(
+                        Op_I, NewTy_OP,
+                        regNameS.c_str()); // process the operand with SExtOrTrunc if it is signed.
                 }
                 else
                 {
-                    ResultPtr = Builder.CreateZExtOrTrunc(Op_I, NewTy_OP, regNameS.c_str()); // process the operand with ZExtOrTrunc if it is unsigned.
+                    ResultPtr = Builder.CreateZExtOrTrunc(
+                        Op_I, NewTy_OP,
+                        regNameS
+                            .c_str()); // process the operand with ZExtOrTrunc if it is unsigned.
                 }
                 if (DEBUG)
-                    *VarWidthChangeLog << "                         ------->  update" << I << " to ";
+                    *VarWidthChangeLog << "                         ------->  update" << I
+                                       << " to ";
                 // VarWidthChangeLog->flush();
                 I.setOperand(i, ResultPtr);
                 if (DEBUG)
@@ -966,12 +1162,15 @@ void HI_VarWidthReduce::PHI_WidthCast(llvm::PHINode *PHI_I)
     }
     // VarWidthChangeLog->flush();
     if (DEBUG)
-        *VarWidthChangeLog << "                         ------->  op0 type = " << *PHI_I->getOperand(0)->getType() << "\n";
+        *VarWidthChangeLog << "                         ------->  op0 type = "
+                           << *PHI_I->getOperand(0)->getType() << "\n";
     if (DEBUG)
-        *VarWidthChangeLog << "                         ------->  op1 type = " << *PHI_I->getOperand(1)->getType() << "\n";
+        *VarWidthChangeLog << "                         ------->  op1 type = "
+                           << *PHI_I->getOperand(1)->getType() << "\n";
     Type *NewTy_PHI = IntegerType::get(I.getType()->getContext(), Instruction_BitNeeded[&I]);
 
-    // re-create the instruction to update the type(bitwidth) of it, otherwise, although the operans are changed, the output of instrcution will be remained.
+    // re-create the instruction to update the type(bitwidth) of it, otherwise, although the operans
+    // are changed, the output of instrcution will be remained.
     std::string regNameS = "new" + std::to_string(changed_id);
     PHINode *new_PHI = PHINode::Create(NewTy_PHI, 0, "HI." + PHI_I->getName() + regNameS, PHI_I);
     if (new_PHI->getName().find("HI.k.016new1") != std::string::npos)
@@ -997,31 +1196,36 @@ void HI_VarWidthReduce::PHI_WidthCast(llvm::PHINode *PHI_I)
     ReplaceUses_withNewOperand_newBW(PHI_I, new_PHI);
     CopyInstMetadata(PHI_I, new_PHI);
     if (DEBUG)
-        *VarWidthChangeLog << "                         ------->  accomplish replacement of original instruction in uses.\n";
+        *VarWidthChangeLog << "                         ------->  accomplish replacement of "
+                              "original instruction in uses.\n";
     // VarWidthChangeLog->flush();
     I.eraseFromParent();
     if (DEBUG)
-        *VarWidthChangeLog << "                         ------->  accomplish erasing of original instruction.\n";
+        *VarWidthChangeLog
+            << "                         ------->  accomplish erasing of original instruction.\n";
     // VarWidthChangeLog->flush();
 }
 
-// Determine the range for a particular SCEV, but bypass the operands generated from PtrToInt Instruction, considering the actual
-// implementation in HLS
+// Determine the range for a particular SCEV, but bypass the operands generated from PtrToInt
+// Instruction, considering the actual implementation in HLS
 const ConstantRange HI_VarWidthReduce::HI_getSignedRangeRef(const SCEV *S)
 {
 
     if (DEBUG)
-        *VarWidthChangeLog << "        ------  HI_getSignedRangeRef handling SECV: " << *S->getType() << "\n";
+        *VarWidthChangeLog << "        ------  HI_getSignedRangeRef handling SECV: "
+                           << *S->getType() << "\n";
     ConstantRange tmp_CR1 = SE->getSignedRange(S);
     if (!tmp_CR1.isFullSet())
     {
         if (DEBUG)
-            *VarWidthChangeLog << "        ------  HI_getSignedRangeRef: it is not full-set " << tmp_CR1 << "\n";
+            *VarWidthChangeLog << "        ------  HI_getSignedRangeRef: it is not full-set "
+                               << tmp_CR1 << "\n";
         return tmp_CR1;
     }
     DenseMap<const SCEV *, ConstantRange> &Cache = SignedRanges;
     if (DEBUG)
-        *VarWidthChangeLog << "        ------  handling full-set SECV: " << *S->getType() << "\n"; //  << "--> " << *S << "\n";
+        *VarWidthChangeLog << "        ------  handling full-set SECV: " << *S->getType()
+                           << "\n"; //  << "--> " << *S << "\n";
     VarWidthChangeLog->flush();
 
     if (const SCEVUnknown *U = dyn_cast<SCEVUnknown>(S))
@@ -1052,7 +1256,8 @@ const ConstantRange HI_VarWidthReduce::HI_getSignedRangeRef(const SCEV *S)
     uint32_t TZ = SE->GetMinTrailingZeros(S);
     if (TZ != 0)
     {
-        ConservativeResult = ConstantRange(APInt::getSignedMinValue(BitWidth), APInt::getSignedMaxValue(BitWidth).ashr(TZ).shl(TZ) + 1);
+        ConservativeResult = ConstantRange(APInt::getSignedMinValue(BitWidth),
+                                           APInt::getSignedMaxValue(BitWidth).ashr(TZ).shl(TZ) + 1);
     }
 
     if (const SCEVAddExpr *Add = dyn_cast<SCEVAddExpr>(S))
@@ -1063,13 +1268,17 @@ const ConstantRange HI_VarWidthReduce::HI_getSignedRangeRef(const SCEV *S)
         ConstantRange X = HI_getSignedRangeRef(Add->getOperand(0));
         const SCEVConstant *tmp_const = dyn_cast<SCEVConstant>(Add->getOperand(0));
         const SCEVUnknown *tmp_unknow = dyn_cast<SCEVUnknown>(Add->getOperand(0));
-        // if (DEBUG) *VarWidthChangeLog << "        ------  Add operand#" << 0 /* << " ==> " << *Add->getOperand(0)*/  << "\n";
+        // if (DEBUG) *VarWidthChangeLog << "        ------  Add operand#" << 0 /* << " ==> " <<
+        // *Add->getOperand(0)*/  << "\n";
         if (tmp_const)
             if (DEBUG)
-                *VarWidthChangeLog << "        ------  bitwidth: " << tmp_const->getAPInt().getBitWidth() << "\n";
+                *VarWidthChangeLog
+                    << "        ------  bitwidth: " << tmp_const->getAPInt().getBitWidth() << "\n";
             else if (tmp_unknow)
                 if (DEBUG)
-                    *VarWidthChangeLog << "        ------  bitwidth: " << tmp_unknow->getValue()->getType()->getIntegerBitWidth() << "\n";
+                    *VarWidthChangeLog << "        ------  bitwidth: "
+                                       << tmp_unknow->getValue()->getType()->getIntegerBitWidth()
+                                       << "\n";
 
         if (DEBUG)
             *VarWidthChangeLog << "        ------  range bitwidth: " << X.getBitWidth() << "\n";
@@ -1081,24 +1290,31 @@ const ConstantRange HI_VarWidthReduce::HI_getSignedRangeRef(const SCEV *S)
             else
             {
                 if (DEBUG)
-                    *VarWidthChangeLog << "        ------  Add operand#" << i /* << " ==> " << *Add->getOperand(i)*/ << "\n";
+                    *VarWidthChangeLog << "        ------  Add operand#"
+                                       << i /* << " ==> " << *Add->getOperand(i)*/ << "\n";
                 const SCEVConstant *tmp_const = dyn_cast<SCEVConstant>(Add->getOperand(i));
                 const SCEVUnknown *tmp_unknow = dyn_cast<SCEVUnknown>(Add->getOperand(i));
                 if (tmp_const)
                     if (DEBUG)
-                        *VarWidthChangeLog << "        ------  bitwidth: " << tmp_const->getAPInt().getBitWidth() << "\n";
+                        *VarWidthChangeLog
+                            << "        ------  bitwidth: " << tmp_const->getAPInt().getBitWidth()
+                            << "\n";
                     else if (tmp_unknow)
                         if (DEBUG)
-                            *VarWidthChangeLog << "        ------  bitwidth: " << tmp_unknow->getValue()->getType()->getIntegerBitWidth() << "\n";
+                            *VarWidthChangeLog
+                                << "        ------  bitwidth: "
+                                << tmp_unknow->getValue()->getType()->getIntegerBitWidth() << "\n";
 
                 ConstantRange Y = HI_getSignedRangeRef(Add->getOperand(i));
                 if (DEBUG)
-                    *VarWidthChangeLog << "        ------  range bitwidth: " << Y.getBitWidth() << "\n";
+                    *VarWidthChangeLog << "        ------  range bitwidth: " << Y.getBitWidth()
+                                       << "\n";
                 VarWidthChangeLog->flush();
                 X = X.add(Y);
             }
         if (DEBUG)
-            *VarWidthChangeLog << "            ------  handling full-set SECV new range: " << X << "\n";
+            *VarWidthChangeLog << "            ------  handling full-set SECV new range: " << X
+                               << "\n";
         return setSignedRange(Add, ConservativeResult.intersectWith(X));
     }
 
@@ -1112,7 +1328,8 @@ const ConstantRange HI_VarWidthReduce::HI_getSignedRangeRef(const SCEV *S)
             else
                 X = X.multiply(HI_getSignedRangeRef(Mul->getOperand(i)));
         if (DEBUG)
-            *VarWidthChangeLog << "            ------  handling full-set SECV new range: " << X << "\n";
+            *VarWidthChangeLog << "            ------  handling full-set SECV new range: " << X
+                               << "\n";
         return setSignedRange(Mul, ConservativeResult.intersectWith(X));
     }
 
@@ -1127,7 +1344,8 @@ const ConstantRange HI_VarWidthReduce::HI_getSignedRangeRef(const SCEV *S)
             else
                 X = X.smax(HI_getSignedRangeRef(SMax->getOperand(i)));
         if (DEBUG)
-            *VarWidthChangeLog << "          ------  handling full-set SECV new range: " << X << "\n";
+            *VarWidthChangeLog << "          ------  handling full-set SECV new range: " << X
+                               << "\n";
         return setSignedRange(SMax, ConservativeResult.intersectWith(X));
     }
 
@@ -1142,7 +1360,8 @@ const ConstantRange HI_VarWidthReduce::HI_getSignedRangeRef(const SCEV *S)
             else
                 X = X.umax(HI_getSignedRangeRef(UMax->getOperand(i)));
         if (DEBUG)
-            *VarWidthChangeLog << "          ------  handling full-set SECV new range: " << X << "\n";
+            *VarWidthChangeLog << "          ------  handling full-set SECV new range: " << X
+                               << "\n";
         return setSignedRange(UMax, ConservativeResult.intersectWith(X));
     }
 
@@ -1225,12 +1444,14 @@ const ConstantRange HI_VarWidthReduce::HI_getUnsignedRangeRef(const SCEV *S)
 {
 
     if (DEBUG)
-        *VarWidthChangeLog << "        ------  HI_getUnsignedRangeRef handling SECV: " << *S->getType() << "\n";
+        *VarWidthChangeLog << "        ------  HI_getUnsignedRangeRef handling SECV: "
+                           << *S->getType() << "\n";
     ConstantRange tmp_CR1 = SE->getUnsignedRange(S);
     if (!tmp_CR1.isFullSet())
     {
         if (DEBUG)
-            *VarWidthChangeLog << "        ------  HI_getUnsignedRangeRef: it is not full-set " << tmp_CR1 << "\n";
+            *VarWidthChangeLog << "        ------  HI_getUnsignedRangeRef: it is not full-set "
+                               << tmp_CR1 << "\n";
         return tmp_CR1;
     }
     DenseMap<const SCEV *, ConstantRange> &Cache = SignedRanges;
@@ -1265,7 +1486,8 @@ const ConstantRange HI_VarWidthReduce::HI_getUnsignedRangeRef(const SCEV *S)
     uint32_t TZ = SE->GetMinTrailingZeros(S);
     if (TZ != 0)
     {
-        ConservativeResult = ConstantRange(APInt::getSignedMinValue(BitWidth), APInt::getSignedMaxValue(BitWidth).ashr(TZ).shl(TZ) + 1);
+        ConservativeResult = ConstantRange(APInt::getSignedMinValue(BitWidth),
+                                           APInt::getSignedMaxValue(BitWidth).ashr(TZ).shl(TZ) + 1);
     }
 
     if (const SCEVAddExpr *Add = dyn_cast<SCEVAddExpr>(S))
@@ -1279,7 +1501,8 @@ const ConstantRange HI_VarWidthReduce::HI_getUnsignedRangeRef(const SCEV *S)
             else
                 X = X.add(HI_getUnsignedRangeRef(Add->getOperand(i)));
         if (DEBUG)
-            *VarWidthChangeLog << "            ------  handling full-set SECV new range: " << X << "\n";
+            *VarWidthChangeLog << "            ------  handling full-set SECV new range: " << X
+                               << "\n";
         return setUnsignedRange(Add, ConservativeResult.intersectWith(X));
     }
 
@@ -1294,7 +1517,8 @@ const ConstantRange HI_VarWidthReduce::HI_getUnsignedRangeRef(const SCEV *S)
             else
                 X = X.multiply(HI_getUnsignedRangeRef(Mul->getOperand(i)));
         if (DEBUG)
-            *VarWidthChangeLog << "            ------  handling full-set SECV new range: " << X << "\n";
+            *VarWidthChangeLog << "            ------  handling full-set SECV new range: " << X
+                               << "\n";
         return setUnsignedRange(Mul, ConservativeResult.intersectWith(X));
     }
 
@@ -1309,7 +1533,8 @@ const ConstantRange HI_VarWidthReduce::HI_getUnsignedRangeRef(const SCEV *S)
             else
                 X = X.smax(HI_getUnsignedRangeRef(SMax->getOperand(i)));
         if (DEBUG)
-            *VarWidthChangeLog << "          ------  handling full-set SECV new range: " << X << "\n";
+            *VarWidthChangeLog << "          ------  handling full-set SECV new range: " << X
+                               << "\n";
         return setUnsignedRange(SMax, ConservativeResult.intersectWith(X));
     }
 
@@ -1324,7 +1549,8 @@ const ConstantRange HI_VarWidthReduce::HI_getUnsignedRangeRef(const SCEV *S)
             else
                 X = X.umax(HI_getUnsignedRangeRef(UMax->getOperand(i)));
         if (DEBUG)
-            *VarWidthChangeLog << "          ------  handling full-set SECV new range: " << X << "\n";
+            *VarWidthChangeLog << "          ------  handling full-set SECV new range: " << X
+                               << "\n";
         return setUnsignedRange(UMax, ConservativeResult.intersectWith(X));
     }
 
@@ -1410,7 +1636,9 @@ bool HI_VarWidthReduce::bypassPTI(const SCEV *S)
         if (PtrToIntInst *PTI = dyn_cast<PtrToIntInst>(U->getValue()))
         {
             if (DEBUG)
-                *VarWidthChangeLog << "            ------  bypassing range evaluation for PtrToIntInst: " << *U->getValue() << "\n";
+                *VarWidthChangeLog
+                    << "            ------  bypassing range evaluation for PtrToIntInst: "
+                    << *U->getValue() << "\n";
             return true;
         }
     return false;

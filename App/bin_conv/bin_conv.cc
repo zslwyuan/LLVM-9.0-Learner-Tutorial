@@ -8,7 +8,8 @@ TwoBit encode_bit(const Bit &b)
 // -----------------------------------------------------------------------
 // Conv
 // -----------------------------------------------------------------------
-ConvOut conv3x3b(const TwoBit line_buffer_m[CONV_BANKS][CONV_ROWS][CONV_COLS], const Bit conv_params_m[K][K], const ap_uint<4> bank, const IdxType cc)
+ConvOut conv3x3b(const TwoBit line_buffer_m[CONV_BANKS][CONV_ROWS][CONV_COLS],
+                 const Bit conv_params_m[K][K], const ap_uint<4> bank, const IdxType cc)
 {
     ConvOut sum = 0;
     for (ap_uint<2> kr = 0; kr < K; ++kr)
@@ -17,7 +18,8 @@ ConvOut conv3x3b(const TwoBit line_buffer_m[CONV_BANKS][CONV_ROWS][CONV_COLS], c
         {
             TwoBit data = line_buffer_m[bank][kr][cc + kc];
             const Bit &wt = conv_params_m[2 - kr][2 - kc];
-            data = ((wt & partSelect(data, 0, 0) ^ partSelect(data, 1, 1)) << 1) | partSelect(data, 0, 0);
+            data = ((wt & partSelect(data, 0, 0) ^ partSelect(data, 1, 1)) << 1) |
+                   partSelect(data, 0, 0);
             sum += data;
         }
     }
@@ -27,13 +29,15 @@ ConvOut conv3x3b(const TwoBit line_buffer_m[CONV_BANKS][CONV_ROWS][CONV_COLS], c
 // -----------------------------------------------------------------------
 // Produce 32 elements of conv results
 // -----------------------------------------------------------------------
-void conv_word(const TwoBit line_buffer_m[CONV_BANKS][CONV_ROWS][CONV_COLS], const Bit conv_params_m[K][K], ConvOut conv_out_buffer_m[WORD_SIZE])
+void conv_word(const TwoBit line_buffer_m[CONV_BANKS][CONV_ROWS][CONV_COLS],
+               const Bit conv_params_m[K][K], ConvOut conv_out_buffer_m[WORD_SIZE])
 {
     for (ap_uint<4> bank = 0; bank < CONV_BANKS; ++bank)
     {
         for (ap_uint<4> cc = 0; cc < BANK_WIDTH; ++cc)
         {
-            conv_out_buffer_m[bank * BANK_WIDTH + cc] = conv3x3b(line_buffer_m, conv_params_m, bank, cc);
+            conv_out_buffer_m[bank * BANK_WIDTH + cc] =
+                conv3x3b(line_buffer_m, conv_params_m, bank, cc);
         }
     }
 }
@@ -42,7 +46,11 @@ void conv_word(const TwoBit line_buffer_m[CONV_BANKS][CONV_ROWS][CONV_COLS], con
 // Process each line in a word, we need to outline this loop to
 // avoid false control dependencies in Vivado HLS
 // -----------------------------------------------------------------------
-void process_word(const TwoBit word_buffer_m[CONV_BANKS][CONV_COLS], const TwoBit old_word_buffer_m[CONV_BANKS][CONV_COLS], const bool lb[CONV_BANKS], const bool rb[CONV_BANKS], TwoBit line_buffer_m[CONV_BANKS][CONV_ROWS][CONV_COLS], const Bit conv_params_m[K][K], ConvOut conv_out_buffer_m[WORD_SIZE], const ap_uint<3> log_width, const ap_uint<6> words_per_image, const IdxType wrd)
+void process_word(const TwoBit word_buffer_m[CONV_BANKS][CONV_COLS],
+                  const TwoBit old_word_buffer_m[CONV_BANKS][CONV_COLS], const bool lb[CONV_BANKS],
+                  const bool rb[CONV_BANKS], TwoBit line_buffer_m[CONV_BANKS][CONV_ROWS][CONV_COLS],
+                  const Bit conv_params_m[K][K], ConvOut conv_out_buffer_m[WORD_SIZE],
+                  const ap_uint<3> log_width, const ap_uint<6> words_per_image, const IdxType wrd)
 {
     // slices_per_line = width / BANK_WIDTH
     const ap_uint<5> slices_per_line = 1 << (log_width - LOG_BANK_WIDTH);
@@ -62,18 +70,23 @@ void process_word(const TwoBit word_buffer_m[CONV_BANKS][CONV_COLS], const TwoBi
             {
                 line_buffer_m[bank][CONV_ROWS - 1][cc] = old_word_buffer_m[CONV_BANKS + s_idx][cc];
             }
-            line_buffer_m[bank][CONV_ROWS - 1][0] = lb[bank] ? TwoBit(0) : old_word_buffer_m[CONV_BANKS + s_idx][0];
-            line_buffer_m[bank][CONV_ROWS - 1][CONV_COLS - 1] = rb[bank] ? TwoBit(0) : old_word_buffer_m[CONV_BANKS + s_idx][CONV_COLS - 1];
+            line_buffer_m[bank][CONV_ROWS - 1][0] =
+                lb[bank] ? TwoBit(0) : old_word_buffer_m[CONV_BANKS + s_idx][0];
+            line_buffer_m[bank][CONV_ROWS - 1][CONV_COLS - 1] =
+                rb[bank] ? TwoBit(0) : old_word_buffer_m[CONV_BANKS + s_idx][CONV_COLS - 1];
         }
         else
         {
             // fill from new word
             for (ap_uint<4> cc = 1; cc < CONV_COLS - 1; ++cc)
             {
-                line_buffer_m[bank][CONV_ROWS - 1][cc] = (last_wrd) ? TwoBit(0) : word_buffer_m[s_idx][cc];
+                line_buffer_m[bank][CONV_ROWS - 1][cc] =
+                    (last_wrd) ? TwoBit(0) : word_buffer_m[s_idx][cc];
             }
-            line_buffer_m[bank][CONV_ROWS - 1][0] = (last_wrd || lb[bank]) ? TwoBit(0) : word_buffer_m[s_idx][0];
-            line_buffer_m[bank][CONV_ROWS - 1][CONV_COLS - 1] = (last_wrd || rb[bank]) ? TwoBit(0) : word_buffer_m[s_idx][CONV_COLS - 1];
+            line_buffer_m[bank][CONV_ROWS - 1][0] =
+                (last_wrd || lb[bank]) ? TwoBit(0) : word_buffer_m[s_idx][0];
+            line_buffer_m[bank][CONV_ROWS - 1][CONV_COLS - 1] =
+                (last_wrd || rb[bank]) ? TwoBit(0) : word_buffer_m[s_idx][CONV_COLS - 1];
         }
     }
 
@@ -95,17 +108,22 @@ void process_word(const TwoBit word_buffer_m[CONV_BANKS][CONV_COLS], const TwoBi
                 line_buffer_m[bank][0][cc] = word_buffer_m[s_idx0][cc];
             }
             line_buffer_m[bank][0][0] = lb[bank] ? TwoBit(0) : word_buffer_m[s_idx0][0];
-            line_buffer_m[bank][0][CONV_COLS - 1] = rb[bank] ? TwoBit(0) : word_buffer_m[s_idx0][CONV_COLS - 1];
+            line_buffer_m[bank][0][CONV_COLS - 1] =
+                rb[bank] ? TwoBit(0) : word_buffer_m[s_idx0][CONV_COLS - 1];
         }
         else
         {
             // set to zero or copy from old word (middle row)
             for (ap_uint<4> cc = 1; cc < CONV_COLS - 1; ++cc)
             {
-                line_buffer_m[bank][0][cc] = (first_wrd) ? TwoBit(0) : old_word_buffer_m[CONV_BANKS + s_idx0][cc];
+                line_buffer_m[bank][0][cc] =
+                    (first_wrd) ? TwoBit(0) : old_word_buffer_m[CONV_BANKS + s_idx0][cc];
             }
-            line_buffer_m[bank][0][0] = (first_wrd || lb[bank]) ? TwoBit(0) : old_word_buffer_m[CONV_BANKS + s_idx0][0];
-            line_buffer_m[bank][0][CONV_COLS - 1] = (first_wrd || rb[bank]) ? TwoBit(0) : old_word_buffer_m[CONV_BANKS + s_idx0][CONV_COLS - 1];
+            line_buffer_m[bank][0][0] =
+                (first_wrd || lb[bank]) ? TwoBit(0) : old_word_buffer_m[CONV_BANKS + s_idx0][0];
+            line_buffer_m[bank][0][CONV_COLS - 1] =
+                (first_wrd || rb[bank]) ? TwoBit(0)
+                                        : old_word_buffer_m[CONV_BANKS + s_idx0][CONV_COLS - 1];
         }
 
         // --------------------------------------------------------------
@@ -116,7 +134,8 @@ void process_word(const TwoBit word_buffer_m[CONV_BANKS][CONV_COLS], const TwoBi
         }
         // Fill end buffer bits
         line_buffer_m[bank][1][0] = lb[bank] ? TwoBit(0) : word_buffer_m[bank][0];
-        line_buffer_m[bank][1][CONV_COLS - 1] = rb[bank] ? TwoBit(0) : word_buffer_m[bank][CONV_COLS - 1];
+        line_buffer_m[bank][1][CONV_COLS - 1] =
+            rb[bank] ? TwoBit(0) : word_buffer_m[bank][CONV_COLS - 1];
     }
 }
 
@@ -125,7 +144,9 @@ void process_word(const TwoBit word_buffer_m[CONV_BANKS][CONV_COLS], const TwoBi
 // output feature map.
 // * Make sure this function gets inlined by VHLS, or cosim may fail!
 // -----------------------------------------------------------------------
-void bin_conv(Word wt_mem[CONVOLVERS][C_WT_WORDS], NormComp nc, Word dmem[2][CONVOLVERS][C_DMEM_WORDS], ap_uint<1> d_i_idx, ap_uint<1> d_o_idx, const unsigned n_inputs, const Address o_index, const ap_uint<1> new_batch,
+void bin_conv(Word wt_mem[CONVOLVERS][C_WT_WORDS], NormComp nc,
+              Word dmem[2][CONVOLVERS][C_DMEM_WORDS], ap_uint<1> d_i_idx, ap_uint<1> d_o_idx,
+              const unsigned n_inputs, const Address o_index, const ap_uint<1> new_batch,
               const ap_uint<2> width_mode, // 0=8'b, 1=16'b, 2=32'b
               const ap_uint<2> norm_mode   // 0='do nothing', 1='do norm', 2='do pool'
 )
@@ -243,7 +264,8 @@ void bin_conv(Word wt_mem[CONVOLVERS][C_WT_WORDS], NormComp nc, Word dmem[2][CON
                     for (ap_uint<2> kr = 0; kr < K; ++kr)
                     {
                         for (ap_uint<2> kc = 0; kc < K; ++kc)
-                            conv_params[m][kr][kc] = partSelect(wt_word_buffer[m], kr * K + kc, kr * K + kc);
+                            conv_params[m][kr][kc] =
+                                partSelect(wt_word_buffer[m], kr * K + kc, kr * K + kc);
                     }
                 }
             }
@@ -263,10 +285,21 @@ void bin_conv(Word wt_mem[CONVOLVERS][C_WT_WORDS], NormComp nc, Word dmem[2][CON
                     {
                         for (IdxType cc = 0; cc < CONV_COLS - 2; ++cc)
                         {
-                            word_buffer[m][bank][cc + 1] = encode_bit(partSelect(word, ap_uint<6>(bank * BANK_WIDTH + cc), ap_uint<6>(bank * BANK_WIDTH + cc)));
+                            word_buffer[m][bank][cc + 1] =
+                                encode_bit(partSelect(word, ap_uint<6>(bank * BANK_WIDTH + cc),
+                                                      ap_uint<6>(bank * BANK_WIDTH + cc)));
                         }
-                        word_buffer[m][bank][0] = (bank == 0) ? TwoBit(0) : encode_bit(partSelect(word, ap_uint<6>(bank * BANK_WIDTH - 1), ap_uint<6>(bank * BANK_WIDTH - 1)));
-                        word_buffer[m][bank][CONV_COLS - 1] = (bank == CONV_BANKS - 1) ? TwoBit(0) : encode_bit(partSelect(word, ap_uint<6>(bank * BANK_WIDTH + BANK_WIDTH), ap_uint<6>(bank * BANK_WIDTH + BANK_WIDTH)));
+                        word_buffer[m][bank][0] =
+                            (bank == 0)
+                                ? TwoBit(0)
+                                : encode_bit(partSelect(word, ap_uint<6>(bank * BANK_WIDTH - 1),
+                                                        ap_uint<6>(bank * BANK_WIDTH - 1)));
+                        word_buffer[m][bank][CONV_COLS - 1] =
+                            (bank == CONV_BANKS - 1)
+                                ? TwoBit(0)
+                                : encode_bit(
+                                      partSelect(word, ap_uint<6>(bank * BANK_WIDTH + BANK_WIDTH),
+                                                 ap_uint<6>(bank * BANK_WIDTH + BANK_WIDTH)));
                     }
                 }
             }
@@ -275,7 +308,8 @@ void bin_conv(Word wt_mem[CONVOLVERS][C_WT_WORDS], NormComp nc, Word dmem[2][CON
             for (IdxType m = 0; m < CONVOLVERS; ++m)
             {
                 // Do the following for each word in an image
-                process_word(word_buffer[m], old_word_buffer[m], lb, rb, line_buffer[m], conv_params[m], conv_out_buffer[m], log_width, words_per_image, wrd);
+                process_word(word_buffer[m], old_word_buffer[m], lb, rb, line_buffer[m],
+                             conv_params[m], conv_out_buffer[m], log_width, words_per_image, wrd);
             } // CONVOLVERS
 
             for (IdxType m = 0; m < CONVOLVERS; ++m)
@@ -372,7 +406,10 @@ void bin_conv(Word wt_mem[CONVOLVERS][C_WT_WORDS], NormComp nc, Word dmem[2][CON
             ap_int<WORD_SIZE / 2> poolword_h = 0;
             for (ap_uint<6> i = 0; i < WORD_SIZE / 2; ++i)
             {
-                poolword_h = ((partSelect(binword, 2 * i, 2 * i) & partSelect(binword, 2 * i + 1, 2 * i + 1)) << i) | poolword_h;
+                poolword_h =
+                    ((partSelect(binword, 2 * i, 2 * i) & partSelect(binword, 2 * i + 1, 2 * i + 1))
+                     << i) |
+                    poolword_h;
             }
 
             // vertical pooling
@@ -384,7 +421,9 @@ void bin_conv(Word wt_mem[CONVOLVERS][C_WT_WORDS], NormComp nc, Word dmem[2][CON
                 ap_uint<5> i1 = i0 + pool_width;
                 // dest index
                 ap_uint<6> d0 = out_offset + i;
-                poolword = ((partSelect(poolword_h, i0, i0) & partSelect(poolword_h, i1, i1)) << i) | poolword;
+                poolword =
+                    ((partSelect(poolword_h, i0, i0) & partSelect(poolword_h, i1, i1)) << i) |
+                    poolword;
             }
 
             // For log_width > 3 we can just assign the word, but log_width = 3 means

@@ -16,18 +16,22 @@
 
 using namespace llvm;
 
-bool HI_DependenceList::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
+bool HI_DependenceList::runOnFunction(
+    Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which
+                 // will be executed for each Module.
 {
     *Dependence_out << "\n\n\n\n\n Printing Dominator Graph:\n";
     auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-    for (auto node = GraphTraits<DominatorTree *>::nodes_begin(DT); node != GraphTraits<DominatorTree *>::nodes_end(DT); ++node)
+    for (auto node = GraphTraits<DominatorTree *>::nodes_begin(DT);
+         node != GraphTraits<DominatorTree *>::nodes_end(DT); ++node)
     {
         BasicBlock *BB = node->getBlock();
 
         if (node->getIDom())
         {
             BasicBlock *PreBB = node->getIDom()->getBlock();
-            *Dependence_out << "Block: [" << PreBB->getName() << "] dominates Block: [" << BB->getName() << "].\n";
+            *Dependence_out << "Block: [" << PreBB->getName() << "] dominates Block: ["
+                            << BB->getName() << "].\n";
         }
     }
     *Dependence_out << "\n\n=================\n\n\n Printed Dominator Graph:\n";
@@ -38,7 +42,8 @@ bool HI_DependenceList::runOnFunction(Function &F) // The runOnModule declaratio
     }
     for (BasicBlock &B : F)
     {
-        if (BasicBlock_id.find(&B) == BasicBlock_id.end()) // traverse blocks in the function and assign basic block ID
+        if (BasicBlock_id.find(&B) ==
+            BasicBlock_id.end()) // traverse blocks in the function and assign basic block ID
         {
             BasicBlock_id[&B] = ++BasicBlock_Counter;
         }
@@ -61,7 +66,9 @@ bool HI_DependenceList::runOnFunction(Function &F) // The runOnModule declaratio
     return false;
 }
 
-char HI_DependenceList::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_DependenceList::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 void HI_DependenceList::getAnalysisUsage(AnalysisUsage &AU) const
 {
@@ -71,7 +78,8 @@ void HI_DependenceList::getAnalysisUsage(AnalysisUsage &AU) const
 
 void HI_DependenceList::checkSuccessorsOfBlock(BasicBlock *B)
 {
-    assert(Block_Successors.find(B) == Block_Successors.end() && "This Block should not be checked before");
+    assert(Block_Successors.find(B) == Block_Successors.end() &&
+           "This Block should not be checked before");
     *Dependence_out << "\nTerminator: " << *(B->getTerminator()) << "\n";
     *Dependence_out << "Successor(s) are: ";
 
@@ -87,7 +95,8 @@ void HI_DependenceList::checkSuccessorsOfBlock(BasicBlock *B)
 
 void HI_DependenceList::checkPredecessorsOfBlock(BasicBlock *B)
 {
-    assert(Block_Predecessors.find(B) == Block_Predecessors.end() && "This Block should not be checked before");
+    assert(Block_Predecessors.find(B) == Block_Predecessors.end() &&
+           "This Block should not be checked before");
     *Dependence_out << "Predecessor(s) are: ";
     std::vector<BasicBlock *> *tmp_vec = new std::vector<BasicBlock *>;
     for (auto PreB_it : predecessors(B))
@@ -100,7 +109,8 @@ void HI_DependenceList::checkPredecessorsOfBlock(BasicBlock *B)
 
 void HI_DependenceList::checkInstructionDependence(Instruction *I)
 {
-    if (Instruction_id.find(I) == Instruction_id.end()) // traverse instructions in the block assign instruction ID
+    if (Instruction_id.find(I) ==
+        Instruction_id.end()) // traverse instructions in the block assign instruction ID
     {
         Instruction_id[I] = ++Instruction_Counter;
     }
@@ -108,7 +118,8 @@ void HI_DependenceList::checkInstructionDependence(Instruction *I)
     *Instruction_out << "  I-ID: " << Instruction_id[I] << " Instruction: " << *I << "\n";
 
     std::vector<int> *tmp_vec_id;
-    if (Instruction2User_id.find(Instruction_id[I]) == Instruction2User_id.end()) // new a vector to store users
+    if (Instruction2User_id.find(Instruction_id[I]) ==
+        Instruction2User_id.end()) // new a vector to store users
     {
         tmp_vec_id = new std::vector<int>;
         Instruction2User_id[Instruction_id[I]] = tmp_vec_id;
@@ -131,7 +142,8 @@ void HI_DependenceList::checkInstructionDependence(Instruction *I)
             tmp_vec_id->push_back(Instruction_id[Suc_Inst]);
             *Dependence_out << Instruction_id[Suc_Inst] << " ";
 
-            std::vector<int> *tmp_vec_id_1; // add the instruction in the other instruction's presessor list
+            std::vector<int>
+                *tmp_vec_id_1; // add the instruction in the other instruction's presessor list
             if (Instruction2Pre_id.find(Instruction_id[Suc_Inst]) == Instruction2Pre_id.end())
             {
                 tmp_vec_id_1 = new std::vector<int>;
@@ -150,7 +162,8 @@ void HI_DependenceList::checkInstructionDependence(Instruction *I)
         *Dependence_out << "        op#" << i << ": " << *I->getOperand(i);
         if (Argument *arg = dyn_cast<Argument>(I->getOperand(i)))
         {
-            *Dependence_out << " is a function argument of function (" << arg->getParent()->getName() << ").";
+            *Dependence_out << " is a function argument of function ("
+                            << arg->getParent()->getName() << ").";
         }
         else
         {

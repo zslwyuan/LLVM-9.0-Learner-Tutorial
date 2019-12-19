@@ -118,7 +118,8 @@ int main(int argc, char **argv)
     // print_info("Enable HI_LoopDependenceAnalysis Pass");
     // PM.add(hi_loopdependenceanalysis);
 
-    // auto hi_simpletimingevaluation = new HI_SimpleTimingEvaluation("HI_SimpleTimingEvaluation",top_str.c_str(),&hi_loopinformationcollect->Loop2Blocks,&hi_loopinformationcollect->Block2Loops);
+    // auto hi_simpletimingevaluation = new
+    // HI_SimpleTimingEvaluation("HI_SimpleTimingEvaluation",top_str.c_str(),&hi_loopinformationcollect->Loop2Blocks,&hi_loopinformationcollect->Block2Loops);
     // print_info("Enable HI_SimpleTimingEvaluation Pass");
     // PM.add(hi_simpletimingevaluation);
 
@@ -133,7 +134,8 @@ int main(int argc, char **argv)
     PM.run(*Mod);
     print_status("Accomplished LLVM processing");
 
-    // assert(hi_simpletimingevaluation->topFunctionFound && "The specified top function is not found in the program");
+    // assert(hi_simpletimingevaluation->topFunctionFound && "The specified top function is not
+    // found in the program");
 
     print_status("Writing LLVM IR to File");
     std::error_code EC;

@@ -115,22 +115,37 @@ class inst_timing_resource_info
 
     void print()
     {
-        llvm::errs() << " DSP=" << DSP << " FF=" << FF << " LUT=" << LUT << " Lat=" << Lat << " delay=" << delay << " II=" << II << "\n";
+        llvm::errs() << " DSP=" << DSP << " FF=" << FF << " LUT=" << LUT << " Lat=" << Lat
+                     << " delay=" << delay << " II=" << II << "\n";
     }
 };
 
-// For each type of instruction, there will be a list to store a series of information corresponding to different parameters
-typedef std::map<int, std::map<int, std::map<std::string, inst_timing_resource_info>>> Info_type_list;
+// For each type of instruction, there will be a list to store a series of information corresponding
+// to different parameters
+typedef std::map<int, std::map<int, std::map<std::string, inst_timing_resource_info>>>
+    Info_type_list;
 #endif
 
 // we want that when an loop is unrolled, the sensitive array should be partitioned accordingly.
 class HI_ArraySensitiveToLoopLevel : public ModulePass
 {
   public:
-    // Pass for simple evluation of the latency of the top function, without considering HLS directives
+    // Pass for simple evluation of the latency of the top function, without considering HLS
+    // directives
     HI_ArraySensitiveToLoopLevel( // const char* config_file_name,
-        const char *evaluating_log_name, const char *BRAM_log_name, const char *ArrayLog_name, const char *top_function, std::map<std::string, std::string> &IRLoop2LoopLabel, std::map<std::string, int> &IRLoop2OriginTripCount, std::map<std::string, int> &FuncParamLine2OutermostSize, std::map<std::string, std::vector<int>> &IRFunc2BeginLine, std::map<std::string, std::set<std::pair<std::string, std::pair<std::string, int>>>> &LoopLabel2DrivenArrayDimensions, std::map<std::string, Info_type_list> &BiOp_Info_name2list_map, bool DEBUG = 0)
-        : ModulePass(ID), IRLoop2LoopLabel(IRLoop2LoopLabel), IRLoop2OriginTripCount(IRLoop2OriginTripCount), FuncParamLine2OutermostSize(FuncParamLine2OutermostSize), IRFunc2BeginLine(IRFunc2BeginLine), BiOp_Info_name2list_map(BiOp_Info_name2list_map), LoopLabel2DrivenArrayDimensions(LoopLabel2DrivenArrayDimensions), DEBUG(DEBUG)
+        const char *evaluating_log_name, const char *BRAM_log_name, const char *ArrayLog_name,
+        const char *top_function, std::map<std::string, std::string> &IRLoop2LoopLabel,
+        std::map<std::string, int> &IRLoop2OriginTripCount,
+        std::map<std::string, int> &FuncParamLine2OutermostSize,
+        std::map<std::string, std::vector<int>> &IRFunc2BeginLine,
+        std::map<std::string, std::set<std::pair<std::string, std::pair<std::string, int>>>>
+            &LoopLabel2DrivenArrayDimensions,
+        std::map<std::string, Info_type_list> &BiOp_Info_name2list_map, bool DEBUG = 0)
+        : ModulePass(ID), IRLoop2LoopLabel(IRLoop2LoopLabel),
+          IRLoop2OriginTripCount(IRLoop2OriginTripCount),
+          FuncParamLine2OutermostSize(FuncParamLine2OutermostSize),
+          IRFunc2BeginLine(IRFunc2BeginLine), BiOp_Info_name2list_map(BiOp_Info_name2list_map),
+          LoopLabel2DrivenArrayDimensions(LoopLabel2DrivenArrayDimensions), DEBUG(DEBUG)
     {
         BlockEvaluated.clear();
         LoopEvaluated.clear();
@@ -147,18 +162,18 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
         // Parse_Config();
     }
 
-    // // Pass for simple evluation of the latency of the top function, without considering HLS directives
-    // HI_ArraySensitiveToLoopLevel(const char* config_file_name,
+    // // Pass for simple evluation of the latency of the top function, without considering HLS
+    // directives HI_ArraySensitiveToLoopLevel(const char* config_file_name,
     //                                          const char* evaluating_log_name,
     //                                          const char* BRAM_log_name,
     //                                          const char* ArrayLog_name,
     //                                          const char* top_function,
-    //                                          std::map<std::string, std::string> &IRLoop2LoopLabel,
-    //                                          std::map<std::string, int> &IRLoop2OriginTripCount,
-    //                                          std::map<std::string, int> &FuncParamLine2OutermostSize,
-    //                                          std::map<std::string, std::vector<int>> &IRFunc2BeginLine,
-    //                                          bool DEBUG = 0) :
-    //                                          ModulePass(ID) ,
+    //                                          std::map<std::string, std::string>
+    //                                          &IRLoop2LoopLabel, std::map<std::string, int>
+    //                                          &IRLoop2OriginTripCount, std::map<std::string, int>
+    //                                          &FuncParamLine2OutermostSize, std::map<std::string,
+    //                                          std::vector<int>> &IRFunc2BeginLine, bool DEBUG = 0)
+    //                                          : ModulePass(ID) ,
     //                                          IRLoop2LoopLabel(IRLoop2LoopLabel),
     //                                          FuncParamLine2OutermostSize(FuncParamLine2OutermostSize),
     //                                          IRFunc2BeginLine(IRFunc2BeginLine),
@@ -174,8 +189,8 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     //     Evaluating_log = new raw_fd_ostream(evaluating_log_name, ErrInfo, sys::fs::F_None);
     //     BRAM_log = new raw_fd_ostream(BRAM_log_name, ErrInfo, sys::fs::F_None);
     //     top_function_name = std::string(top_function);
-    //     FF_log = new raw_fd_ostream("HI_ArraySensitiveToLoopLevel_FF_LOG", ErrInfo, sys::fs::F_None);
-    //     ArrayLog = new raw_fd_ostream(ArrayLog_name, ErrInfo, sys::fs::F_None);
+    //     FF_log = new raw_fd_ostream("HI_ArraySensitiveToLoopLevel_FF_LOG", ErrInfo,
+    //     sys::fs::F_None); ArrayLog = new raw_fd_ostream(ArrayLog_name, ErrInfo, sys::fs::F_None);
     //     // get the configureation from the file, e.g. clock period
     //     Parse_Config();
 
@@ -256,22 +271,25 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     virtual bool runOnModule(llvm::Module &M);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //////////////////// Declaration related to timing and resource evaluation of Basic Block/Loop/Function ////////////////////
+    //////////////////// Declaration related to timing and resource evaluation of Basic
+    ///Block/Loop/Function ////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // check whether the block is in some loops
     bool isInLoop(BasicBlock *BB);
 
-    // // evaluatate the latency of a outer loop, which could be a nested one,  and return the timing information
-    // timingBase analyzeOuterLoop(Loop *outerL);
+    // // evaluatate the latency of a outer loop, which could be a nested one,  and return the
+    // timing information timingBase analyzeOuterLoop(Loop *outerL);
 
-    // get the most outer loop which contains the block, treat the loop as a node for the evaluation of latency
+    // get the most outer loop which contains the block, treat the loop as a node for the evaluation
+    // of latency
     Loop *getOuterLoopOfBlock(BasicBlock *B);
 
     // find the inner unevaluated loop for processing
     Loop *getInnerUnevaluatedLoop(Loop *outerL);
 
-    // evaluate a loop in which all the children loops have been evauluated and return the timing information
+    // evaluate a loop in which all the children loops have been evauluated and return the timing
+    // information
     timingBase analyzeLoop_InnerChecked(Loop *L);
 
     static char ID;
@@ -280,8 +298,10 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
 
     std::map<Loop *, int> Loop_id;
 
-    // record the specific level of loop is sensitive to specific partitioning scheme of the specific dimension of array
-    std::map<std::string, std::set<std::pair<std::string, std::pair<std::string, int>>>> &LoopLabel2DrivenArrayDimensions;
+    // record the specific level of loop is sensitive to specific partitioning scheme of the
+    // specific dimension of array
+    std::map<std::string, std::set<std::pair<std::string, std::pair<std::string, int>>>>
+        &LoopLabel2DrivenArrayDimensions;
 
     // the latency of each loop
     std::map<BasicBlock *, timingBase> LoopLatency;
@@ -336,7 +356,8 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     // record the list of outer loops for functions
     std::map<Function *, std::vector<Loop *>> Function2OuterLoops;
 
-    // record which evaluated loop the block is belong to, so the pass can directly trace to the loop for the latency
+    // record which evaluated loop the block is belong to, so the pass can directly trace to the
+    // loop for the latency
     std::map<BasicBlock *, Loop *> Block2EvaluatedLoop;
 
     // record the critical path from the loop header to the end of the specific block
@@ -381,7 +402,8 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     // Instruction related to target
     std::map<Value *, std::vector<Value *>> Instruction2Target;
 
-    std::map<std::pair<Value *, partition_info>, std::vector<std::pair<BasicBlock *, int>>> targetPartition2BlockCycleAccessCnt;
+    std::map<std::pair<Value *, partition_info>, std::vector<std::pair<BasicBlock *, int>>>
+        targetPartition2BlockCycleAccessCnt;
 
     std::set<std::pair<Value *, partition_info>> accessPartitionsForIITest;
 
@@ -389,7 +411,9 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     bool hasSameTargets(Instruction *I0, Instruction *I1);
 
     // among the scheduled instructions, find the latest access to the specific target
-    Instruction *findLatestPointerAccess(Instruction *curI, std::vector<Value *> targets, std::map<Instruction *, timingBase> &cur_InstructionCriticalPath);
+    Instruction *
+    findLatestPointerAccess(Instruction *curI, std::vector<Value *> targets,
+                            std::map<Instruction *, timingBase> &cur_InstructionCriticalPath);
 
     // // demangle the name of functions
     // std::string demangleFunctionName(std::string mangled_name);
@@ -429,19 +453,23 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     // get the number of stage in the block
     int getStageNumOfBlock(BasicBlock *B);
 
-    // // get the function critical path by traversing the blocks based on DFS and compute the resource cost
-    // void analyzeFunction_traverseFromEntryToExiting(timingBase tmp_critical_path, Function *F, BasicBlock* curBlock, resourceBase &resourceAccumulator);
+    // // get the function critical path by traversing the blocks based on DFS and compute the
+    // resource cost void analyzeFunction_traverseFromEntryToExiting(timingBase tmp_critical_path,
+    // Function *F, BasicBlock* curBlock, resourceBase &resourceAccumulator);
 
-    // // get the loop latency by traversing from the header to the exiting blocks and evluation resource
-    // void LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(timingBase tmp_critical_path,  Loop* L, BasicBlock *curBlock, resourceBase &resourceAccumulator);
+    // // get the loop latency by traversing from the header to the exiting blocks and evluation
+    // resource void LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(timingBase
+    // tmp_critical_path,  Loop* L, BasicBlock *curBlock, resourceBase &resourceAccumulator);
 
     // // get the II factor for loop pipelining, if there is directives of pipeline for this loop
-    // int checkIIForLoop(Loop *curLoop, std::map<BasicBlock*, timingBase> &tmp_BlockCriticalPath_inLoop);
+    // int checkIIForLoop(Loop *curLoop, std::map<BasicBlock*, timingBase>
+    // &tmp_BlockCriticalPath_inLoop);
 
     // the BRAM-related II for the loop
     int checkAccessIIForLoop(Loop *curLoop);
 
-    // check the BRAM-related II for the loop by enumerating II and checking port constraint for each cycle for each partition
+    // check the BRAM-related II for the loop by enumerating II and checking port constraint for
+    // each cycle for each partition
     int checkAccessIIForLoop_enumerateCheck(Loop *curLoop);
 
     // // the Dependence-related II for the loop
@@ -450,22 +478,28 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     // // find the earliest user of the load instruction (maybe for reschedule)
     // int findEarlietUseTimeInTheLoop(Loop* curLoop, Instruction *R_I);
 
-    // // if the loop is pipelined, the reused DSP-related operators might have conflicts when sharing DSPs.
+    // // if the loop is pipelined, the reused DSP-related operators might have conflicts when
+    // sharing DSPs.
     // // therefore, we need to re-check the resource cost FOR INTEGER OPERATION
-    // resourceBase costRescheduleIntDSPOperators_forLoop(Loop *curLoop,  std::map<BasicBlock*, timingBase> &tmp_BlockCriticalPath_inLoop, int II);
+    // resourceBase costRescheduleIntDSPOperators_forLoop(Loop *curLoop,  std::map<BasicBlock*,
+    // timingBase> &tmp_BlockCriticalPath_inLoop, int II);
 
-    // if the loop is pipelined, the reused DSP-related operators might have conflicts when sharing DSPs.
-    // therefore, we need to re-check the resource cost FOR FLOATING POINT OPERATOR
-    void recordCostRescheduleFPDSPOperators_forLoop(Loop *curLoop, std::map<BasicBlock *, timingBase> &tmp_BlockCriticalPath_inLoop, int II);
+    // if the loop is pipelined, the reused DSP-related operators might have conflicts when sharing
+    // DSPs. therefore, we need to re-check the resource cost FOR FLOATING POINT OPERATOR
+    void recordCostRescheduleFPDSPOperators_forLoop(
+        Loop *curLoop, std::map<BasicBlock *, timingBase> &tmp_BlockCriticalPath_inLoop, int II);
 
-    // for blocks, we need to re-check the resource cost  FOR FLOATING POINT OPERATOR since some of them might be reused.
+    // for blocks, we need to re-check the resource cost  FOR FLOATING POINT OPERATOR since some of
+    // them might be reused.
     void recordCostRescheduleFPDSPOperators_forBlock(BasicBlock *tmp_B, int block_latency);
 
-    // each basic block requires its own DSP operators. Find the maximum number of DSP operators for each FP opcode among block.
+    // each basic block requires its own DSP operators. Find the maximum number of DSP operators for
+    // each FP opcode among block.
     resourceBase costRescheduleFPDSPOperators_forFunction(Function *F);
 
     // mark the block in loop with latency by traversing from the header to the exiting blocks
-    void MarkBlock_traversFromHeaderToExitingBlocks(timingBase total_latency, Loop *L, BasicBlock *curBlock);
+    void MarkBlock_traversFromHeaderToExitingBlocks(timingBase total_latency, Loop *L,
+                                                    BasicBlock *curBlock);
 
     // // evaluate the block latency and resource by traversing the instructions
     // timingBase BlockLatencyResourceEvaluation(BasicBlock *B);
@@ -485,7 +519,8 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     // transform instruction to its opcode string
     std::string InstToOpcodeString(Instruction *I);
 
-    // update the latest user of the the specific user, based on which we can determine the lifetime of a register
+    // update the latest user of the the specific user, based on which we can determine the lifetime
+    // of a register
     void updateResultRelease(Instruction *I, Instruction *I_Pred, int time_point);
 
     // check whether all the sub-function are evaluated
@@ -499,7 +534,8 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     int LUT_for_FSM(int stateNum);
 
     // get the time slot of the instruction in the loop
-    int getTimeslotForInstInLoop(Loop *curLoop, Instruction *I, std::map<BasicBlock *, timingBase> &tmp_BlockCriticalPath_inLoop);
+    int getTimeslotForInstInLoop(Loop *curLoop, Instruction *I,
+                                 std::map<BasicBlock *, timingBase> &tmp_BlockCriticalPath_inLoop);
     int getTimeslotForInstInLoop(Instruction *I);
 
     // get the pointers in the operands
@@ -521,7 +557,8 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
 
     std::string HLS_lib_path = "";
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-    //////////////////// Declaration related to timing and resource of instructions ////////////////////
+    //////////////////// Declaration related to timing and resource of instructions
+    ///////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // A unit class to record the timing and latency for a(n) instruction/block/function/loop
@@ -649,13 +686,15 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     friend bool operator>(timingBase lhs, timingBase rhs)
     {
         assert(lhs.clock_period == rhs.clock_period);
-        return (((lhs.latency > rhs.latency)) || (lhs.latency == rhs.latency && lhs.timing > rhs.timing));
+        return (((lhs.latency > rhs.latency)) ||
+                (lhs.latency == rhs.latency && lhs.timing > rhs.timing));
     }
 
     friend bool operator>=(timingBase lhs, timingBase rhs)
     {
         assert(lhs.clock_period == rhs.clock_period);
-        return (((lhs.latency > rhs.latency)) || (lhs.latency == rhs.latency && lhs.timing >= rhs.timing));
+        return (((lhs.latency > rhs.latency)) ||
+                (lhs.latency == rhs.latency && lhs.timing >= rhs.timing));
     }
 
     friend timingBase operator*(timingBase lhs, int rhs)
@@ -789,7 +828,8 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
 
     friend raw_ostream &operator<<(raw_ostream &stream, const resourceBase &rb)
     {
-        stream << " [DSP=" << rb.DSP << ", FF=" << rb.FF << ", LUT=" << rb.LUT << ", BRAM=" << rb.BRAM << "] ";
+        stream << " [DSP=" << rb.DSP << ", FF=" << rb.FF << ", LUT=" << rb.LUT
+               << ", BRAM=" << rb.BRAM << "] ";
         return stream;
     }
 
@@ -798,23 +838,31 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
 
     std::map<std::string, Info_type_list> BiOp_Info_name2list_map_contain;
 
-    // get the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period
-    inst_timing_resource_info get_inst_info(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period);
+    // get the information of a specific instruction, based on its opcode, operand_bitwidth,
+    // result_bitwidth and clock period
+    inst_timing_resource_info get_inst_info(std::string opcode, int operand_bitwid,
+                                            int res_bitwidth, std::string period);
 
-    // Organize the information into timingBase after getting the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
-    timingBase get_inst_TimingInfo_result(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period);
+    // Organize the information into timingBase after getting the information of a specific
+    // instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
+    timingBase get_inst_TimingInfo_result(std::string opcode, int operand_bitwid, int res_bitwidth,
+                                          std::string period);
 
-    // Organize the information into resourceBase after getting the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
-    resourceBase get_inst_ResourceInfo_result(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period);
+    // Organize the information into resourceBase after getting the information of a specific
+    // instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
+    resourceBase get_inst_ResourceInfo_result(std::string opcode, int operand_bitwid,
+                                              int res_bitwidth, std::string period);
 
     // int get_N_DSP(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
     // int get_N_FF(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
     // int get_N_LUT(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
     // int get_N_Lat(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
-    // double get_N_Delay(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
+    // double get_N_Delay(std::string opcode, int operand_bitwid , int res_bitwidth, std::string
+    // period);
 
     // // evaluate the number of FF needed by the instruction
-    // resourceBase FF_Evaluate(std::map<Instruction*, timingBase> &cur_InstructionCriticalPath, Instruction* cur_I);
+    // resourceBase FF_Evaluate(std::map<Instruction*, timingBase> &cur_InstructionCriticalPath,
+    // Instruction* cur_I);
 
     // trace back to find the original operator, bypassing SExt and ZExt operations
     Instruction *byPassUnregisterOp(Instruction *cur_I);
@@ -824,16 +872,21 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     Value *byPassBitcastOp(Value *cur_I_val);
 
     // evaluate the number of LUT needed by the PHI instruction
-    resourceBase IndexVar_LUT(std::map<Instruction *, timingBase> &cur_InstructionCriticalPath, Instruction *I);
+    resourceBase IndexVar_LUT(std::map<Instruction *, timingBase> &cur_InstructionCriticalPath,
+                              Instruction *I);
 
     // check whether a specific information is in the database
-    bool checkInfoAvailability(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period);
+    bool checkInfoAvailability(std::string opcode, int operand_bitwid, int res_bitwidth,
+                               std::string period);
 
     // check whether we can infer the information by increasing the clock frequency
-    bool checkFreqProblem(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period);
+    bool checkFreqProblem(std::string opcode, int operand_bitwid, int res_bitwidth,
+                          std::string period);
 
-    // if the information is not found in database, we may infer the information by increasing the clock frequency
-    inst_timing_resource_info checkInfo_HigherFreq(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period);
+    // if the information is not found in database, we may infer the information by increasing the
+    // clock frequency
+    inst_timing_resource_info checkInfo_HigherFreq(std::string opcode, int operand_bitwid,
+                                                   int res_bitwidth, std::string period);
 
     // Trace back to get the bitwidth of an operand, bypassing truct/zext/sext
     int getOriginalBitwidth(Value *Val);
@@ -882,12 +935,16 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     std::map<Instruction *, std::vector<Value *>> Access2TargetMap;
 
     // record that in the basic block, which instruction access which array at which cycle
-    std::map<Value *, std::map<BasicBlock *, std::vector<std::pair<std::pair<int, partition_info>, Instruction *>>>> target2LastAccessCycleInBlock;
+    std::map<Value *,
+             std::map<BasicBlock *,
+                      std::vector<std::pair<std::pair<int, partition_info>, Instruction *>>>>
+        target2LastAccessCycleInBlock;
     //  the first int is for time slot
     //  and the second int is for partition
 
     // record the access take place in which cycle
-    std::map<std::pair<Instruction *, std::pair<Value *, partition_info>>, timingBase> scheduledAccess_timing;
+    std::map<std::pair<Instruction *, std::pair<Value *, partition_info>>, timingBase>
+        scheduledAccess_timing;
 
     // record the access take place in which cycle
     std::map<BasicBlock *, std::map<std::pair<Value *, partition_info>, int>> accessCounterForBlock;
@@ -915,22 +972,28 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     // get the number of BRAMs which are needed by the array with specific parameters
     resourceBase get_BRAM_Num_For(int bitwidth, int depth);
 
-    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
-    // record the corresponding target array which the access instructions try to touch
+    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr,
+    // Store, Load instructions record the corresponding target array which the access instructions
+    // try to touch
     void TraceAccessForTarget(Value *cur_node, Value *ori_node);
 
     // // check whether the access to target array can be scheduled in a specific cycle
-    // bool checkBRAMAvailabilty(Instruction* access, Value *target, std::string StoreOrLoad, BasicBlock *cur_block, timingBase cur_Timing, partition_info target_partition);
+    // bool checkBRAMAvailabilty(Instruction* access, Value *target, std::string StoreOrLoad,
+    // BasicBlock *cur_block, timingBase cur_Timing, partition_info target_partition);
 
-    // // schedule the access to potential target (since an instructon may use the address for different target
+    // // schedule the access to potential target (since an instructon may use the address for
+    // different target
     // // (e.g. address comes from PHINode) or different parttions, we need to schedule all of them)
-    // timingBase scheduleBRAMAccess(Instruction *access, BasicBlock *cur_block,  timingBase cur_Timing, partition_info target_partition);
+    // timingBase scheduleBRAMAccess(Instruction *access, BasicBlock *cur_block,  timingBase
+    // cur_Timing, partition_info target_partition);
 
     // // schedule the access to specific target for the instruction
-    // timingBase handleBRAMAccessFor(Instruction *access, Value *target, BasicBlock *cur_block,  timingBase cur_Timing, partition_info target_partition);
+    // timingBase handleBRAMAccessFor(Instruction *access, Value *target, BasicBlock *cur_block,
+    // timingBase cur_Timing, partition_info target_partition);
 
     // // record the schedule information
-    // void insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int cur_latency, Instruction* access, partition_info target_partition);
+    // void insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int cur_latency, Instruction*
+    // access, partition_info target_partition);
 
     // evaluate the number of LUT needed by the BRAM Mux
     resourceBase BRAM_MUX_Evaluate();
@@ -949,7 +1012,8 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     // find the array access in the function F and trace the accesses to them
     void findMemoryAccessin(Function *F);
 
-    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
+    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr,
+    // Store, Load instructions
     void TraceAccessRelatedInstructionForTarget(Value *cur_node);
 
     // check the memory access in the function
@@ -979,10 +1043,14 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     const SCEV *findTheActualStartValue(const SCEVAddRecExpr *S);
 
     // get the index incremental value of the array access and the trip counts in the loop
-    void findTheIncrementalIndexAndTripCount(Value *target, const SCEVAddRecExpr *S, std::vector<int> &inc_indices, std::vector<int> &trip_counts);
+    void findTheIncrementalIndexAndTripCount(Value *target, const SCEVAddRecExpr *S,
+                                             std::vector<int> &inc_indices,
+                                             std::vector<int> &trip_counts);
 
     // generate AccessInformation according to the target and the initial access
-    HI_AccessInfo getAccessInfoFor(Value *target, Instruction *access, int initial_offset, std::vector<int> *inc_indices, std::vector<int> *trip_counts, bool unpredictable = false);
+    HI_AccessInfo getAccessInfoFor(Value *target, Instruction *access, int initial_offset,
+                                   std::vector<int> *inc_indices, std::vector<int> *trip_counts,
+                                   bool unpredictable = false);
 
     // get the exact access information for a specific load or store information
     HI_AccessInfo getAccessInfoForAccessInst(Instruction *Load_or_Store);
@@ -1011,13 +1079,15 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
 
     // recursively emulate all the loops where the access is inside
     // to check the offset of the access
-    void getAllPotentialOffsetByRecuresiveSearch(HI_AccessInfo &accessInfo, int loopDep, int last_level_offset, std::vector<int> &res);
+    void getAllPotentialOffsetByRecuresiveSearch(HI_AccessInfo &accessInfo, int loopDep,
+                                                 int last_level_offset, std::vector<int> &res);
 
     // get all the partitions for the access target of the access instruction
     std::vector<partition_info> getAllPartitionFor(Instruction *access);
 
     // get all the partitions for the access target of the access instruction
-    void getAllPartitionBasedOnInfo(HI_AccessInfo &info, int curDim, std::vector<int> &tmp_partID, std::vector<partition_info> &res);
+    void getAllPartitionBasedOnInfo(HI_AccessInfo &info, int curDim, std::vector<int> &tmp_partID,
+                                    std::vector<partition_info> &res);
 
     // check whether the two SCEV have const distance
     Optional<APInt> computeConstantDifference(const SCEV *More, const SCEV *Less);
@@ -1319,7 +1389,8 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
 
     friend raw_ostream &operator<<(raw_ostream &stream, const HI_ArrayInfo &tb)
     {
-        stream << "HI_ArrayInfo for: << (" << tb.target << ") " << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
+        stream << "HI_ArrayInfo for: << (" << tb.target << ") " << *tb.target
+               << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
         for (int i = 0; i < tb.num_dims; i++)
         {
             stream << "dim-" << i << "-size=" << tb.dim_size[i] << ", ";
@@ -1343,7 +1414,8 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
 
     friend raw_ostream &operator<<(raw_ostream &stream, const HI_AccessInfo &tb)
     {
-        // stream << "HI_AccessInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";// ", partition=" << tb.partition << ", ";
+        // stream << "HI_AccessInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType <<
+        // ", num_dims=" << tb.num_dims << ", ";// ", partition=" << tb.partition << ", ";
 
         stream << "HI_AccessInfo for: <<" << *tb.target << ">> [num_dims=" << tb.num_dims << ", ";
 
@@ -1452,12 +1524,16 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     class DSPReuseScheduleUnit
     {
       public:
-        DSPReuseScheduleUnit(Instruction *opI, int DSPcost, int opcode, int timeslot_inBlock, partition_info LPartition, partition_info RPartition) : opI(opI), DSPcost(DSPcost), LPartition(LPartition), RPartition(RPartition), opcode(opcode), timeslot_inBlock(timeslot_inBlock)
+        DSPReuseScheduleUnit(Instruction *opI, int DSPcost, int opcode, int timeslot_inBlock,
+                             partition_info LPartition, partition_info RPartition)
+            : opI(opI), DSPcost(DSPcost), LPartition(LPartition), RPartition(RPartition),
+              opcode(opcode), timeslot_inBlock(timeslot_inBlock)
         {
             DSPforIntegerComputation = 1;
         }
 
-        DSPReuseScheduleUnit(Instruction *opI, int DSPcost, int opcode, int timeslot_inBlock) : opI(opI), DSPcost(DSPcost), opcode(opcode), timeslot_inBlock(timeslot_inBlock)
+        DSPReuseScheduleUnit(Instruction *opI, int DSPcost, int opcode, int timeslot_inBlock)
+            : opI(opI), DSPcost(DSPcost), opcode(opcode), timeslot_inBlock(timeslot_inBlock)
         {
             DSPforIntegerComputation = 0;
         }
@@ -1527,15 +1603,19 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
     friend raw_ostream &operator<<(raw_ostream &stream, const DSPReuseScheduleUnit &rb)
     {
         if (rb.DSPforIntegerComputation)
-            stream << " [refInst=" << *rb.opI << ", timeslot=" << rb.timeslot_inBlock << ", DSPCOST=" << rb.DSPcost << ", LPartition=" << rb.LPartition << ", RPartition=" << rb.RPartition << "] ";
+            stream << " [refInst=" << *rb.opI << ", timeslot=" << rb.timeslot_inBlock
+                   << ", DSPCOST=" << rb.DSPcost << ", LPartition=" << rb.LPartition
+                   << ", RPartition=" << rb.RPartition << "] ";
         else
-            stream << " [refInst=" << *rb.opI << ", timeslot=" << rb.timeslot_inBlock << ", DSPCOST=" << rb.DSPcost << "] ";
+            stream << " [refInst=" << *rb.opI << ", timeslot=" << rb.timeslot_inBlock
+                   << ", DSPCOST=" << rb.DSPcost << "] ";
 
         return stream;
     }
 
     std::map<BasicBlock *, std::vector<DSPReuseScheduleUnit>> Block2IntDSPReuseScheduleUnits;
-    std::map<BasicBlock *, std::map<std::string, std::vector<DSPReuseScheduleUnit>>> Block2FPDSPReuseScheduleUnits;
+    std::map<BasicBlock *, std::map<std::string, std::vector<DSPReuseScheduleUnit>>>
+        Block2FPDSPReuseScheduleUnits;
     std::map<BasicBlock *, std::map<std::string, int>> Block2FPDSPOpCnt;
 
     // check whether the DSP used for this instruction could be reused by the others
@@ -1637,7 +1717,8 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
         return true;
     }
 
-    // Pass for simple evluation of the latency of the top function, without considering HLS directives
+    // Pass for simple evluation of the latency of the top function, without considering HLS
+    // directives
     void Parse_Config();
 
     // parse the argument for array partitioning
@@ -1663,7 +1744,8 @@ class HI_ArraySensitiveToLoopLevel : public ModulePass
 
 namespace std
 {
-bool operator<(const HI_ArraySensitiveToLoopLevel::partition_info &A, const HI_ArraySensitiveToLoopLevel::partition_info &B);
+bool operator<(const HI_ArraySensitiveToLoopLevel::partition_info &A,
+               const HI_ArraySensitiveToLoopLevel::partition_info &B);
 };
 
 #endif

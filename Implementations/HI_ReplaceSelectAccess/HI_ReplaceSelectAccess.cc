@@ -16,7 +16,9 @@
 
 using namespace llvm;
 
-bool HI_ReplaceSelectAccess::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
+bool HI_ReplaceSelectAccess::runOnFunction(
+    Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which
+                 // will be executed for each Module.
 {
     bool changed = false;
 
@@ -57,7 +59,9 @@ bool HI_ReplaceSelectAccess::runOnFunction(Function &F) // The runOnModule decla
     return changed;
 }
 
-char HI_ReplaceSelectAccess::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_ReplaceSelectAccess::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 void HI_ReplaceSelectAccess::getAnalysisUsage(AnalysisUsage &AU) const
 {
@@ -71,12 +75,14 @@ bool HI_ReplaceSelectAccess::checkOperandsAreAddress(Instruction *I)
         if (auto opI = dyn_cast<IntToPtrInst>(I->getOperand(i)))
         {
             if (DEBUG)
-                *ReplaceSelectAccess_Log << "op#" << i << ": " << *(I->getOperand(i)) << " is ITP\n";
+                *ReplaceSelectAccess_Log << "op#" << i << ": " << *(I->getOperand(i))
+                                         << " is ITP\n";
         }
         else
         {
             if (DEBUG)
-                *ReplaceSelectAccess_Log << "op#" << i << ": " << *(I->getOperand(i)) << " is NOT ITP\n";
+                *ReplaceSelectAccess_Log << "op#" << i << ": " << *(I->getOperand(i))
+                                         << " is NOT ITP\n";
             return false;
         }
     }
@@ -150,7 +156,8 @@ void HI_ReplaceSelectAccess::From_SelectAccess_To_AccessSelect(Instruction *I)
             *ReplaceSelectAccess_Log << "newop0:" << *op0 << "\n";
         if (DEBUG)
             *ReplaceSelectAccess_Log << "newop1:" << *op1 << "\n";
-        Value *newSelect = Builder.CreateSelect(selectI->getOperand(0), op0, op1, selectNewStr.c_str());
+        Value *newSelect =
+            Builder.CreateSelect(selectI->getOperand(0), op0, op1, selectNewStr.c_str());
         if (DEBUG)
             *ReplaceSelectAccess_Log << "newSelect:" << *newSelect << "\n";
         accessI->replaceAllUsesWith(newSelect);

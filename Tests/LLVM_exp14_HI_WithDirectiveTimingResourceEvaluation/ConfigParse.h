@@ -12,7 +12,8 @@
 extern std::string clock_period_str;
 extern std::string HLS_lib_path;
 
-void Parse_Config(const char *config_file_name, std::map<std::string, int> &LoopLabel2UnrollFactor, std::map<std::string, int> &LoopLabel2II);
+void Parse_Config(const char *config_file_name, std::map<std::string, int> &LoopLabel2UnrollFactor,
+                  std::map<std::string, int> &LoopLabel2II);
 
 void parseArrayPartition(std::stringstream &iss);
 

@@ -9,7 +9,8 @@ extern std::string HLS_lib_path;
 extern bool all_sub_function_inline;
 static llvm::cl::OptionCategory StatSampleCategory("Stat Sample");
 
-void clangPreProcess(const char **argv, std::string top_str, std::map<std::string, int> &FuncParamLine2OutermostSize)
+void clangPreProcess(const char **argv, std::string top_str,
+                     std::map<std::string, int> &FuncParamLine2OutermostSize)
 {
     pathAdvice();
 
@@ -22,8 +23,14 @@ void clangPreProcess(const char **argv, std::string top_str, std::map<std::strin
     Rewriter TheRewriter0, TheRewriter1;
 
     // run the Clang Tool, creating a new FrontendAction, which will run the AST consumer
-    Tool.run(HI_LoopLabeler_rewrite_newFrontendActionFactory<HI_LoopLabeler_FrontendAction>("PLog", TheRewriter0, "tmp.cc").get());
-    Tool.run(HI_FunctionInterfaceInfo_rewrite_newFrontendActionFactory<HI_FunctionInterfaceInfo_FrontendAction>("PLog1", TheRewriter1, "tmp_loopLabeled.cc", FuncParamLine2OutermostSize, top_str, all_sub_function_inline).get());
+    Tool.run(HI_LoopLabeler_rewrite_newFrontendActionFactory<HI_LoopLabeler_FrontendAction>(
+                 "PLog", TheRewriter0, "tmp.cc")
+                 .get());
+    Tool.run(HI_FunctionInterfaceInfo_rewrite_newFrontendActionFactory<
+                 HI_FunctionInterfaceInfo_FrontendAction>(
+                 "PLog1", TheRewriter1, "tmp_loopLabeled.cc", FuncParamLine2OutermostSize, top_str,
+                 all_sub_function_inline)
+                 .get());
 }
 
 void ReplaceAll(std::string &strSource, const std::string &strOld, const std::string &strNew)
@@ -38,8 +45,11 @@ void ReplaceAll(std::string &strSource, const std::string &strOld, const std::st
 
 void pathAdvice()
 {
-    std::cout << "===============================================================================" << std::endl;
-    std::cout << "if undefined reference occurs, please check whether the following include paths are required." << std::endl;
+    std::cout << "==============================================================================="
+              << std::endl;
+    std::cout << "if undefined reference occurs, please check whether the following include paths "
+                 "are required."
+              << std::endl;
     std::string line;
     std::string cmd_str = "clang++ ../testcase/test.c  -v 2> ciinfor";
     print_cmd(cmd_str.c_str());
@@ -67,11 +77,13 @@ void pathAdvice()
             break;
         }
     }
-    std::cout << "===============================================================================" << std::endl;
+    std::cout << "==============================================================================="
+              << std::endl;
 }
 
 // load the HLS database of timing and resource
-void DES_Load_Instruction_Info(const char *config_file_name, std::map<std::string, Info_type_list> &BiOp_Info_name2list_map)
+void DES_Load_Instruction_Info(const char *config_file_name,
+                               std::map<std::string, Info_type_list> &BiOp_Info_name2list_map)
 {
     auto config_file = new std::ifstream(config_file_name);
 

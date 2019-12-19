@@ -107,7 +107,8 @@ class HI_DesignConfigInfo
         loopPipelineConfigs.push_back(std::pair<std::string, int>(loopLabel, II));
     }
 
-    void insertArrayCyclicPartition(std::string functionName, std::string arrayName, int dim, int factor)
+    void insertArrayCyclicPartition(std::string functionName, std::string arrayName, int dim,
+                                    int factor)
     {
         int cnt = 0;
         for (auto partition_seq : cyclicPartitionConfigs)
@@ -141,7 +142,10 @@ class HI_DesignConfigInfo
             }
             cnt++;
         }
-        cyclicPartitionConfigs.push_back(std::pair<std::string, std::pair<std::string, std::pair<int, int>>>(functionName, std::pair<std::string, std::pair<int, int>>(arrayName, std::pair<int, int>(dim, factor))));
+        cyclicPartitionConfigs.push_back(
+            std::pair<std::string, std::pair<std::string, std::pair<int, int>>>(
+                functionName, std::pair<std::string, std::pair<int, int>>(
+                                  arrayName, std::pair<int, int>(dim, factor))));
     }
 
     void insertArrayCompletePartition(std::string functionName, std::string arrayName, int dim)
@@ -178,10 +182,12 @@ class HI_DesignConfigInfo
             }
             cnt++;
         }
-        completePartitionConfigs.push_back(std::pair<std::string, std::pair<std::string, int>>(functionName, std::pair<std::string, int>(arrayName, dim)));
+        completePartitionConfigs.push_back(std::pair<std::string, std::pair<std::string, int>>(
+            functionName, std::pair<std::string, int>(arrayName, dim)));
     }
 
-    void increaseArrayCyclicPartition(std::string functionName, std::string arrayName, int dim, int factor)
+    void increaseArrayCyclicPartition(std::string functionName, std::string arrayName, int dim,
+                                      int factor)
     {
         int cnt = 0;
         for (auto partition_seq : cyclicPartitionConfigs)
@@ -226,7 +232,10 @@ class HI_DesignConfigInfo
             }
             cnt++;
         }
-        cyclicPartitionConfigs.push_back(std::pair<std::string, std::pair<std::string, std::pair<int, int>>>(functionName, std::pair<std::string, std::pair<int, int>>(arrayName, std::pair<int, int>(dim, factor))));
+        cyclicPartitionConfigs.push_back(
+            std::pair<std::string, std::pair<std::string, std::pair<int, int>>>(
+                functionName, std::pair<std::string, std::pair<int, int>>(
+                                  arrayName, std::pair<int, int>(dim, factor))));
     }
 
     void eraseArrayPartition(std::string functionName, std::string arrayName)
@@ -257,7 +266,8 @@ class HI_DesignConfigInfo
         }
     }
 
-    void insertArrayblockPartition(std::string functionName, std::string arrayName, int dim, int factor)
+    void insertArrayblockPartition(std::string functionName, std::string arrayName, int dim,
+                                   int factor)
     {
         int cnt = 0;
         for (auto partition_seq : cyclicPartitionConfigs)
@@ -291,12 +301,16 @@ class HI_DesignConfigInfo
             }
             cnt++;
         }
-        blockPartitionConfigs.push_back(std::pair<std::string, std::pair<std::string, std::pair<int, int>>>(functionName, std::pair<std::string, std::pair<int, int>>(arrayName, std::pair<int, int>(dim, factor))));
+        blockPartitionConfigs.push_back(
+            std::pair<std::string, std::pair<std::string, std::pair<int, int>>>(
+                functionName, std::pair<std::string, std::pair<int, int>>(
+                                  arrayName, std::pair<int, int>(dim, factor))));
     }
 
     void insertArrayPortNum(std::string functionName, std::string arrayName, int port_num)
     {
-        arrayPortConfigs.push_back(std::pair<std::string, std::pair<std::string, int>>(functionName, std::pair<std::string, int>(arrayName, port_num)));
+        arrayPortConfigs.push_back(std::pair<std::string, std::pair<std::string, int>>(
+            functionName, std::pair<std::string, int>(arrayName, port_num)));
     }
 
     void insertFuncDataflow(std::string functioName, bool enable)
@@ -306,7 +320,8 @@ class HI_DesignConfigInfo
 
     void insertLocalArray(std::string functionName, std::string arrayName, bool enable)
     {
-        localArrayConfigs.push_back(std::pair<std::string, std::pair<std::string, bool>>(functionName, std::pair<std::string, bool>(arrayName, enable)));
+        localArrayConfigs.push_back(std::pair<std::string, std::pair<std::string, bool>>(
+            functionName, std::pair<std::string, bool>(arrayName, enable)));
     }
 
     HI_DesignConfigInfo(const HI_DesignConfigInfo &input)
@@ -346,9 +361,11 @@ class HI_DesignConfigInfo
     std::string HLS_lib_path;
     std::vector<std::pair<std::string, int>> loopUnrollConfigs;
     std::vector<std::pair<std::string, int>> loopPipelineConfigs;
-    std::vector<std::pair<std::string, std::pair<std::string, std::pair<int, int>>>> cyclicPartitionConfigs;
+    std::vector<std::pair<std::string, std::pair<std::string, std::pair<int, int>>>>
+        cyclicPartitionConfigs;
     std::vector<std::pair<std::string, std::pair<std::string, int>>> completePartitionConfigs;
-    std::vector<std::pair<std::string, std::pair<std::string, std::pair<int, int>>>> blockPartitionConfigs;
+    std::vector<std::pair<std::string, std::pair<std::string, std::pair<int, int>>>>
+        blockPartitionConfigs;
     std::vector<std::pair<std::string, std::pair<std::string, bool>>> localArrayConfigs;
     std::vector<std::pair<std::string, std::pair<std::string, int>>> arrayPortConfigs;
     std::vector<std::pair<std::string, bool>> funcDataflowConfigs;
@@ -361,23 +378,38 @@ class HI_DesignConfigInfo
 class HI_MuxInsertionArrayPartition : public ModulePass
 {
   public:
-    // Pass for simple evluation of the latency of the top function, without considering HLS directives
-    HI_MuxInsertionArrayPartition(const char *config_file_name, const char *top_function, std::map<std::string, int> &FuncParamLine2OutermostSize, std::map<std::string, std::vector<int>> &IRFunc2BeginLine, bool DEBUG = 0) : ModulePass(ID), FuncParamLine2OutermostSize(FuncParamLine2OutermostSize), IRFunc2BeginLine(IRFunc2BeginLine), DEBUG(DEBUG)
+    // Pass for simple evluation of the latency of the top function, without considering HLS
+    // directives
+    HI_MuxInsertionArrayPartition(const char *config_file_name, const char *top_function,
+                                  std::map<std::string, int> &FuncParamLine2OutermostSize,
+                                  std::map<std::string, std::vector<int>> &IRFunc2BeginLine,
+                                  bool DEBUG = 0)
+        : ModulePass(ID), FuncParamLine2OutermostSize(FuncParamLine2OutermostSize),
+          IRFunc2BeginLine(IRFunc2BeginLine), DEBUG(DEBUG)
     {
         config_file = new std::ifstream(config_file_name);
-        BRAM_log = new raw_fd_ostream("HI_MuxInsertionArrayPartition_BRAM_log", ErrInfo, sys::fs::F_None);
+        BRAM_log =
+            new raw_fd_ostream("HI_MuxInsertionArrayPartition_BRAM_log", ErrInfo, sys::fs::F_None);
         top_function_name = std::string(top_function);
-        ArrayLog = new raw_fd_ostream("HI_MuxInsertionArrayPartition_Array_Log", ErrInfo, sys::fs::F_None);
+        ArrayLog =
+            new raw_fd_ostream("HI_MuxInsertionArrayPartition_Array_Log", ErrInfo, sys::fs::F_None);
         // get the configureation from the file, e.g. clock period
         Parse_Config();
     }
 
-    HI_MuxInsertionArrayPartition(const HI_DesignConfigInfo &configInfo, const char *top_function, std::map<std::string, int> &FuncParamLine2OutermostSize, std::map<std::string, std::vector<int>> &IRFunc2BeginLine, bool DEBUG = 0) : ModulePass(ID), FuncParamLine2OutermostSize(FuncParamLine2OutermostSize), IRFunc2BeginLine(IRFunc2BeginLine), DEBUG(DEBUG)
+    HI_MuxInsertionArrayPartition(const HI_DesignConfigInfo &configInfo, const char *top_function,
+                                  std::map<std::string, int> &FuncParamLine2OutermostSize,
+                                  std::map<std::string, std::vector<int>> &IRFunc2BeginLine,
+                                  bool DEBUG = 0)
+        : ModulePass(ID), FuncParamLine2OutermostSize(FuncParamLine2OutermostSize),
+          IRFunc2BeginLine(IRFunc2BeginLine), DEBUG(DEBUG)
     {
         //  config_file = new std::ifstream(config_file_name);
-        BRAM_log = new raw_fd_ostream("HI_MuxInsertionArrayPartition_BRAM_log", ErrInfo, sys::fs::F_None);
+        BRAM_log =
+            new raw_fd_ostream("HI_MuxInsertionArrayPartition_BRAM_log", ErrInfo, sys::fs::F_None);
         top_function_name = std::string(top_function);
-        ArrayLog = new raw_fd_ostream("HI_MuxInsertionArrayPartition_Array_Log", ErrInfo, sys::fs::F_None);
+        ArrayLog =
+            new raw_fd_ostream("HI_MuxInsertionArrayPartition_Array_Log", ErrInfo, sys::fs::F_None);
         // get the configureation from the file, e.g. clock period
         Parse_Config(configInfo);
     }
@@ -442,7 +474,8 @@ class HI_MuxInsertionArrayPartition : public ModulePass
     // Instruction related to target
     std::map<Value *, std::vector<Value *>> Instruction2Target;
 
-    std::map<std::pair<Value *, partition_info>, std::vector<std::pair<BasicBlock *, int>>> targetPartition2BlockCycleAccessCnt;
+    std::map<std::pair<Value *, partition_info>, std::vector<std::pair<BasicBlock *, int>>>
+        targetPartition2BlockCycleAccessCnt;
 
     std::set<std::pair<Value *, partition_info>> accessPartitionsForIITest;
 
@@ -472,7 +505,10 @@ class HI_MuxInsertionArrayPartition : public ModulePass
     std::map<Instruction *, std::vector<Value *>> Access2TargetMap;
 
     // record that in the basic block, which instruction access which array at which cycle
-    std::map<Value *, std::map<BasicBlock *, std::vector<std::pair<std::pair<int, partition_info>, Instruction *>>>> target2LastAccessCycleInBlock;
+    std::map<Value *,
+             std::map<BasicBlock *,
+                      std::vector<std::pair<std::pair<int, partition_info>, Instruction *>>>>
+        target2LastAccessCycleInBlock;
     //  the first int is for time slot
     //  and the second int is for partition
 
@@ -493,8 +529,9 @@ class HI_MuxInsertionArrayPartition : public ModulePass
     // find the array declaration in the function F and trace the accesses to them
     void findMemoryDeclarationAndAnalyzeAccessin(Function *F, bool isTopFunction);
 
-    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
-    // record the corresponding target array which the access instructions try to touch
+    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr,
+    // Store, Load instructions record the corresponding target array which the access instructions
+    // try to touch
     void TraceAccessForTarget(Value *cur_node, Value *ori_node);
 
     // handle the information of memory access for the function
@@ -508,7 +545,8 @@ class HI_MuxInsertionArrayPartition : public ModulePass
     // find the array access in the function F and trace the accesses to them
     void findMemoryAccessin(Function *F);
 
-    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
+    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr,
+    // Store, Load instructions
     void TraceAccessRelatedInstructionForTarget(Value *cur_node);
 
     // check the memory access in the function
@@ -545,10 +583,13 @@ class HI_MuxInsertionArrayPartition : public ModulePass
     const SCEV *findTheActualStartValue(const SCEVAddRecExpr *S);
 
     // get the index incremental value of the array access and the trip counts in the loop
-    void findTheIncrementalIndexAndTripCount(const SCEVAddRecExpr *S, std::vector<int> &inc_indices, std::vector<int> &trip_counts);
+    void findTheIncrementalIndexAndTripCount(const SCEVAddRecExpr *S, std::vector<int> &inc_indices,
+                                             std::vector<int> &trip_counts);
 
     // generate AccessInformation according to the target and the initial access
-    HI_AccessInfo getAccessInfoFor(Value *target, Instruction *access, int initial_offset, std::vector<int> *inc_indices, std::vector<int> *trip_counts, bool unpredictable = false);
+    HI_AccessInfo getAccessInfoFor(Value *target, Instruction *access, int initial_offset,
+                                   std::vector<int> *inc_indices, std::vector<int> *trip_counts,
+                                   bool unpredictable = false);
 
     // get the exact access information for a specific load or store information
     HI_AccessInfo getAccessInfoForAccessInst(Instruction *Load_or_Store);
@@ -576,13 +617,15 @@ class HI_MuxInsertionArrayPartition : public ModulePass
 
     // recursively emulate all the loops where the access is inside
     // to check the offset of the access
-    void getAllPotentialOffsetByRecuresiveSearch(HI_AccessInfo &accessInfo, int loopDep, int last_level_offset, std::vector<int> &res);
+    void getAllPotentialOffsetByRecuresiveSearch(HI_AccessInfo &accessInfo, int loopDep,
+                                                 int last_level_offset, std::vector<int> &res);
 
     // get all the partitions for the access target of the access instruction
     std::vector<partition_info> getAllPartitionFor(Instruction *access);
 
     // get all the partitions for the access target of the access instruction
-    void getAllPartitionBasedOnInfo(HI_AccessInfo &info, int curDim, std::vector<int> &tmp_partID, std::vector<partition_info> &res);
+    void getAllPartitionBasedOnInfo(HI_AccessInfo &info, int curDim, std::vector<int> &tmp_partID,
+                                    std::vector<partition_info> &res);
 
     class HI_ArrayInfo
     {
@@ -882,7 +925,8 @@ class HI_MuxInsertionArrayPartition : public ModulePass
 
     friend raw_ostream &operator<<(raw_ostream &stream, const HI_ArrayInfo &tb)
     {
-        stream << "HI_ArrayInfo for: << (" << tb.target << ") " << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
+        stream << "HI_ArrayInfo for: << (" << tb.target << ") " << *tb.target
+               << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
         for (int i = 0; i < tb.num_dims; i++)
         {
             stream << "dim-" << i << "-size=" << tb.dim_size[i] << ", ";
@@ -899,7 +943,8 @@ class HI_MuxInsertionArrayPartition : public ModulePass
 
     friend raw_ostream &operator<<(raw_ostream &stream, const HI_AccessInfo &tb)
     {
-        stream << "HI_AccessInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", "; // ", partition=" << tb.partition << ", ";
+        stream << "HI_AccessInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType
+               << ", num_dims=" << tb.num_dims << ", "; // ", partition=" << tb.partition << ", ";
         for (int i = 0; i < tb.num_dims; i++)
         {
             stream << "dim-" << i << "-size=" << tb.dim_size[i] << ", ";
@@ -1095,7 +1140,8 @@ class HI_MuxInsertionArrayPartition : public ModulePass
         return true;
     }
 
-    // Pass for simple evluation of the latency of the top function, without considering HLS directives
+    // Pass for simple evluation of the latency of the top function, without considering HLS
+    // directives
     void Parse_Config();
 
     // parse the argument for array partitioning
@@ -1130,7 +1176,8 @@ class HI_MuxInsertionArrayPartition : public ModulePass
 
 namespace std
 {
-bool operator<(const HI_MuxInsertionArrayPartition::partition_info A, const HI_MuxInsertionArrayPartition::partition_info B);
+bool operator<(const HI_MuxInsertionArrayPartition::partition_info A,
+               const HI_MuxInsertionArrayPartition::partition_info B);
 };
 
 #endif

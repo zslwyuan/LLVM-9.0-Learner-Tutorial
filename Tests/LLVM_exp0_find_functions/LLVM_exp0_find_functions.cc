@@ -60,7 +60,8 @@ int main(int argc, char **argv)
     while (std::getline(infile, line))
     {
 
-        for (auto it = hi_findfunctions->Function_Demangle_Map.begin(); it != hi_findfunctions->Function_Demangle_Map.end(); it++)
+        for (auto it = hi_findfunctions->Function_Demangle_Map.begin();
+             it != hi_findfunctions->Function_Demangle_Map.end(); it++)
         {
             if (line.find(it->first) != std::string::npos)
             {

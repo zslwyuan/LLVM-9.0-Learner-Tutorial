@@ -58,7 +58,8 @@ using namespace llvm;
 class HI_FunctionInstantiation : public ModulePass
 {
   public:
-    HI_FunctionInstantiation(const char *FuncInitiationLog_Name, const std::string _topFunctionName) : ModulePass(ID)
+    HI_FunctionInstantiation(const char *FuncInitiationLog_Name, const std::string _topFunctionName)
+        : ModulePass(ID)
     {
         topFunctionName = _topFunctionName;
         FuncInitiationLog = new raw_fd_ostream(FuncInitiationLog_Name, ErrInfo, sys::fs::F_None);
@@ -94,7 +95,8 @@ class HI_FunctionInstantiation : public ModulePass
 
     void checkAndInitiateCallInstIn(Function *curF);
 
-    void pushCalledFunctionIntoQueue(Function *curF, std::queue<Function *> &FuncQ, std::set<Function *> &FuncVisited);
+    void pushCalledFunctionIntoQueue(Function *curF, std::queue<Function *> &FuncQ,
+                                     std::set<Function *> &FuncVisited);
 
     bool ShouldFunctionBeInitiated(Function *F);
 

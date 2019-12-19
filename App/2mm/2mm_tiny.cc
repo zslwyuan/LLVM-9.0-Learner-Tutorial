@@ -4,7 +4,8 @@
 #define NK 22
 #define NL 24
 
-void kernel_2mm(int ni, int nj, int nk, int nl, int alpha, int beta, int tmp[NI][NJ], int A[NI][NK], int B[NK][NJ], int C[NJ][NL], int D_input[NI][NL], int D_output[NI][NL])
+void kernel_2mm(int ni, int nj, int nk, int nl, int alpha, int beta, int tmp[NI][NJ], int A[NI][NK],
+                int B[NK][NJ], int C[NJ][NL], int D_input[NI][NL], int D_output[NI][NL])
 {
     int i, j, k;
 

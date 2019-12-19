@@ -15,7 +15,8 @@
 using namespace llvm;
 
 // find the array declaration in the function F and trace the accesses to them
-void HI_NoDirectiveTimingResourceEvaluation::findMemoryDeclarationin(Function *F, bool isTopFunction)
+void HI_NoDirectiveTimingResourceEvaluation::findMemoryDeclarationin(Function *F,
+                                                                     bool isTopFunction)
 {
     *BRAM_log << "checking the BRAM information in Function: " << F->getName() << "\n";
     ValueVisited.clear();
@@ -37,7 +38,9 @@ void HI_NoDirectiveTimingResourceEvaluation::findMemoryDeclarationin(Function *F
                 {
                     TraceAccessForTarget(it, it);
                 }
-                else if (tmp_PtrType->getElementType()->isIntegerTy() || tmp_PtrType->getElementType()->isFloatingPointTy() || tmp_PtrType->getElementType()->isDoubleTy())
+                else if (tmp_PtrType->getElementType()->isIntegerTy() ||
+                         tmp_PtrType->getElementType()->isFloatingPointTy() ||
+                         tmp_PtrType->getElementType()->isDoubleTy())
                 {
                     TraceAccessForTarget(it, it);
                 }
@@ -82,10 +85,12 @@ void HI_NoDirectiveTimingResourceEvaluation::findMemoryDeclarationin(Function *F
     BRAM_log->flush();
 }
 
-// find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
+// find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr,
+// Store, Load instructions
 void HI_NoDirectiveTimingResourceEvaluation::TraceAccessForTarget(Value *cur_node, Value *ori_node)
 {
-    *BRAM_log << "\n\n\nTracing the access to Array " << ori_node->getName() << " and looking for the users of " << *cur_node << "\n";
+    *BRAM_log << "\n\n\nTracing the access to Array " << ori_node->getName()
+              << " and looking for the users of " << *cur_node << "\n";
     if (Instruction *tmpI = dyn_cast<Instruction>(cur_node))
     {
         *BRAM_log << "    --- is an instruction:\n";
@@ -122,7 +127,8 @@ void HI_NoDirectiveTimingResourceEvaluation::TraceAccessForTarget(Value *cur_nod
     // Trace the uses of the pointer value or integer generaed by PtrToInt
     for (auto it = cur_node->use_begin(), ie = cur_node->use_end(); it != ie; ++it)
     {
-        *BRAM_log << "    find user of " << ori_node->getName() << " --> " << *it->getUser() << "\n";
+        *BRAM_log << "    find user of " << ori_node->getName() << " --> " << *it->getUser()
+                  << "\n";
 
         // Load and Store Instructions are leaf nodes in the DFS
         if (LoadInst *LoadI = dyn_cast<LoadInst>(it->getUser()))
@@ -132,7 +138,8 @@ void HI_NoDirectiveTimingResourceEvaluation::TraceAccessForTarget(Value *cur_nod
                 *BRAM_log << "    is an LOAD instruction: " << *LoadI << "\n";
                 std::vector<Value *> tmp_vec;
                 tmp_vec.push_back(ori_node);
-                Access2TargetMap.insert(std::pair<Instruction *, std::vector<Value *>>(LoadI, tmp_vec));
+                Access2TargetMap.insert(
+                    std::pair<Instruction *, std::vector<Value *>>(LoadI, tmp_vec));
             }
             else
             {
@@ -146,7 +153,8 @@ void HI_NoDirectiveTimingResourceEvaluation::TraceAccessForTarget(Value *cur_nod
                 *BRAM_log << "    is an STORE instruction: " << *StoreI << "\n";
                 std::vector<Value *> tmp_vec;
                 tmp_vec.push_back(ori_node);
-                Access2TargetMap.insert(std::pair<Instruction *, std::vector<Value *>>(StoreI, tmp_vec));
+                Access2TargetMap.insert(
+                    std::pair<Instruction *, std::vector<Value *>>(StoreI, tmp_vec));
             }
             else
             {
@@ -159,7 +167,8 @@ void HI_NoDirectiveTimingResourceEvaluation::TraceAccessForTarget(Value *cur_nod
             *BRAM_log << "    is an CALL instruction: " << *CallI << "\n";
             for (int i = 0; i < CallI->getNumArgOperands(); ++i)
             {
-                if (CallI->getArgOperand(i) == cur_node) // find which argument is exactly the pointer we are tracing
+                if (CallI->getArgOperand(i) ==
+                    cur_node) // find which argument is exactly the pointer we are tracing
                 {
                     auto arg_it = CallI->getCalledFunction()->arg_begin();
                     auto arg_ie = CallI->getCalledFunction()->arg_end();
@@ -183,26 +192,38 @@ void HI_NoDirectiveTimingResourceEvaluation::TraceAccessForTarget(Value *cur_nod
     ValueVisited.erase(cur_node);
 }
 
-// schedule the access to potential target (since an instructon may use the address for different target (e.g. address comes from PHINode), we need to schedule all of them)
-HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::scheduleBRAMAccess(Instruction *access, BasicBlock *cur_block, HI_NoDirectiveTimingResourceEvaluation::timingBase cur_Timing)
+// schedule the access to potential target (since an instructon may use the address for different
+// target (e.g. address comes from PHINode), we need to schedule all of them)
+HI_NoDirectiveTimingResourceEvaluation::timingBase
+HI_NoDirectiveTimingResourceEvaluation::scheduleBRAMAccess(
+    Instruction *access, BasicBlock *cur_block,
+    HI_NoDirectiveTimingResourceEvaluation::timingBase cur_Timing)
 {
     if (Access2TargetMap.find(access) == Access2TargetMap.end())
-        llvm::errs() << "BramAccessTracer:171" << *access << " in Block: " << access->getParent()->getName() << " of Function: " << access->getParent()->getParent()->getName() << "\n";
+        llvm::errs() << "BramAccessTracer:171" << *access
+                     << " in Block: " << access->getParent()->getName()
+                     << " of Function: " << access->getParent()->getParent()->getName() << "\n";
 
-    assert(Access2TargetMap.find(access) != Access2TargetMap.end() && "The access should be recorded in the BRAM access info.\n");
+    assert(Access2TargetMap.find(access) != Access2TargetMap.end() &&
+           "The access should be recorded in the BRAM access info.\n");
     timingBase res(0, 0, 1, clock_period);
     for (auto target : Access2TargetMap[access])
     {
-        *BRAM_log << "\n\n\n sceduling access instruction: " << *access << " for the target [" << target->getName() << "]"
+        *BRAM_log << "\n\n\n sceduling access instruction: " << *access << " for the target ["
+                  << target->getName() << "]"
                   << " of Block:" << cur_block->getName() << "\n";
         timingBase targetTiming = handleBRAMAccessFor(access, target, cur_block, cur_Timing);
         if (access->getOpcode() == Instruction::Store)
         {
-            *BRAM_log << " sceduled access Store instruction: " << *access << " for the target [" << target->getName() << "] at cycle #" << targetTiming.latency << " of Block:" << cur_block->getName() << "\n";
+            *BRAM_log << " sceduled access Store instruction: " << *access << " for the target ["
+                      << target->getName() << "] at cycle #" << targetTiming.latency
+                      << " of Block:" << cur_block->getName() << "\n";
         }
         else
         {
-            *BRAM_log << " sceduled access Load instruction: " << *access << " for the target [" << target->getName() << "] at cycle #" << targetTiming.latency - 1 << " of Block:" << cur_block->getName() << "\n";
+            *BRAM_log << " sceduled access Load instruction: " << *access << " for the target ["
+                      << target->getName() << "] at cycle #" << targetTiming.latency - 1
+                      << " of Block:" << cur_block->getName() << "\n";
         }
 
         if (targetTiming > res)
@@ -213,9 +234,13 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
 }
 
 // schedule the access to specific target for the instruction
-HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceEvaluation::handleBRAMAccessFor(Instruction *access, Value *target, BasicBlock *cur_block, HI_NoDirectiveTimingResourceEvaluation::timingBase cur_Timing)
+HI_NoDirectiveTimingResourceEvaluation::timingBase
+HI_NoDirectiveTimingResourceEvaluation::handleBRAMAccessFor(
+    Instruction *access, Value *target, BasicBlock *cur_block,
+    HI_NoDirectiveTimingResourceEvaluation::timingBase cur_Timing)
 {
-    if (scheduledAccess_timing.find(std::pair<Instruction *, Value *>(access, target)) != scheduledAccess_timing.end())
+    if (scheduledAccess_timing.find(std::pair<Instruction *, Value *>(access, target)) !=
+        scheduledAccess_timing.end())
     {
         return scheduledAccess_timing[std::pair<Instruction *, Value *>(access, target)];
     }
@@ -229,10 +254,16 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
     // if the access can take place at cur_Timing, schedule and record it
     if (checkBRAMAvailabilty(access, target, LoadOrStore, cur_block, cur_Timing))
     {
-        *BRAM_log << "    the access instruction: " << *access << " for the target [" << target->getName() << "] can be scheduled in cycle #" << cur_Timing.latency << " of Block:" << cur_block->getName() << "\n";
-        *BRAM_log << "    cur_timing is " << cur_Timing << " opTiming is " << getInstructionLatency(access) << " ";
-        scheduledAccess_timing[std::pair<Instruction *, Value *>(access, target)] = cur_Timing + getInstructionLatency(access);
-        *BRAM_log << "resultTiming is " << scheduledAccess_timing[std::pair<Instruction *, Value *>(access, target)] << "\n";
+        *BRAM_log << "    the access instruction: " << *access << " for the target ["
+                  << target->getName() << "] can be scheduled in cycle #" << cur_Timing.latency
+                  << " of Block:" << cur_block->getName() << "\n";
+        *BRAM_log << "    cur_timing is " << cur_Timing << " opTiming is "
+                  << getInstructionLatency(access) << " ";
+        scheduledAccess_timing[std::pair<Instruction *, Value *>(access, target)] =
+            cur_Timing + getInstructionLatency(access);
+        *BRAM_log << "resultTiming is "
+                  << scheduledAccess_timing[std::pair<Instruction *, Value *>(access, target)]
+                  << "\n";
         insertBRAMAccessInfo(target, cur_block, cur_Timing.latency, access);
         return scheduledAccess_timing[std::pair<Instruction *, Value *>(access, target)];
     }
@@ -241,13 +272,18 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
         // otherwise, try later time slots and see whether the schedule can be successful.
         while (1)
         {
-            *BRAM_log << "    the access instruction: " << *access << " for the target [" << target->getName() << "] CANNOT be scheduled in cycle #" << cur_Timing.latency << " of Block:" << cur_block->getName() << "\n";
+            *BRAM_log << "    the access instruction: " << *access << " for the target ["
+                      << target->getName() << "] CANNOT be scheduled in cycle #"
+                      << cur_Timing.latency << " of Block:" << cur_block->getName() << "\n";
             cur_Timing.latency++;
             cur_Timing.timing = 0;
             if (checkBRAMAvailabilty(access, target, LoadOrStore, cur_block, cur_Timing))
             {
-                *BRAM_log << "    the access instruction: " << *access << " for the target [" << target->getName() << "] can be scheduled in cycle #" << cur_Timing.latency << " of Block:" << cur_block->getName() << "\n";
-                scheduledAccess_timing[std::pair<Instruction *, Value *>(access, target)] = cur_Timing + getInstructionLatency(access);
+                *BRAM_log << "    the access instruction: " << *access << " for the target ["
+                          << target->getName() << "] can be scheduled in cycle #"
+                          << cur_Timing.latency << " of Block:" << cur_block->getName() << "\n";
+                scheduledAccess_timing[std::pair<Instruction *, Value *>(access, target)] =
+                    cur_Timing + getInstructionLatency(access);
                 insertBRAMAccessInfo(target, cur_block, cur_Timing.latency, access);
                 return scheduledAccess_timing[std::pair<Instruction *, Value *>(access, target)];
             }
@@ -258,10 +294,14 @@ HI_NoDirectiveTimingResourceEvaluation::timingBase HI_NoDirectiveTimingResourceE
 }
 
 // check whether the access to target array can be scheduled in a specific cycle
-bool HI_NoDirectiveTimingResourceEvaluation::checkBRAMAvailabilty(Instruction *access, Value *target, std::string StoreOrLoad, BasicBlock *cur_block, HI_NoDirectiveTimingResourceEvaluation::timingBase cur_Timing)
+bool HI_NoDirectiveTimingResourceEvaluation::checkBRAMAvailabilty(
+    Instruction *access, Value *target, std::string StoreOrLoad, BasicBlock *cur_block,
+    HI_NoDirectiveTimingResourceEvaluation::timingBase cur_Timing)
 {
-    *BRAM_log << "       checking the access to the target [" << target->getName() << "] in cycle #" << cur_Timing.latency << " of Block:" << cur_block->getName() << "  --> ";
-    timingBase opTiming = getInstructionLatency(access); // get_inst_TimingInfo_result(StoreOrLoad.c_str(),-1,-1,clock_period_str);
+    *BRAM_log << "       checking the access to the target [" << target->getName() << "] in cycle #"
+              << cur_Timing.latency << " of Block:" << cur_block->getName() << "  --> ";
+    timingBase opTiming = getInstructionLatency(
+        access); // get_inst_TimingInfo_result(StoreOrLoad.c_str(),-1,-1,clock_period_str);
     timingBase res = cur_Timing + opTiming;
 
     if (StoreOrLoad == "load" && (res.latency - 1 != cur_Timing.latency))
@@ -281,7 +321,8 @@ bool HI_NoDirectiveTimingResourceEvaluation::checkBRAMAvailabilty(Instruction *a
         *BRAM_log << " No access scheduled in the block yet\n";
         return true;
     }
-    if (target2LastAccessCycleInBlock[target].find(cur_block) == target2LastAccessCycleInBlock[target].end())
+    if (target2LastAccessCycleInBlock[target].find(cur_block) ==
+        target2LastAccessCycleInBlock[target].end())
     {
         *BRAM_log << " No access for the target in the block yet\n";
         return true;
@@ -300,16 +341,21 @@ bool HI_NoDirectiveTimingResourceEvaluation::checkBRAMAvailabilty(Instruction *a
             cnt++;
     }
     *BRAM_log << cnt << " access(es) in this cycle\n";
-    // consider the number of BRAM port (currently it is a constant (2). Later, consider array partitioning)
+    // consider the number of BRAM port (currently it is a constant (2). Later, consider array
+    // partitioning)
     if (cnt < 2)
         return true;
     return false;
 }
 
 // record the schedule information
-void HI_NoDirectiveTimingResourceEvaluation::insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int cur_latency, Instruction *access)
+void HI_NoDirectiveTimingResourceEvaluation::insertBRAMAccessInfo(Value *target,
+                                                                  BasicBlock *cur_block,
+                                                                  int cur_latency,
+                                                                  Instruction *access)
 {
-    *BRAM_log << "       inserting the access to the target [" << target->getName() << "] in cycle #" << cur_latency << " of Block:" << cur_block->getName() << "  --> ";
+    *BRAM_log << "       inserting the access to the target [" << target->getName()
+              << "] in cycle #" << cur_latency << " of Block:" << cur_block->getName() << "  --> ";
     if (target2LastAccessCycleInBlock.find(target) == target2LastAccessCycleInBlock.end())
     {
         std::map<BasicBlock *, std::vector<std::pair<int, Instruction *>>> tmp_map;
@@ -320,7 +366,8 @@ void HI_NoDirectiveTimingResourceEvaluation::insertBRAMAccessInfo(Value *target,
         *BRAM_log << "(new map new vector)\n";
         return;
     }
-    if (target2LastAccessCycleInBlock[target].find(cur_block) == target2LastAccessCycleInBlock[target].end())
+    if (target2LastAccessCycleInBlock[target].find(cur_block) ==
+        target2LastAccessCycleInBlock[target].end())
     {
         std::vector<std::pair<int, Instruction *>> tmp_vec;
         tmp_vec.push_back(std::pair<int, Instruction *>(cur_latency, access));
@@ -329,11 +376,13 @@ void HI_NoDirectiveTimingResourceEvaluation::insertBRAMAccessInfo(Value *target,
         return;
     }
     *BRAM_log << "(existed vector)\n";
-    target2LastAccessCycleInBlock[target][cur_block].push_back(std::pair<int, Instruction *>(cur_latency, access));
+    target2LastAccessCycleInBlock[target][cur_block].push_back(
+        std::pair<int, Instruction *>(cur_latency, access));
 }
 
 // evaluate the number of LUT needed by the BRAM MUXs
-HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::BRAM_MUX_Evaluate()
+HI_NoDirectiveTimingResourceEvaluation::resourceBase
+HI_NoDirectiveTimingResourceEvaluation::BRAM_MUX_Evaluate()
 {
     resourceBase res(0, 0, 0, clock_period);
     int inputSize = 0;
@@ -415,15 +464,20 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
 }
 
 // get the number of BRAMs which are needed by the alloca instruction
-HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::get_BRAM_Num_For(AllocaInst *alloca_I)
+HI_NoDirectiveTimingResourceEvaluation::resourceBase
+HI_NoDirectiveTimingResourceEvaluation::get_BRAM_Num_For(AllocaInst *alloca_I)
 {
     resourceBase res(0, 0, 0, 0, clock_period);
-    *BRAM_log << "\n\nchecking allocation instruction [" << *alloca_I << "] and its type is: " << *alloca_I->getType() << " and its ElementType is: [" << *alloca_I->getType()->getElementType() << "]\n";
+    *BRAM_log << "\n\nchecking allocation instruction [" << *alloca_I
+              << "] and its type is: " << *alloca_I->getType() << " and its ElementType is: ["
+              << *alloca_I->getType()->getElementType() << "]\n";
     Type *tmp_type = alloca_I->getType()->getElementType();
     int total_ele = 1;
     while (auto array_T = dyn_cast<ArrayType>(tmp_type))
     {
-        *BRAM_log << "----- element type of : " << *tmp_type << " is " << *(array_T->getElementType()) << " and the number of its elements is " << (array_T->getNumElements()) << "\n";
+        *BRAM_log << "----- element type of : " << *tmp_type << " is "
+                  << *(array_T->getElementType()) << " and the number of its elements is "
+                  << (array_T->getNumElements()) << "\n";
         total_ele *= (array_T->getNumElements());
         tmp_type = array_T->getElementType();
     }
@@ -436,13 +490,17 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
         BW = 64;
     assert(BW != 0 && "we should get BW for the basic element type.\n");
     res = get_BRAM_Num_For(BW, total_ele);
-    *BRAM_log << "checked allocation instruction [" << *alloca_I << "] and its basic elemenet type is: [" << *tmp_type << "] with BW=[" << BW << "] and the total number of basic elements is: [" << total_ele << "] and it need BRAMs [" << res.BRAM << "].\n\n";
+    *BRAM_log << "checked allocation instruction [" << *alloca_I
+              << "] and its basic elemenet type is: [" << *tmp_type << "] with BW=[" << BW
+              << "] and the total number of basic elements is: [" << total_ele
+              << "] and it need BRAMs [" << res.BRAM << "].\n\n";
 
     return res;
 }
 
 // get the number of BRAMs which are needed by the alloca instruction
-HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourceEvaluation::get_BRAM_Num_For(int width, int depth)
+HI_NoDirectiveTimingResourceEvaluation::resourceBase
+HI_NoDirectiveTimingResourceEvaluation::get_BRAM_Num_For(int width, int depth)
 {
     resourceBase res(0, 0, 0, 0, clock_period);
     if (depth <= 0)
@@ -510,7 +568,8 @@ HI_NoDirectiveTimingResourceEvaluation::resourceBase HI_NoDirectiveTimingResourc
     return res;
 }
 
-AliasResult HI_NoDirectiveTimingResourceEvaluation::HI_AAResult::alias(const MemoryLocation &LocA, const MemoryLocation &LocB)
+AliasResult HI_NoDirectiveTimingResourceEvaluation::HI_AAResult::alias(const MemoryLocation &LocA,
+                                                                       const MemoryLocation &LocB)
 {
     auto PtrA = LocA.Ptr;
     auto PtrB = LocB.Ptr;
@@ -543,7 +602,9 @@ bool HI_NoDirectiveTimingResourceEvaluation::hasRAWHazard(Instruction *loadI, in
                 // therefore, this could be potential conflict, reject the access
                 if (Inst_Schedule[preI].second >= cycle)
                 {
-                    *BRAM_log << "\nload instruction: " << *loadI << " RAW hazard with store instruction: " << *preI << " at cycle#" << Inst_Schedule[preI].second << "\n";
+                    *BRAM_log << "\nload instruction: " << *loadI
+                              << " RAW hazard with store instruction: " << *preI << " at cycle#"
+                              << Inst_Schedule[preI].second << "\n";
                     return true;
                 }
             }
@@ -554,7 +615,8 @@ bool HI_NoDirectiveTimingResourceEvaluation::hasRAWHazard(Instruction *loadI, in
 
 Value *HI_NoDirectiveTimingResourceEvaluation::getTargetFromInst(Instruction *accessI)
 {
-    // assert(Access2TargetMap[accessI].size()==1 && "currently, we do not support 1-access-multi-target.");
+    // assert(Access2TargetMap[accessI].size()==1 && "currently, we do not support
+    // 1-access-multi-target.");
     if (Access2TargetMap[accessI].size() > 1)
     {
         Value *reftarget = Access2TargetMap[accessI][0];
@@ -573,7 +635,8 @@ Value *HI_NoDirectiveTimingResourceEvaluation::getTargetFromInst(Instruction *ac
                 for (auto target : Access2TargetMap[accessI])
                     llvm::errs() << "    " << *target << "\n";
             }
-            assert(tmp_target == tmp_reftarget && "currently, we do not support 1-access-multi-target.");
+            assert(tmp_target == tmp_reftarget &&
+                   "currently, we do not support 1-access-multi-target.");
         }
     }
     Value *target = Access2TargetMap[accessI][0];

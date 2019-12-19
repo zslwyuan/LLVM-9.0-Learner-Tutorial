@@ -207,7 +207,8 @@ using namespace llvm;
 class HI_AggressiveLSR_MUL : public FunctionPass
 {
   public:
-    HI_AggressiveLSR_MUL(const char *AggrLSRLog_Name, bool DEBUG = 0) : FunctionPass(ID), DEBUG(DEBUG)
+    HI_AggressiveLSR_MUL(const char *AggrLSRLog_Name, bool DEBUG = 0)
+        : FunctionPass(ID), DEBUG(DEBUG)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;
@@ -251,7 +252,8 @@ class HI_AggressiveLSR_MUL : public FunctionPass
     // find the array access in the function F and trace the accesses to them
     void findMemoryAccessin(Function *F);
 
-    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
+    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr,
+    // Store, Load instructions
     void TraceAccessForTarget(Value *cur_node);
 
     // check the memory access in the function

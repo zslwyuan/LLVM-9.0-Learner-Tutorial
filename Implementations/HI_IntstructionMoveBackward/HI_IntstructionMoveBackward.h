@@ -54,7 +54,8 @@ using namespace llvm;
 class HI_IntstructionMoveBackward : public FunctionPass
 {
   public:
-    HI_IntstructionMoveBackward(const char *BackwardLog_Name, bool DEBUG = 0) : FunctionPass(ID), DEBUG(DEBUG)
+    HI_IntstructionMoveBackward(const char *BackwardLog_Name, bool DEBUG = 0)
+        : FunctionPass(ID), DEBUG(DEBUG)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;

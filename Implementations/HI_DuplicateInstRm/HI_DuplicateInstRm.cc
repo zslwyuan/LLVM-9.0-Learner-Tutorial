@@ -16,7 +16,9 @@
 
 using namespace llvm;
 
-bool HI_DuplicateInstRm::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
+bool HI_DuplicateInstRm::runOnFunction(
+    Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which
+                 // will be executed for each Module.
 {
     print_status("Running HI_DuplicateInstRm pass.");
 
@@ -39,7 +41,9 @@ bool HI_DuplicateInstRm::runOnFunction(Function &F) // The runOnModule declarati
             duplicationInBlock = 0;
             for (Instruction &I : B)
             {
-                if (I.getOpcode() == Instruction::Load || I.getOpcode() == Instruction::Store || I.getOpcode() == Instruction::Call || I.getOpcode() == Instruction::Alloca || I.getOpcode() == Instruction::Br)
+                if (I.getOpcode() == Instruction::Load || I.getOpcode() == Instruction::Store ||
+                    I.getOpcode() == Instruction::Call || I.getOpcode() == Instruction::Alloca ||
+                    I.getOpcode() == Instruction::Br)
                     continue;
                 // if (checkI.find(&I) != checkI.end())
                 //     continue;
@@ -56,7 +60,8 @@ bool HI_DuplicateInstRm::runOnFunction(Function &F) // The runOnModule declarati
                     dupI->eraseFromParent();
                     duplicationInBlock = 1;
                     removed = 1;
-                    break; // remove the instruction and start the search again, until no duplication
+                    break; // remove the instruction and start the search again, until no
+                           // duplication
                 }
             }
         }
@@ -65,7 +70,9 @@ bool HI_DuplicateInstRm::runOnFunction(Function &F) // The runOnModule declarati
     return removed;
 }
 
-char HI_DuplicateInstRm::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_DuplicateInstRm::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 void HI_DuplicateInstRm::getAnalysisUsage(AnalysisUsage &AU) const
 {

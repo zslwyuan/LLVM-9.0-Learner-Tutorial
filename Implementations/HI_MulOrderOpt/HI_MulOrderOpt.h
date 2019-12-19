@@ -93,7 +93,10 @@ class HI_MulOrderOpt : public FunctionPass
 
     void recursiveGetMulOpAndCounter(Value *MulI);
 
-    Value *recursiveMul(std::priority_queue<std::pair<int, Value *>, std::vector<std::pair<int, Value *>>, cmp_mulorder> cur_heap, int tot_cnt, IRBuilder<> &Builder);
+    Value *recursiveMul(std::priority_queue<std::pair<int, Value *>,
+                                            std::vector<std::pair<int, Value *>>, cmp_mulorder>
+                            cur_heap,
+                        int tot_cnt, IRBuilder<> &Builder);
 
     int callCounter;
     int Instruction_Counter;
@@ -113,7 +116,8 @@ class HI_MulOrderOpt : public FunctionPass
         }
     };
 
-    std::priority_queue<std::pair<int, Value *>, std::vector<std::pair<int, Value *>>, cmp_mulorder> heap_opCnt;
+    std::priority_queue<std::pair<int, Value *>, std::vector<std::pair<int, Value *>>, cmp_mulorder>
+        heap_opCnt;
     std::map<MulOperator *, std::map<Value *, int>> op2Cnt;
     std::set<Value *> generatedI;
 

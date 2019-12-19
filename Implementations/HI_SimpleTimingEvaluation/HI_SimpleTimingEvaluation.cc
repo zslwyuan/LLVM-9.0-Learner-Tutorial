@@ -14,7 +14,9 @@
 #include <string>
 using namespace llvm;
 
-bool HI_SimpleTimingEvaluation::runOnModule(Module &M) // The runOnFunction declaration will overide the virtual one in ModulePass, which will be executed for each Function.
+bool HI_SimpleTimingEvaluation::runOnModule(
+    Module &M) // The runOnFunction declaration will overide the virtual one in ModulePass, which
+               // will be executed for each Function.
 {
     bool all_processed = 0;
     while (!all_processed)
@@ -71,14 +73,16 @@ bool HI_SimpleTimingEvaluation::runOnModule(Module &M) // The runOnFunction decl
             }
         }
 
-        mangled_name = "find function " + mangled_name + "and its demangled name is : " + demangled_name;
+        mangled_name =
+            "find function " + mangled_name + "and its demangled name is : " + demangled_name;
         print_info(mangled_name.c_str());
         if (demangled_name == top_function_name)
         {
             *Evaluating_log << "Top Function: " << F.getName() << " is found";
             topFunctionFound = 1;
             top_function_latency = getFunctionLatency(&F);
-            *Evaluating_log << "Done latency evaluation of top function: " << F.getName() << " and its latency is " << top_function_latency << "\n\n\n";
+            *Evaluating_log << "Done latency evaluation of top function: " << F.getName()
+                            << " and its latency is " << top_function_latency << "\n\n\n";
         }
     }
 
@@ -99,7 +103,9 @@ bool HI_SimpleTimingEvaluation::CheckDependencyFesilility(Function &F)
     return true;
 }
 
-char HI_SimpleTimingEvaluation::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_SimpleTimingEvaluation::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 // introduce the dependence of Pass
 void HI_SimpleTimingEvaluation::getAnalysisUsage(AnalysisUsage &AU) const

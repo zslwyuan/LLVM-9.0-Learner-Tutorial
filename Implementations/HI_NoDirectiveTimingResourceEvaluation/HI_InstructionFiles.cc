@@ -3,11 +3,16 @@
 
 // WARNING!!!!!!!
 // WARNING!!!!!!!
-// when you modify this file, remember that there is another file you need to modify for HI_WithDirectiveTimingResourceEvaluation
+// when you modify this file, remember that there is another file you need to modify for
+// HI_WithDirectiveTimingResourceEvaluation
 
 // WARNING!!!!!!!
 // WARNING!!!!!!!
-std::string instructionNames[100] = {"add", "ashr", "br", "dcmp", "dmul", "fcmp", "fmul", "fptoui", "getelementptr", "load", "mac", "or", "shl", "srem", "udiv", "urem", "and", "dadd", "ddiv", "fadd", "fdiv", "fptosi", "icmp", "lshr", "mul", "ret", "sdiv", "sitofp", "store", "uitofp", "xor", "sub", "fsub", "dsub", "tadd"};
+std::string instructionNames[100] = {
+    "add",    "ashr",  "br",     "dcmp",   "dmul", "fcmp", "fmul", "fptoui", "getelementptr",
+    "load",   "mac",   "or",     "shl",    "srem", "udiv", "urem", "and",    "dadd",
+    "ddiv",   "fadd",  "fdiv",   "fptosi", "icmp", "lshr", "mul",  "ret",    "sdiv",
+    "sitofp", "store", "uitofp", "xor",    "sub",  "fsub", "dsub", "tadd"};
 
 bool instructionHasMappingFile[100] = {
     1, // "add", // ID=1

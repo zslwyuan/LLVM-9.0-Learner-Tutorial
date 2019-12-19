@@ -92,15 +92,18 @@ class HI_LoadALAP : public FunctionPass
 
     bool tryReorderIntAdd(Instruction *AddI);
 
-    void recursiveGetAddOperand(Value *AddI, std::vector<Value *> &nonLoadInsts, std::vector<Value *> &LoadInsts);
+    void recursiveGetAddOperand(Value *AddI, std::vector<Value *> &nonLoadInsts,
+                                std::vector<Value *> &LoadInsts);
 
     bool tryReorderFloatAdd(Instruction *AddI);
 
-    void recursiveGetFAddOperand(Value *AddI, std::vector<Value *> &nonLoadInsts, std::vector<Value *> &LoadInsts);
+    void recursiveGetFAddOperand(Value *AddI, std::vector<Value *> &nonLoadInsts,
+                                 std::vector<Value *> &LoadInsts);
 
     bool tryReorderIntMul(Instruction *MulI);
 
-    void recursiveGetMulOperand(Value *MulI, std::vector<Value *> &nonLoadInsts, std::vector<Value *> &LoadInsts);
+    void recursiveGetMulOperand(Value *MulI, std::vector<Value *> &nonLoadInsts,
+                                std::vector<Value *> &LoadInsts);
 
     std::set<Value *> generatedI;
 

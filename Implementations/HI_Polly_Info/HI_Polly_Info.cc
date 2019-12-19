@@ -15,7 +15,9 @@
 
 using namespace llvm;
 
-bool HI_Polly_Info::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
+bool HI_Polly_Info::runOnFunction(
+    Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which
+                 // will be executed for each Module.
 {
 
     auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
@@ -25,7 +27,9 @@ bool HI_Polly_Info::runOnFunction(Function &F) // The runOnModule declaration wi
     return false;
 }
 
-char HI_Polly_Info::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_Polly_Info::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 void HI_Polly_Info::getAnalysisUsage(AnalysisUsage &AU) const
 {

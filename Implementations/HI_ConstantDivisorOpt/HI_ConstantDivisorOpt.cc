@@ -19,7 +19,9 @@ using namespace llvm;
 
 // implemented based on https://reviews.llvm.org/D26819
 
-bool HI_ConstantDivisorOpt::runOnFunction(llvm::Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
+bool HI_ConstantDivisorOpt::runOnFunction(
+    llvm::Function &F) // The runOnModule declaration will overide the virtual one in ModulePass,
+                       // which will be executed for each Module.
 {
     print_status("Running HI_ConstantDivisorOpt pass.");
     std::set<long long> power2;
@@ -57,7 +59,8 @@ bool HI_ConstantDivisorOpt::runOnFunction(llvm::Function &F) // The runOnModule 
             }
             else
             {
-                Quotient = generateUnsignedDivisionByConstant(DivI->getOperand(0), Divisor, Builder);
+                Quotient =
+                    generateUnsignedDivisionByConstant(DivI->getOperand(0), Divisor, Builder);
             }
 
             assert(Quotient && "failed to generate code for division by a constant");
@@ -72,7 +75,9 @@ bool HI_ConstantDivisorOpt::runOnFunction(llvm::Function &F) // The runOnModule 
     return changed;
 }
 
-char HI_ConstantDivisorOpt::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_ConstantDivisorOpt::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 void HI_ConstantDivisorOpt::getAnalysisUsage(AnalysisUsage &AU) const
 {
@@ -85,7 +90,9 @@ void HI_ConstantDivisorOpt::getAnalysisUsage(AnalysisUsage &AU) const
 /// Generate code for signed division by a constant. Implementation follows
 /// TargetLowering::BuildSDIV that replaces division with multiplication
 /// by a magic number.
-Value *HI_ConstantDivisorOpt::generateSignedDivisionByConstant(Value *Dividend, ConstantInt *Divisor, IRBuilder<> &Builder)
+Value *HI_ConstantDivisorOpt::generateSignedDivisionByConstant(Value *Dividend,
+                                                               ConstantInt *Divisor,
+                                                               IRBuilder<> &Builder)
 {
     unsigned BitWidth = Dividend->getType()->getIntegerBitWidth();
     ConstantInt *Shift;
@@ -129,7 +136,9 @@ Value *HI_ConstantDivisorOpt::generateSignedDivisionByConstant(Value *Dividend, 
 /// Generate code for unsigned division by a constant. Implementation follows
 /// TargetLowering::BuildUDIV that replaces division with multiplication
 /// by a magic number.
-Value *HI_ConstantDivisorOpt::generateUnsignedDivisionByConstant(Value *Dividend, ConstantInt *Divisor, IRBuilder<> &Builder)
+Value *HI_ConstantDivisorOpt::generateUnsignedDivisionByConstant(Value *Dividend,
+                                                                 ConstantInt *Divisor,
+                                                                 IRBuilder<> &Builder)
 {
     unsigned BitWidth = Dividend->getType()->getIntegerBitWidth();
 

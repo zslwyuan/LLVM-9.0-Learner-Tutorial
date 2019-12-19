@@ -131,8 +131,10 @@ void ReplaceAll(std::string &strSource, const std::string &strOld, const std::st
 void pathAdvice();
 
 // load the HLS database of timing and resource
-void DES_Load_Instruction_Info(const char *config_file_name, std::map<std::string, Info_type_list> &BiOp_Info_name2list_map);
+void DES_Load_Instruction_Info(const char *config_file_name,
+                               std::map<std::string, Info_type_list> &BiOp_Info_name2list_map);
 
-void clangPreProcess(const char **argv, std::string top_str, std::map<std::string, int> &FuncParamLine2OutermostSize);
+void clangPreProcess(const char **argv, std::string top_str,
+                     std::map<std::string, int> &FuncParamLine2OutermostSize);
 
 #endif

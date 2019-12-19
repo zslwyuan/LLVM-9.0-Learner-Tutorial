@@ -64,7 +64,9 @@ bool HI_LoopDependenceAnalysis::runOnLoop(Loop *L, LPPassManager &LPM)
     return false;
 }
 
-char HI_LoopDependenceAnalysis::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_LoopDependenceAnalysis::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 void HI_LoopDependenceAnalysis::getAnalysisUsage(AnalysisUsage &AU) const
 {

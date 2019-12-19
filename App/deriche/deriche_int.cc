@@ -5,9 +5,12 @@
    including the call and return. */
 /* Original code provided by Gael Deest */
 
-void kernel_deriche(int w, int h, int alpha, int imgIn[W][H], int imgOut[W][H], int y1[W][H], int y2[W][H], int xm1, int tm1, int ym1, int ym2, int xp1, int xp2, int tp1, int tp2, int yp1, int yp2,
+void kernel_deriche(int w, int h, int alpha, int imgIn[W][H], int imgOut[W][H], int y1[W][H],
+                    int y2[W][H], int xm1, int tm1, int ym1, int ym2, int xp1, int xp2, int tp1,
+                    int tp2, int yp1, int yp2,
 
-                    int k, int a1, int a2, int a3, int a4, int a5, int a6, int a7, int a8, int b1, int b2, int c1, int c2)
+                    int k, int a1, int a2, int a3, int a4, int a5, int a6, int a7, int a8, int b1,
+                    int b2, int c1, int c2)
 {
     int i, j;
 

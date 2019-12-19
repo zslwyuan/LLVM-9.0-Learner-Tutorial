@@ -91,7 +91,8 @@ class HI_ConstantOffsetExtractor
     /// \p GEP The given GEP
     /// \p UserChainTail Outputs the tail of UserChain so that we can
     ///                  garbage-collect unused instructions in UserChain.
-    static Value *Extract(Value *Idx, GetElementPtrInst *GEP, User *&UserChainTail, const DominatorTree *DT);
+    static Value *Extract(Value *Idx, GetElementPtrInst *GEP, User *&UserChainTail,
+                          const DominatorTree *DT);
 
     /// Looks for a constant offset from the given GEP index without extracting
     /// it. It returns the numeric value of the extracted constant offset (0 if
@@ -99,7 +100,8 @@ class HI_ConstantOffsetExtractor
     static int64_t Find(Value *Idx, GetElementPtrInst *GEP, const DominatorTree *DT);
 
   private:
-    HI_ConstantOffsetExtractor(Instruction *InsertionPt, const DominatorTree *DT) : IP(InsertionPt), DL(InsertionPt->getModule()->getDataLayout()), DT(DT)
+    HI_ConstantOffsetExtractor(Instruction *InsertionPt, const DominatorTree *DT)
+        : IP(InsertionPt), DL(InsertionPt->getModule()->getDataLayout()), DT(DT)
     {
     }
 
@@ -200,7 +202,8 @@ class HI_SeparateConstOffsetFromGEP : public FunctionPass
   public:
     static char ID;
 
-    HI_SeparateConstOffsetFromGEP(const char *Sep_Log_Name, bool LowerGEP = false, bool DEBUG = 0) : FunctionPass(ID), LowerGEP(LowerGEP), DEBUG(DEBUG)
+    HI_SeparateConstOffsetFromGEP(const char *Sep_Log_Name, bool LowerGEP = false, bool DEBUG = 0)
+        : FunctionPass(ID), LowerGEP(LowerGEP), DEBUG(DEBUG)
     {
         Sep_Log = new raw_fd_ostream(Sep_Log_Name, ErrInfo, sys::fs::F_None);
     }
@@ -303,7 +306,8 @@ class HI_SeparateConstOffsetFromGEP : public FunctionPass
     // Check if it is safe to swap operand of two GEP.
     bool isLegalToSwapOperand(GetElementPtrInst *First, GetElementPtrInst *Second, Loop *CurLoop);
 
-    // Get the length of a Type which is aligned by element. (Array [100 x i32] --> length = 100; i32 ---> length = 1)
+    // Get the length of a Type which is aligned by element. (Array [100 x i32] --> length = 100;
+    // i32 ---> length = 1)
     unsigned int getLength(Type *TY);
 
     const DataLayout *DL = nullptr;

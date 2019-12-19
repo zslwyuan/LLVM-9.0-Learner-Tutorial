@@ -35,10 +35,10 @@
 
 using namespace clang;
 
-// According the official template of Clang, this is a frontend factory with function createASTConsumer(), which
-// will generator a AST consumer. We can first create a rewriter and pass the reference of the
-// rewriter to the factory. Finally,  we can pass the rewriter reference to the inner visitor.
-// rewriter  -> factory -> frontend-action -> ASTconsumer -> Visitor
+// According the official template of Clang, this is a frontend factory with function
+// createASTConsumer(), which will generator a AST consumer. We can first create a rewriter and pass
+// the reference of the rewriter to the factory. Finally,  we can pass the rewriter reference to the
+// inner visitor. rewriter  -> factory -> frontend-action -> ASTconsumer -> Visitor
 
 //                         declare a rewriter
 //                               |  pass the reference to
@@ -55,7 +55,8 @@ using namespace clang;
 class HI_APIntSrcAnalysis_Visitor : public RecursiveASTVisitor<HI_APIntSrcAnalysis_Visitor>
 {
   public:
-    HI_APIntSrcAnalysis_Visitor(CompilerInstance &_CI, Rewriter &R, std::string _parselog_name) : CI(_CI), TheRewriter(R), parselog_name(_parselog_name)
+    HI_APIntSrcAnalysis_Visitor(CompilerInstance &_CI, Rewriter &R, std::string _parselog_name)
+        : CI(_CI), TheRewriter(R), parselog_name(_parselog_name)
     {
         parseLog = new llvm::raw_fd_ostream(_parselog_name.c_str(), ErrInfo, llvm::sys::fs::F_None);
     }
@@ -85,12 +86,17 @@ class HI_APIntSrcAnalysis_Visitor : public RecursiveASTVisitor<HI_APIntSrcAnalys
     // Visit the declaration of Variables and detect templates among them
     virtual bool VisitVarDecl(VarDecl *VD)
     {
-        *parseLog << "find VarDecl: VarName: [" << VD->getNameAsString() << "] DeclKind:[" << VD->getDeclKindName() << "] Type: [" << VD->getType().getAsString() << "] at Loc: [" << VD->getBeginLoc().printToString(CI.getSourceManager()) << "]\n";
+        *parseLog << "find VarDecl: VarName: [" << VD->getNameAsString() << "] DeclKind:["
+                  << VD->getDeclKindName() << "] Type: [" << VD->getType().getAsString()
+                  << "] at Loc: [" << VD->getBeginLoc().printToString(CI.getSourceManager())
+                  << "]\n";
         *parseLog << "    ---  detailed information of the type\n";
         printTypeInfo(VD->getType().getTypePtr());
         if (isAPInt(VD))
         {
-            TheRewriter.InsertText(VD->getBeginLoc(), "// " + VD->getNameAsString() + " is ap int type (" + getAPIntName(VD) + ").\n");
+            TheRewriter.InsertText(VD->getBeginLoc(), "// " + VD->getNameAsString() +
+                                                          " is ap int type (" + getAPIntName(VD) +
+                                                          ").\n");
         }
         parseLog->flush();
         return true;
@@ -156,7 +162,8 @@ class HI_APIntSrcAnalysis_Visitor : public RecursiveASTVisitor<HI_APIntSrcAnalys
 class HI_APIntSrcAnalysis_ASTConsumer : public ASTConsumer
 {
   public:
-    HI_APIntSrcAnalysis_ASTConsumer(CompilerInstance &_CI, Rewriter &R, std::string _parselog_name) : Visitor(_CI, R, _parselog_name), CI(_CI), parselog_name(_parselog_name)
+    HI_APIntSrcAnalysis_ASTConsumer(CompilerInstance &_CI, Rewriter &R, std::string _parselog_name)
+        : Visitor(_CI, R, _parselog_name), CI(_CI), parselog_name(_parselog_name)
     {
 
     } // Override the method that gets called for each parsed top-level // declaration.
@@ -185,14 +192,19 @@ class HI_APIntSrcAnalysis_ASTConsumer : public ASTConsumer
 class HI_APIntSrcAnalysis_FrontendAction : public ASTFrontendAction
 {
   public:
-    HI_APIntSrcAnalysis_FrontendAction(const char *_parselog_name, Rewriter &R, const char *_outputCode_name) : parselog_name(_parselog_name), TheRewriter(R), outputCode_name(_outputCode_name)
+    HI_APIntSrcAnalysis_FrontendAction(const char *_parselog_name, Rewriter &R,
+                                       const char *_outputCode_name)
+        : parselog_name(_parselog_name), TheRewriter(R), outputCode_name(_outputCode_name)
     {
     }
     void EndSourceFileAction() override
     {
         SourceManager &SM = TheRewriter.getSourceMgr();
-        llvm::errs() << "** EndSourceFileAction for: " << SM.getFileEntryForID(SM.getMainFileID())->getName() << "\n"; // Now emit the rewritten buffer.
-        outputCode = new llvm::raw_fd_ostream(outputCode_name.c_str(), ErrInfo, llvm::sys::fs::F_None);
+        llvm::errs() << "** EndSourceFileAction for: "
+                     << SM.getFileEntryForID(SM.getMainFileID())->getName()
+                     << "\n"; // Now emit the rewritten buffer.
+        outputCode =
+            new llvm::raw_fd_ostream(outputCode_name.c_str(), ErrInfo, llvm::sys::fs::F_None);
         TheRewriter.getEditBuffer(SM.getMainFileID()).write(*outputCode);
         outputCode->flush();
         delete outputCode;
@@ -213,12 +225,17 @@ class HI_APIntSrcAnalysis_FrontendAction : public ASTFrontendAction
 };
 
 // We need a factory to produce such a frontend action
-template <typename T> std::unique_ptr<tooling::FrontendActionFactory> HI_rewrite_newFrontendActionFactory(const char *_parseLog_name, Rewriter &R, const char *_outputCode_name)
+template <typename T>
+std::unique_ptr<tooling::FrontendActionFactory>
+HI_rewrite_newFrontendActionFactory(const char *_parseLog_name, Rewriter &R,
+                                    const char *_outputCode_name)
 {
     class SimpleFrontendActionFactory : public tooling::FrontendActionFactory
     {
       public:
-        SimpleFrontendActionFactory(const char *_parseLog_name, Rewriter &R, const char *_outputCode_name) : parseLog_name(_parseLog_name), TheRewriter(R), outputCode_name(_outputCode_name)
+        SimpleFrontendActionFactory(const char *_parseLog_name, Rewriter &R,
+                                    const char *_outputCode_name)
+            : parseLog_name(_parseLog_name), TheRewriter(R), outputCode_name(_outputCode_name)
         {
         }
         FrontendAction *create() override
@@ -230,7 +247,8 @@ template <typename T> std::unique_ptr<tooling::FrontendActionFactory> HI_rewrite
         Rewriter &TheRewriter;
     };
 
-    return std::unique_ptr<tooling::FrontendActionFactory>(new SimpleFrontendActionFactory(_parseLog_name, R, _outputCode_name));
+    return std::unique_ptr<tooling::FrontendActionFactory>(
+        new SimpleFrontendActionFactory(_parseLog_name, R, _outputCode_name));
 }
 
 #endif

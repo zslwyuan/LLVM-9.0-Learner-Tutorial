@@ -15,7 +15,9 @@
 
 using namespace llvm;
 
-bool HI_InstructionLatencyCollect::runOnFunction(Function &F) // The runOnFunction declaration will overide the virtual one in ModulePass, which will be executed for each Function.
+bool HI_InstructionLatencyCollect::runOnFunction(
+    Function &F) // The runOnFunction declaration will overide the virtual one in ModulePass, which
+                 // will be executed for each Function.
 {
     if (F.getName().find("llvm.") != std::string::npos)
     {
@@ -26,15 +28,19 @@ bool HI_InstructionLatencyCollect::runOnFunction(Function &F) // The runOnFuncti
     LAA = &getAnalysis<LoopAccessLegacyAnalysis>();
     if (F.getName() == top_function_name)
     {
-        *Evaluating_log << "Top Function: " << F.getName() << " is found and start to evaluate its latency.\n\n\n";
+        *Evaluating_log << "Top Function: " << F.getName()
+                        << " is found and start to evaluate its latency.\n\n\n";
         topFunctionFound = 1;
         // top_function_latency = getFunctionLatency(&F);
-        *Evaluating_log << "Done latency evaluation of top function: " << F.getName() << " and its latency is " << top_function_latency << "\n\n\n";
+        *Evaluating_log << "Done latency evaluation of top function: " << F.getName()
+                        << " and its latency is " << top_function_latency << "\n\n\n";
     }
     return false;
 }
 
-char HI_InstructionLatencyCollect::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_InstructionLatencyCollect::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 // introduce the dependence of Pass
 void HI_InstructionLatencyCollect::getAnalysisUsage(AnalysisUsage &AU) const

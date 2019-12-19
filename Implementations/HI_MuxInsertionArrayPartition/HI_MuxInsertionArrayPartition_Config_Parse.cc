@@ -198,7 +198,8 @@ void HI_MuxInsertionArrayPartition::parseArrayPartition(std::stringstream &iss)
         case hash_compile_time("dim"):
             consumeEqual(iss);
             iss >> tmp_val;
-            ans_pragma.dim = std::stoi(tmp_val) - 1; // count from dim="0" to match the storage format
+            ans_pragma.dim =
+                std::stoi(tmp_val) - 1; // count from dim="0" to match the storage format
             break;
 
         case hash_compile_time("factor"):
@@ -256,7 +257,8 @@ void HI_MuxInsertionArrayPartition::parseArrayPortNum(std::stringstream &iss)
         case hash_compile_time("port_num"):
             consumeEqual(iss);
             iss >> tmp_val;
-            ans_pragma.port_num = std::stoi(tmp_val); // count from dim="0" to match the storage format
+            ans_pragma.port_num =
+                std::stoi(tmp_val); // count from dim="0" to match the storage format
             break;
 
         default:
@@ -412,7 +414,8 @@ void HI_MuxInsertionArrayPartition::parseLoopUnroll(std::stringstream &iss)
 }
 
 // match the configuration and the corresponding declaration of memory (array)
-void HI_MuxInsertionArrayPartition::matchArrayAndConfiguration(Value *target, HI_ArrayInfo &resArrayInfo)
+void HI_MuxInsertionArrayPartition::matchArrayAndConfiguration(Value *target,
+                                                               HI_ArrayInfo &resArrayInfo)
 {
     // by default, we set the port number for BRAM to 1 (single port BRAM)
     resArrayInfo.port_num = 1;
@@ -480,52 +483,62 @@ Function *HI_MuxInsertionArrayPartition::getFunctionOfValue(Value *target)
     }
 }
 
-// int HI_MuxInsertionArrayPartition::get_N_DSP(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// int HI_MuxInsertionArrayPartition::get_N_DSP(std::string opcode, int operand_bitwid , int
+// res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].DSP;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].DSP;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].DSP; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }
 
-// int HI_MuxInsertionArrayPartition::get_N_FF(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// int HI_MuxInsertionArrayPartition::get_N_FF(std::string opcode, int operand_bitwid , int
+// res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].FF;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].FF;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].FF; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }
 
-// int HI_MuxInsertionArrayPartition::get_N_LUT(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// int HI_MuxInsertionArrayPartition::get_N_LUT(std::string opcode, int operand_bitwid , int
+// res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].LUT;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].LUT;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].LUT; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }
 
-// int HI_MuxInsertionArrayPartition::get_N_Lat(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// int HI_MuxInsertionArrayPartition::get_N_Lat(std::string opcode, int operand_bitwid , int
+// res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].Lat;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].Lat;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].Lat; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }
 
-// double HI_MuxInsertionArrayPartition::get_N_Delay(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// double HI_MuxInsertionArrayPartition::get_N_Delay(std::string opcode, int operand_bitwid , int
+// res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].delay;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].delay;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].delay; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }

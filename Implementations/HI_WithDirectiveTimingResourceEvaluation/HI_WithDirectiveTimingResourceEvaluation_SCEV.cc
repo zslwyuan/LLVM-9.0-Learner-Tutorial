@@ -129,7 +129,9 @@ const SCEV *HI_WithDirectiveTimingResourceEvaluation::findUnknown(const SCEV *or
     }
 }
 
-const SCEV *HI_WithDirectiveTimingResourceEvaluation::tryGetPureAddOrAddRecSCEV(const SCEV *ori_inputS, int depth)
+const SCEV *
+HI_WithDirectiveTimingResourceEvaluation::tryGetPureAddOrAddRecSCEV(const SCEV *ori_inputS,
+                                                                    int depth)
 {
     if (DEBUG)
         *ArrayLog << "      try to tryGetPureAddOrAddRecSCEV: " << *ori_inputS << "\n";
@@ -157,7 +159,8 @@ const SCEV *HI_WithDirectiveTimingResourceEvaluation::tryGetPureAddOrAddRecSCEV(
             // SmallVec_Ops.a
             // Ops.push_back(clear_opSCEV);
             if (DEBUG)
-                *ArrayLog << "           " << *inputS << " get bypassExtTruntSCEV op: " << *clear_opSCEV << "\n";
+                *ArrayLog << "           " << *inputS
+                          << " get bypassExtTruntSCEV op: " << *clear_opSCEV << "\n";
             if (DEBUG)
                 ArrayLog->flush();
             SmallVec_Ops.push_back(clear_opSCEV);
@@ -173,9 +176,11 @@ const SCEV *HI_WithDirectiveTimingResourceEvaluation::tryGetPureAddOrAddRecSCEV(
         if (start && step)
         {
             if (DEBUG)
-                *ArrayLog << "           " << *inputS << "get bypassExtTruntSCEV startop: " << *start << "\n";
+                *ArrayLog << "           " << *inputS
+                          << "get bypassExtTruntSCEV startop: " << *start << "\n";
             if (DEBUG)
-                *ArrayLog << "           " << *inputS << "get bypassExtTruntSCEV stepop: " << *step << "\n";
+                *ArrayLog << "           " << *inputS << "get bypassExtTruntSCEV stepop: " << *step
+                          << "\n";
             if (DEBUG)
                 ArrayLog->flush();
             return SE->getAddRecExpr(start, step, addrecSCEV->getLoop(), SCEV::FlagAnyWrap);

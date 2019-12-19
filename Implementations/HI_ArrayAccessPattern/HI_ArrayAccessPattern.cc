@@ -16,7 +16,9 @@
 
 using namespace llvm;
 
-bool HI_ArrayAccessPattern::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
+bool HI_ArrayAccessPattern::runOnFunction(
+    Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which
+                 // will be executed for each Module.
 {
     ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
@@ -36,7 +38,9 @@ bool HI_ArrayAccessPattern::runOnFunction(Function &F) // The runOnModule declar
     return false;
 }
 
-char HI_ArrayAccessPattern::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_ArrayAccessPattern::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 void HI_ArrayAccessPattern::getAnalysisUsage(AnalysisUsage &AU) const
 {
@@ -47,7 +51,8 @@ void HI_ArrayAccessPattern::getAnalysisUsage(AnalysisUsage &AU) const
 
 // check whether the instruction is Multiplication suitable for LSR
 // If suitable, process it
-bool HI_ArrayAccessPattern::ArrayAccessOffset(Instruction *I, ScalarEvolution *SE, bool isTopFunction)
+bool HI_ArrayAccessPattern::ArrayAccessOffset(Instruction *I, ScalarEvolution *SE,
+                                              bool isTopFunction)
 {
     /*
     1.  get the incremental value by using SCEV
@@ -71,8 +76,10 @@ bool HI_ArrayAccessPattern::ArrayAccessOffset(Instruction *I, ScalarEvolution *S
     {
         if (SARE->isAffine())
         {
-            *ArrayLog << *I << " --> is add rec Affine Add: " << *SARE << " it operand (0) " << *SARE->getOperand(0) << " it operand (1) " << *SARE->getOperand(1) << "\n";
-            *ArrayLog << " -----> intial offset expression: " << *findTheActualStartValue(SARE) << "\n";
+            *ArrayLog << *I << " --> is add rec Affine Add: " << *SARE << " it operand (0) "
+                      << *SARE->getOperand(0) << " it operand (1) " << *SARE->getOperand(1) << "\n";
+            *ArrayLog << " -----> intial offset expression: " << *findTheActualStartValue(SARE)
+                      << "\n";
             ArrayLog->flush();
             const SCEV *initial_expr_tmp = findTheActualStartValue(SARE);
             int initial_const = -1;
@@ -81,7 +88,8 @@ bool HI_ArrayAccessPattern::ArrayAccessOffset(Instruction *I, ScalarEvolution *S
             {
                 for (int i = 0; i < initial_expr_add->getNumOperands(); i++)
                 {
-                    if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(initial_expr_add->getOperand(i)))
+                    if (const SCEVConstant *start_V =
+                            dyn_cast<SCEVConstant>(initial_expr_add->getOperand(i)))
                     {
                         initial_const = start_V->getAPInt().getSExtValue();
                         *ArrayLog << " -----> intial offset const: " << initial_const << "\n";
@@ -89,18 +97,23 @@ bool HI_ArrayAccessPattern::ArrayAccessOffset(Instruction *I, ScalarEvolution *S
                     }
                     else
                     {
-                        if (const SCEVUnknown *array_value_scev = dyn_cast<SCEVUnknown>(initial_expr_add->getOperand(i)))
+                        if (const SCEVUnknown *array_value_scev =
+                                dyn_cast<SCEVUnknown>(initial_expr_add->getOperand(i)))
                         {
-                            *ArrayLog << " -----> access target: " << *array_value_scev->getValue() << "\n";
-                            if (auto tmp_PTI_I = dyn_cast<PtrToIntInst>(array_value_scev->getValue()))
+                            *ArrayLog << " -----> access target: " << *array_value_scev->getValue()
+                                      << "\n";
+                            if (auto tmp_PTI_I =
+                                    dyn_cast<PtrToIntInst>(array_value_scev->getValue()))
                             {
                                 target = tmp_PTI_I->getOperand(0);
                             }
                             else
                             {
-                                assert(target && "There should be an PtrToInt Instruction for the addition operation.\n");
+                                assert(target && "There should be an PtrToInt Instruction for the "
+                                                 "addition operation.\n");
                             }
-                            *ArrayLog << " -----> access target info: " << Target2ArrayInfo[target] << "\n";
+                            *ArrayLog << " -----> access target info: " << Target2ArrayInfo[target]
+                                      << "\n";
                             ArrayLog->flush();
                         }
                         else
@@ -112,7 +125,8 @@ bool HI_ArrayAccessPattern::ArrayAccessOffset(Instruction *I, ScalarEvolution *S
                 assert(initial_const >= 0 && "the initial offset should be found.\n");
                 assert(target && "the target array should be found.\n");
                 Inst2AccessInfo[I] = getAccessInfoFor(target, initial_const);
-                *ArrayLog << " -----> access info with array index: " << Inst2AccessInfo[I] << "\n\n\n";
+                *ArrayLog << " -----> access info with array index: " << Inst2AccessInfo[I]
+                          << "\n\n\n";
                 ArrayLog->flush();
             }
             else if (auto initial_expr_unknown = dyn_cast<SCEVUnknown>(initial_expr_tmp))
@@ -127,7 +141,8 @@ bool HI_ArrayAccessPattern::ArrayAccessOffset(Instruction *I, ScalarEvolution *S
                 }
                 else
                 {
-                    assert(target && "There should be an PtrToInt Instruction for the addition operation.\n");
+                    assert(target &&
+                           "There should be an PtrToInt Instruction for the addition operation.\n");
                 }
 
                 *ArrayLog << " -----> access target info: " << Target2ArrayInfo[target] << "\n";
@@ -136,7 +151,8 @@ bool HI_ArrayAccessPattern::ArrayAccessOffset(Instruction *I, ScalarEvolution *S
                 assert(initial_const >= 0 && "the initial offset should be found.\n");
                 assert(target && "the target array should be found.\n");
                 Inst2AccessInfo[I] = getAccessInfoFor(target, initial_const);
-                *ArrayLog << " -----> access info with array index: " << Inst2AccessInfo[I] << "\n\n\n";
+                *ArrayLog << " -----> access info with array index: " << Inst2AccessInfo[I]
+                          << "\n\n\n";
                 ArrayLog->flush();
             }
         }
@@ -144,7 +160,8 @@ bool HI_ArrayAccessPattern::ArrayAccessOffset(Instruction *I, ScalarEvolution *S
     return false;
 }
 
-HI_ArrayAccessPattern::HI_AccessInfo HI_ArrayAccessPattern::getAccessInfoFor(Value *target, int initial_offset)
+HI_ArrayAccessPattern::HI_AccessInfo HI_ArrayAccessPattern::getAccessInfoFor(Value *target,
+                                                                             int initial_offset)
 {
     HI_AccessInfo res(Target2ArrayInfo[target]);
     for (int i = 0; i < res.num_dims; i++)
@@ -203,7 +220,8 @@ void HI_ArrayAccessPattern::findMemoryAccessin(Function *F)
     ArrayLog->flush();
 }
 
-// find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
+// find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr,
+// Store, Load instructions
 void HI_ArrayAccessPattern::TraceAccessForTarget(Value *cur_node)
 {
     *ArrayLog << "looking for the operands of " << *cur_node << "\n";
@@ -238,14 +256,17 @@ HI_ArrayAccessPattern::ArrayInfo HI_ArrayAccessPattern::getArrayInfo(Value *targ
 {
 
     PointerType *ptr_type = dyn_cast<PointerType>(target->getType());
-    *ArrayLog << "\n\nchecking type : " << *ptr_type << " and its ElementType is: [" << *ptr_type->getElementType() << "]\n";
+    *ArrayLog << "\n\nchecking type : " << *ptr_type << " and its ElementType is: ["
+              << *ptr_type->getElementType() << "]\n";
     Type *tmp_type = ptr_type->getElementType();
     int total_ele = 1;
     int tmp_dim_size[10];
     int num_dims = 0;
     while (auto array_T = dyn_cast<ArrayType>(tmp_type))
     {
-        *ArrayLog << "----- element type of : " << *tmp_type << " is " << *(array_T->getElementType()) << " and the number of its elements is " << (array_T->getNumElements()) << "\n";
+        *ArrayLog << "----- element type of : " << *tmp_type << " is "
+                  << *(array_T->getElementType()) << " and the number of its elements is "
+                  << (array_T->getNumElements()) << "\n";
         total_ele *= (array_T->getNumElements());
         tmp_dim_size[num_dims] = (array_T->getNumElements());
         num_dims++;
@@ -262,12 +283,14 @@ HI_ArrayAccessPattern::ArrayInfo HI_ArrayAccessPattern::getArrayInfo(Value *targ
     res_array_info.sub_element_num[0] = 1;
     for (int i = 1; i < num_dims; i++)
     {
-        res_array_info.sub_element_num[i] = res_array_info.sub_element_num[i - 1] * res_array_info.dim_size[i - 1];
+        res_array_info.sub_element_num[i] =
+            res_array_info.sub_element_num[i - 1] * res_array_info.dim_size[i - 1];
     }
 
     if (auto arg_v = dyn_cast<Argument>(target))
     {
-        res_array_info.sub_element_num[num_dims] = res_array_info.sub_element_num[num_dims - 1] * res_array_info.dim_size[num_dims - 1];
+        res_array_info.sub_element_num[num_dims] =
+            res_array_info.sub_element_num[num_dims - 1] * res_array_info.dim_size[num_dims - 1];
         res_array_info.dim_size[num_dims] = 100000000; // set to nearly infinite
         res_array_info.num_dims++;
         res_array_info.isArgument = 1;
@@ -346,7 +369,8 @@ std::string HI_ArrayAccessPattern::demangleFunctionName(std::string mangled_name
     return demangled_name;
 }
 
-int HI_ArrayAccessPattern::getPartitionFor(HI_ArrayAccessPattern::HI_AccessInfo access, int partition_factor, int partition_dimension)
+int HI_ArrayAccessPattern::getPartitionFor(HI_ArrayAccessPattern::HI_AccessInfo access,
+                                           int partition_factor, int partition_dimension)
 {
     int res = -1;
     res = access.index[partition_dimension - 1] % partition_factor;

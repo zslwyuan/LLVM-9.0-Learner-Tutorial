@@ -54,7 +54,8 @@ using namespace llvm;
 class HI_HLSDuplicateInstRm : public FunctionPass
 {
   public:
-    HI_HLSDuplicateInstRm(const char *RemoveLog_Name, bool DEBUG = 0) : FunctionPass(ID), DEBUG(DEBUG)
+    HI_HLSDuplicateInstRm(const char *RemoveLog_Name, bool DEBUG = 0)
+        : FunctionPass(ID), DEBUG(DEBUG)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;

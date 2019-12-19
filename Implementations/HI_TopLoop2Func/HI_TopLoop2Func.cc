@@ -17,7 +17,9 @@
 
 using namespace llvm;
 
-bool HI_TopLoop2Func::runOnModule(Module &M) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
+bool HI_TopLoop2Func::runOnModule(
+    Module &M) // The runOnModule declaration will overide the virtual one in ModulePass, which will
+               // be executed for each Module.
 {
     print_status("Running HI_TopLoop2Func pass.");
     FuncNames.clear();
@@ -26,7 +28,8 @@ bool HI_TopLoop2Func::runOnModule(Module &M) // The runOnModule declaration will
         if (F.getName().find("llvm.") != std::string::npos)
             continue;
 
-        if (demangleFunctionName(F.getName()) != top_str || F.getName().find(".") != std::string::npos)
+        if (demangleFunctionName(F.getName()) != top_str ||
+            F.getName().find(".") != std::string::npos)
             FuncNames.push_back(F.getName());
 
         auto &LI = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
@@ -46,7 +49,9 @@ bool HI_TopLoop2Func::runOnModule(Module &M) // The runOnModule declaration will
     return false;
 }
 
-char HI_TopLoop2Func::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_TopLoop2Func::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 void HI_TopLoop2Func::getAnalysisUsage(AnalysisUsage &AU) const
 {

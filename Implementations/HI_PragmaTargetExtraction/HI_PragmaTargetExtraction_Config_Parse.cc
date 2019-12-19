@@ -74,7 +74,8 @@ void HI_PragmaTargetExtraction::generateArrayPartition(std::stringstream &iss)
         case hash_compile_time("dim"):
             consumeEqual(iss);
             iss >> tmp_val;
-            ans_pragma.dim = std::stoi(tmp_val) - 1; // count from dim="0" to match the storage format
+            ans_pragma.dim =
+                std::stoi(tmp_val) - 1; // count from dim="0" to match the storage format
             break;
 
         case hash_compile_time("factor"):
@@ -133,7 +134,8 @@ void HI_PragmaTargetExtraction::generateLoopPipeline(std::stringstream &iss)
 }
 
 // // match the configuration and the corresponding declaration of memory (array)
-// void HI_PragmaTargetExtraction::matchArrayAndConfiguration(Value* target, HI_ArrayInfo &resArrayInfo)
+// void HI_PragmaTargetExtraction::matchArrayAndConfiguration(Value* target, HI_ArrayInfo
+// &resArrayInfo)
 // {
 //     for (auto& pragma : PragmaInfo_List)
 //     {
@@ -147,8 +149,8 @@ void HI_PragmaTargetExtraction::generateLoopPipeline(std::stringstream &iss)
 //                 {
 //                     continue;
 //                 }
-//                 assert(arrayDirectives.find(target)==arrayDirectives.end() && "The target should be not in arrayDirectives list.\n") ;
-//                 pragma.targetArray = target;
+//                 assert(arrayDirectives.find(target)==arrayDirectives.end() && "The target should
+//                 be not in arrayDirectives list.\n") ; pragma.targetArray = target;
 //                 pragma.ScopeFunc = F;
 //                 arrayDirectives[target].push_back(pragma);
 //                 resArrayInfo.cyclic[pragma.dim] = pragma.cyclic;
@@ -176,52 +178,62 @@ Function *HI_PragmaTargetExtraction::getFunctionOfValue(Value *target)
     }
 }
 
-// int HI_PragmaTargetExtraction::get_N_DSP(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// int HI_PragmaTargetExtraction::get_N_DSP(std::string opcode, int operand_bitwid , int
+// res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].DSP;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].DSP;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].DSP; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }
 
-// int HI_PragmaTargetExtraction::get_N_FF(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// int HI_PragmaTargetExtraction::get_N_FF(std::string opcode, int operand_bitwid , int
+// res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].FF;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].FF;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].FF; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }
 
-// int HI_PragmaTargetExtraction::get_N_LUT(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// int HI_PragmaTargetExtraction::get_N_LUT(std::string opcode, int operand_bitwid , int
+// res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].LUT;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].LUT;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].LUT; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }
 
-// int HI_PragmaTargetExtraction::get_N_Lat(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// int HI_PragmaTargetExtraction::get_N_Lat(std::string opcode, int operand_bitwid , int
+// res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].Lat;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].Lat;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].Lat; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }
 
-// double HI_PragmaTargetExtraction::get_N_Delay(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// double HI_PragmaTargetExtraction::get_N_Delay(std::string opcode, int operand_bitwid , int
+// res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].delay;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].delay;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].delay; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }

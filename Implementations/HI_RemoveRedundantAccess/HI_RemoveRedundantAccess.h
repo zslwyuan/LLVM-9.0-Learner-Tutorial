@@ -209,14 +209,17 @@ using namespace llvm;
 class HI_RemoveRedundantAccess : public ModulePass
 {
   public:
-    HI_RemoveRedundantAccess(const char *RemoveRedundantLoad_Log_Name, std::string tp_name, bool DEBUG = false) : ModulePass(ID), DEBUG(DEBUG)
+    HI_RemoveRedundantAccess(const char *RemoveRedundantLoad_Log_Name, std::string tp_name,
+                             bool DEBUG = false)
+        : ModulePass(ID), DEBUG(DEBUG)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;
         BasicBlock_Counter = 0;
         Loop_Counter = 0;
         callCounter = 0;
-        RemoveRedundantAccess_Log = new raw_fd_ostream(RemoveRedundantLoad_Log_Name, ErrInfo, sys::fs::F_None);
+        RemoveRedundantAccess_Log =
+            new raw_fd_ostream(RemoveRedundantLoad_Log_Name, ErrInfo, sys::fs::F_None);
         tmp_stream = new raw_string_ostream(tmp_stream_str);
         top_function_name = tp_name;
     } // define a pass, which can be inherited from ModulePass, LoopPass, FunctionPass and etc.

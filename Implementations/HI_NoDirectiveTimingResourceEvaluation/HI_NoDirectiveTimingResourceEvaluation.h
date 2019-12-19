@@ -51,7 +51,6 @@
 #include <fstream>
 #include <ios>
 #include <iostream>
-#include <iostream>
 #include <set>
 #include <sstream>
 #include <stdio.h>
@@ -65,8 +64,12 @@ using namespace llvm;
 class HI_NoDirectiveTimingResourceEvaluation : public ModulePass
 {
   public:
-    // Pass for simple evluation of the latency of the top function, without considering HLS directives
-    HI_NoDirectiveTimingResourceEvaluation(const char *config_file_name, const char *evaluating_log_name, const char *BRAM_log_name, const char *top_function) : ModulePass(ID)
+    // Pass for simple evluation of the latency of the top function, without considering HLS
+    // directives
+    HI_NoDirectiveTimingResourceEvaluation(const char *config_file_name,
+                                           const char *evaluating_log_name,
+                                           const char *BRAM_log_name, const char *top_function)
+        : ModulePass(ID)
     {
         BlockEvaluated.clear();
         LoopEvaluated.clear();
@@ -145,21 +148,25 @@ class HI_NoDirectiveTimingResourceEvaluation : public ModulePass
 
     virtual bool runOnModule(Module &M);
 
-    //////////////////// Declaration related to timing and resource evaluation of Basic Block/Loop/Function ////////////////////
+    //////////////////// Declaration related to timing and resource evaluation of Basic
+    ///Block/Loop/Function ////////////////////
 
     // check whether the block is in some loops
     bool isInLoop(BasicBlock *BB);
 
-    // evaluatate the latency of a outer loop, which could be a nested one,  and return the timing information
+    // evaluatate the latency of a outer loop, which could be a nested one,  and return the timing
+    // information
     timingBase analyzeOuterLoop(Loop *outerL);
 
-    // get the most outer loop which contains the block, treat the loop as a node for the evaluation of latency
+    // get the most outer loop which contains the block, treat the loop as a node for the evaluation
+    // of latency
     Loop *getOuterLoopOfBlock(BasicBlock *B);
 
     // find the inner unevaluated loop for processing
     Loop *getInnerUnevaluatedLoop(Loop *outerL);
 
-    // evaluate a loop in which all the children loops have been evauluated and return the timing information
+    // evaluate a loop in which all the children loops have been evauluated and return the timing
+    // information
     timingBase analyzeLoop_InnerChecked(Loop *L);
 
     static char ID;
@@ -219,7 +226,8 @@ class HI_NoDirectiveTimingResourceEvaluation : public ModulePass
     // record the list of outer loops for functions
     std::map<Function *, std::vector<Loop *>> Function2OuterLoops;
 
-    // record which evaluated loop the block is belong to, so the pass can directly trace to the loop for the latency
+    // record which evaluated loop the block is belong to, so the pass can directly trace to the
+    // loop for the latency
     std::map<BasicBlock *, Loop *> Block2EvaluatedLoop;
 
     // record the critical path from the loop header to the end of the specific block
@@ -284,14 +292,21 @@ class HI_NoDirectiveTimingResourceEvaluation : public ModulePass
     // get the number of stage in the block
     int getStageNumOfBlock(BasicBlock *B);
 
-    // get the function critical path by traversing the blocks based on DFS and compute the resource cost
-    void analyzeFunction_traverseFromEntryToExiting(timingBase tmp_critical_path, Function *F, BasicBlock *curBlock, resourceBase &resourceAccumulator);
+    // get the function critical path by traversing the blocks based on DFS and compute the resource
+    // cost
+    void analyzeFunction_traverseFromEntryToExiting(timingBase tmp_critical_path, Function *F,
+                                                    BasicBlock *curBlock,
+                                                    resourceBase &resourceAccumulator);
 
-    // get the loop latency by traversing from the header to the exiting blocks and evluation resource
-    void LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(timingBase tmp_critical_path, Loop *L, BasicBlock *curBlock, resourceBase &resourceAccumulator);
+    // get the loop latency by traversing from the header to the exiting blocks and evluation
+    // resource
+    void LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(
+        timingBase tmp_critical_path, Loop *L, BasicBlock *curBlock,
+        resourceBase &resourceAccumulator);
 
     // mark the block in loop with latency by traversing from the header to the exiting blocks
-    void MarkBlock_traversFromHeaderToExitingBlocks(timingBase total_latency, Loop *L, BasicBlock *curBlock);
+    void MarkBlock_traversFromHeaderToExitingBlocks(timingBase total_latency, Loop *L,
+                                                    BasicBlock *curBlock);
 
     // evaluate the block latency and resource by traversing the instructions
     timingBase BlockLatencyResourceEvaluation(BasicBlock *B);
@@ -305,7 +320,8 @@ class HI_NoDirectiveTimingResourceEvaluation : public ModulePass
     // get the resource cost of a specific instruction
     resourceBase getInstructionResource(Instruction *I);
 
-    // update the latest user of the the specific user, based on which we can determine the lifetime of a register
+    // update the latest user of the the specific user, based on which we can determine the lifetime
+    // of a register
     void updateResultRelease(Instruction *I, Instruction *I_Pred, int time_point);
 
     // check whether all the sub-function are evaluated
@@ -332,7 +348,8 @@ class HI_NoDirectiveTimingResourceEvaluation : public ModulePass
 
     std::string HLS_lib_path = "";
 
-    //////////////////// Declaration related to timing and resource of instructions ////////////////////
+    //////////////////// Declaration related to timing and resource of instructions
+    ///////////////////////
 
     // A unit class to store the information of timing and resource for instruction
     class inst_timing_resource_info
@@ -386,7 +403,8 @@ class HI_NoDirectiveTimingResourceEvaluation : public ModulePass
 
         void print()
         {
-            llvm::errs() << " DSP=" << DSP << " FF=" << FF << " LUT=" << LUT << " Lat=" << Lat << " delay=" << delay << " II=" << II << "\n";
+            llvm::errs() << " DSP=" << DSP << " FF=" << FF << " LUT=" << LUT << " Lat=" << Lat
+                         << " delay=" << delay << " II=" << II << "\n";
         }
     };
 
@@ -515,7 +533,8 @@ class HI_NoDirectiveTimingResourceEvaluation : public ModulePass
     friend bool operator>(timingBase lhs, timingBase rhs)
     {
         assert(lhs.clock_period == rhs.clock_period);
-        return (((lhs.latency > rhs.latency)) || (lhs.latency == rhs.latency && lhs.timing > rhs.timing));
+        return (((lhs.latency > rhs.latency)) ||
+                (lhs.latency == rhs.latency && lhs.timing > rhs.timing));
     }
 
     friend timingBase operator*(timingBase lhs, int rhs)
@@ -628,33 +647,44 @@ class HI_NoDirectiveTimingResourceEvaluation : public ModulePass
 
     friend raw_ostream &operator<<(raw_ostream &stream, const resourceBase &rb)
     {
-        stream << " [DSP=" << rb.DSP << ", FF=" << rb.FF << ", LUT=" << rb.LUT << ", BRAM=" << rb.BRAM << "] ";
+        stream << " [DSP=" << rb.DSP << ", FF=" << rb.FF << ", LUT=" << rb.LUT
+               << ", BRAM=" << rb.BRAM << "] ";
         return stream;
     }
 
-    // For each type of instruction, there will be a list to store a series of information corresponding to different parameters
-    typedef std::map<int, std::map<int, std::map<std::string, inst_timing_resource_info>>> Info_type_list;
+    // For each type of instruction, there will be a list to store a series of information
+    // corresponding to different parameters
+    typedef std::map<int, std::map<int, std::map<std::string, inst_timing_resource_info>>>
+        Info_type_list;
 
     // A map from opcode to the information list of timing and resource
     std::map<std::string, Info_type_list> BiOp_Info_name2list_map;
 
-    // get the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period
-    inst_timing_resource_info get_inst_info(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period);
+    // get the information of a specific instruction, based on its opcode, operand_bitwidth,
+    // result_bitwidth and clock period
+    inst_timing_resource_info get_inst_info(std::string opcode, int operand_bitwid,
+                                            int res_bitwidth, std::string period);
 
-    // Organize the information into timingBase after getting the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
-    timingBase get_inst_TimingInfo_result(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period);
+    // Organize the information into timingBase after getting the information of a specific
+    // instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
+    timingBase get_inst_TimingInfo_result(std::string opcode, int operand_bitwid, int res_bitwidth,
+                                          std::string period);
 
-    // Organize the information into resourceBase after getting the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
-    resourceBase get_inst_ResourceInfo_result(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period);
+    // Organize the information into resourceBase after getting the information of a specific
+    // instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
+    resourceBase get_inst_ResourceInfo_result(std::string opcode, int operand_bitwid,
+                                              int res_bitwidth, std::string period);
 
     // int get_N_DSP(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
     // int get_N_FF(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
     // int get_N_LUT(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
     // int get_N_Lat(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
-    // double get_N_Delay(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period);
+    // double get_N_Delay(std::string opcode, int operand_bitwid , int res_bitwidth, std::string
+    // period);
 
     // evaluate the number of FF needed by the instruction
-    resourceBase FF_Evaluate(std::map<Instruction *, timingBase> &cur_InstructionCriticalPath, Instruction *cur_I);
+    resourceBase FF_Evaluate(std::map<Instruction *, timingBase> &cur_InstructionCriticalPath,
+                             Instruction *cur_I);
 
     // trace back to find the original operator, bypassing SExt and ZExt operations
     Instruction *byPassUnregisterOp(Instruction *cur_I);
@@ -664,16 +694,21 @@ class HI_NoDirectiveTimingResourceEvaluation : public ModulePass
     Value *byPassBitcastOp(Value *cur_I_val);
 
     // evaluate the number of LUT needed by the PHI instruction
-    resourceBase IndexVar_LUT(std::map<Instruction *, timingBase> &cur_InstructionCriticalPath, Instruction *I);
+    resourceBase IndexVar_LUT(std::map<Instruction *, timingBase> &cur_InstructionCriticalPath,
+                              Instruction *I);
 
     // check whether a specific information is in the database
-    bool checkInfoAvailability(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period);
+    bool checkInfoAvailability(std::string opcode, int operand_bitwid, int res_bitwidth,
+                               std::string period);
 
     // check whether we can infer the information by increasing the clock frequency
-    bool checkFreqProblem(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period);
+    bool checkFreqProblem(std::string opcode, int operand_bitwid, int res_bitwidth,
+                          std::string period);
 
-    // if the information is not found in database, we may infer the information by increasing the clock frequency
-    inst_timing_resource_info checkInfo_HigherFreq(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period);
+    // if the information is not found in database, we may infer the information by increasing the
+    // clock frequency
+    inst_timing_resource_info checkInfo_HigherFreq(std::string opcode, int operand_bitwid,
+                                                   int res_bitwidth, std::string period);
 
     // Trace back to get the bitwidth of an operand, bypassing truct/zext/sext
     int getOriginalBitwidth(Value *Val);
@@ -696,7 +731,8 @@ class HI_NoDirectiveTimingResourceEvaluation : public ModulePass
     std::map<Instruction *, std::vector<Value *>> Access2TargetMap;
 
     // record that in the basic block, which instruction access which array at which cycle
-    std::map<Value *, std::map<BasicBlock *, std::vector<std::pair<int, Instruction *>>>> target2LastAccessCycleInBlock;
+    std::map<Value *, std::map<BasicBlock *, std::vector<std::pair<int, Instruction *>>>>
+        target2LastAccessCycleInBlock;
 
     // record the access take place in which cycle
     std::map<std::pair<Instruction *, Value *>, timingBase> scheduledAccess_timing;
@@ -721,20 +757,26 @@ class HI_NoDirectiveTimingResourceEvaluation : public ModulePass
     // get the number of BRAMs which are needed by the array with specific parameters
     resourceBase get_BRAM_Num_For(int bitwidth, int depth);
 
-    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
+    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr,
+    // Store, Load instructions
     void TraceAccessForTarget(Value *cur_node, Value *ori_node);
 
     // check whether the access to target array can be scheduled in a specific cycle
-    bool checkBRAMAvailabilty(Instruction *access, Value *target, std::string StoreOrLoad, BasicBlock *cur_block, timingBase cur_Timing);
+    bool checkBRAMAvailabilty(Instruction *access, Value *target, std::string StoreOrLoad,
+                              BasicBlock *cur_block, timingBase cur_Timing);
 
-    // schedule the access to potential target (since an instructon may use the address for different target (e.g. address comes from PHINode), we need to schedule all of them)
-    timingBase scheduleBRAMAccess(Instruction *access, BasicBlock *cur_block, timingBase cur_Timing);
+    // schedule the access to potential target (since an instructon may use the address for
+    // different target (e.g. address comes from PHINode), we need to schedule all of them)
+    timingBase scheduleBRAMAccess(Instruction *access, BasicBlock *cur_block,
+                                  timingBase cur_Timing);
 
     // schedule the access to specific target for the instruction
-    timingBase handleBRAMAccessFor(Instruction *access, Value *target, BasicBlock *cur_block, timingBase cur_Timing);
+    timingBase handleBRAMAccessFor(Instruction *access, Value *target, BasicBlock *cur_block,
+                                   timingBase cur_Timing);
 
     // record the schedule information
-    void insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int cur_latency, Instruction *access);
+    void insertBRAMAccessInfo(Value *target, BasicBlock *cur_block, int cur_latency,
+                              Instruction *access);
 
     // evaluate the number of LUT needed by the BRAM Mux
     resourceBase BRAM_MUX_Evaluate();

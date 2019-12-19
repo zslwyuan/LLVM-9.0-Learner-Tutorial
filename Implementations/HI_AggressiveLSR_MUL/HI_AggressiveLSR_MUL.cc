@@ -16,7 +16,9 @@
 
 using namespace llvm;
 
-bool HI_AggressiveLSR_MUL::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
+bool HI_AggressiveLSR_MUL::runOnFunction(
+    Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which
+                 // will be executed for each Module.
 {
     print_status("Running HI_AggressiveLSR_MUL pass.");
     ScalarEvolution &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
@@ -47,7 +49,9 @@ bool HI_AggressiveLSR_MUL::runOnFunction(Function &F) // The runOnModule declara
     return changed;
 }
 
-char HI_AggressiveLSR_MUL::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_AggressiveLSR_MUL::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 void HI_AggressiveLSR_MUL::getAnalysisUsage(AnalysisUsage &AU) const
 {
@@ -86,7 +90,9 @@ bool HI_AggressiveLSR_MUL::LSR_Mul(Instruction *I, ScalarEvolution *SE)
         if (SARE->isAffine())
         {
             if (DEBUG)
-                *AggrLSRLog << *I << " --> is add rec Mul: " << *SARE << " it operand (0) " << *SARE->getOperand(0) << " it operand (1) " << *SARE->getOperand(1) << "\n";
+                *AggrLSRLog << *I << " --> is add rec Mul: " << *SARE << " it operand (0) "
+                            << *SARE->getOperand(0) << " it operand (1) " << *SARE->getOperand(1)
+                            << "\n";
             if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(SARE->getOperand(0)))
             {
                 if (const SCEVConstant *step_V = dyn_cast<SCEVConstant>(SARE->getOperand(1)))
@@ -96,7 +102,9 @@ bool HI_AggressiveLSR_MUL::LSR_Mul(Instruction *I, ScalarEvolution *SE)
                     APInt start_val_APInt = start_V->getAPInt();
                     APInt step_val_APInt = step_V->getAPInt();
                     if (DEBUG)
-                        *AggrLSRLog << *I << " --> is being replaced. start_val_APInt=" << start_val_APInt.getSExtValue() << " step_val_APInt =" << step_val_APInt.getSExtValue() << "\n";
+                        *AggrLSRLog << *I << " --> is being replaced. start_val_APInt="
+                                    << start_val_APInt.getSExtValue()
+                                    << " step_val_APInt =" << step_val_APInt.getSExtValue() << "\n";
                     AggrLSRLog->flush();
                     LSR_Process(I, start_val_APInt, step_val_APInt);
                     return true;
@@ -129,7 +137,9 @@ bool HI_AggressiveLSR_MUL::LSR_Add(Instruction *I, ScalarEvolution *SE)
         if (SARE->isAffine())
         {
             if (DEBUG)
-                *AggrLSRLog << *I << " --> is add rec Affine Add: " << *SARE << " it operand (0) " << *SARE->getOperand(0) << " it operand (1) " << *SARE->getOperand(1) << "\n";
+                *AggrLSRLog << *I << " --> is add rec Affine Add: " << *SARE << " it operand (0) "
+                            << *SARE->getOperand(0) << " it operand (1) " << *SARE->getOperand(1)
+                            << "\n";
             if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(SARE->getOperand(0)))
             {
                 if (const SCEVConstant *step_V = dyn_cast<SCEVConstant>(SARE->getOperand(1)))
@@ -146,7 +156,10 @@ bool HI_AggressiveLSR_MUL::LSR_Add(Instruction *I, ScalarEvolution *SE)
         if (SARE->isQuadratic())
         {
             if (DEBUG)
-                *AggrLSRLog << *I << " --> is add rec Quadratic Add: " << *SARE << " it operand (0) " << *SARE->getOperand(0) << " it operand (1) " << *SARE->getOperand(1) << " it operand (2) " << *SARE->getOperand(2) << "\n";
+                *AggrLSRLog << *I << " --> is add rec Quadratic Add: " << *SARE
+                            << " it operand (0) " << *SARE->getOperand(0) << " it operand (1) "
+                            << *SARE->getOperand(1) << " it operand (2) " << *SARE->getOperand(2)
+                            << "\n";
             if (const SCEVConstant *start_V = dyn_cast<SCEVConstant>(SARE->getOperand(0)))
             {
                 if (const SCEVConstant *step_V = dyn_cast<SCEVConstant>(SARE->getOperand(1)))
@@ -208,9 +221,11 @@ void HI_AggressiveLSR_MUL::LSR_Process(Instruction *Mul_I, APInt start_val, APIn
     }
 
     if (DEBUG)
-        *AggrLSRLog << "create the LSR PHINode: [" << *PHI_I_for_LSR_Mul << "] for Mul: [" << *Mul_I << "]\n";
+        *AggrLSRLog << "create the LSR PHINode: [" << *PHI_I_for_LSR_Mul << "] for Mul: [" << *Mul_I
+                    << "]\n";
     if (DEBUG)
-        *AggrLSRLog << "create the LSR Add: [" << *Add_I_for_LSR_Mul << "] for Mul: [" << *Mul_I << "]\n\n\n";
+        *AggrLSRLog << "create the LSR Add: [" << *Add_I_for_LSR_Mul << "] for Mul: [" << *Mul_I
+                    << "]\n\n\n";
 
     // 3.  replace multiplication with addition
     Mul_I->replaceAllUsesWith(Add_I_for_LSR_Mul);
@@ -253,7 +268,8 @@ void HI_AggressiveLSR_MUL::TraceMemoryAccessinFunction(Function &F)
 void HI_AggressiveLSR_MUL::findMemoryAccessin(Function *F)
 {
     if (DEBUG)
-        *AggrLSRLog << "checking the Memory Access information in Function: " << F->getName() << "\n";
+        *AggrLSRLog << "checking the Memory Access information in Function: " << F->getName()
+                    << "\n";
     ValueVisited.clear();
 
     // for general function in HLS, arrays in functions are usually declared with alloca instruction
@@ -264,7 +280,8 @@ void HI_AggressiveLSR_MUL::findMemoryAccessin(Function *F)
             if (IntToPtrInst *ITP_I = dyn_cast<IntToPtrInst>(&I))
             {
                 if (DEBUG)
-                    *AggrLSRLog << "find a IntToPtrInst: [" << *ITP_I << "] backtrace to its operands.\n";
+                    *AggrLSRLog << "find a IntToPtrInst: [" << *ITP_I
+                                << "] backtrace to its operands.\n";
                 TraceAccessForTarget(ITP_I);
             }
         }
@@ -275,7 +292,8 @@ void HI_AggressiveLSR_MUL::findMemoryAccessin(Function *F)
     AggrLSRLog->flush();
 }
 
-// find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
+// find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr,
+// Store, Load instructions
 void HI_AggressiveLSR_MUL::TraceAccessForTarget(Value *cur_node)
 {
     if (DEBUG)

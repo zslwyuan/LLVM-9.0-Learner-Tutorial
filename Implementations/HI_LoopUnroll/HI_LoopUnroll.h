@@ -110,7 +110,17 @@ class HI_LoopUnroll : public LoopPass
     std::map<std::string, std::string> &IRLoop2LoopLabel;
     std::map<std::string, int> &LoopLabel2UnrollFactor;
 
-    HI_LoopUnroll(std::map<std::string, std::string> &_IRLoop2LoopLabel, std::map<std::string, int> &_LoopLabel2UnrollFactor, int OptLevel = 2, bool OnlyWhenForced = false, Optional<unsigned> Threshold = None, Optional<unsigned> Count = None, Optional<bool> AllowPartial = None, Optional<bool> Runtime = None, Optional<bool> UpperBound = None, Optional<bool> AllowPeeling = None) : LoopPass(ID), OptLevel(OptLevel), OnlyWhenForced(OnlyWhenForced), ProvidedCount(std::move(Count)), ProvidedThreshold(Threshold), ProvidedAllowPartial(AllowPartial), ProvidedRuntime(Runtime), ProvidedUpperBound(UpperBound), ProvidedAllowPeeling(AllowPeeling), IRLoop2LoopLabel(_IRLoop2LoopLabel), LoopLabel2UnrollFactor(_LoopLabel2UnrollFactor)
+    HI_LoopUnroll(std::map<std::string, std::string> &_IRLoop2LoopLabel,
+                  std::map<std::string, int> &_LoopLabel2UnrollFactor, int OptLevel = 2,
+                  bool OnlyWhenForced = false, Optional<unsigned> Threshold = None,
+                  Optional<unsigned> Count = None, Optional<bool> AllowPartial = None,
+                  Optional<bool> Runtime = None, Optional<bool> UpperBound = None,
+                  Optional<bool> AllowPeeling = None)
+        : LoopPass(ID), OptLevel(OptLevel), OnlyWhenForced(OnlyWhenForced),
+          ProvidedCount(std::move(Count)), ProvidedThreshold(Threshold),
+          ProvidedAllowPartial(AllowPartial), ProvidedRuntime(Runtime),
+          ProvidedUpperBound(UpperBound), ProvidedAllowPeeling(AllowPeeling),
+          IRLoop2LoopLabel(_IRLoop2LoopLabel), LoopLabel2UnrollFactor(_LoopLabel2UnrollFactor)
     {
 
         LoopUnrollLog = new raw_fd_ostream("LoopUnrollLog", ErrInfo, sys::fs::F_None);
@@ -124,7 +134,13 @@ class HI_LoopUnroll : public LoopPass
 
     virtual bool runOnLoop(Loop *L, LPPassManager &LPM);
 
-    LoopUnrollResult tryToUnrollLoop(Loop *L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution &SE, const TargetTransformInfo &TTI, AssumptionCache &AC, OptimizationRemarkEmitter &ORE, bool PreserveLCSSA, int OptLevel, bool OnlyWhenForced, int ProvidedCount, Optional<unsigned> ProvidedThreshold, Optional<bool> ProvidedAllowPartial, Optional<bool> ProvidedRuntime, Optional<bool> ProvidedUpperBound, Optional<bool> ProvidedAllowPeeling);
+    LoopUnrollResult
+    tryToUnrollLoop(Loop *L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution &SE,
+                    const TargetTransformInfo &TTI, AssumptionCache &AC,
+                    OptimizationRemarkEmitter &ORE, bool PreserveLCSSA, int OptLevel,
+                    bool OnlyWhenForced, int ProvidedCount, Optional<unsigned> ProvidedThreshold,
+                    Optional<bool> ProvidedAllowPartial, Optional<bool> ProvidedRuntime,
+                    Optional<bool> ProvidedUpperBound, Optional<bool> ProvidedAllowPeeling);
 
     void getAnalysisUsage(AnalysisUsage &AU) const override
     {

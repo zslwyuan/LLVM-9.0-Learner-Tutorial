@@ -47,7 +47,8 @@ void HI_PragmaTargetExtraction::checkSubLoops(Loop *L)
             nextLoopName += sub_loop->getHeader()->getName();
             LoopIRName2NextLevelSubLoopIRNames[curLoopName].push_back(nextLoopName);
             if (DEBUG)
-                *loopTarget_log << "parentLoop: " << curLoopName << " ==> sonLoop: " << nextLoopName << "\n";
+                *loopTarget_log << "parentLoop: " << curLoopName << " ==> sonLoop: " << nextLoopName
+                                << "\n";
         }
     }
     for (auto sub_loop : *L)
@@ -83,10 +84,16 @@ void HI_PragmaTargetExtraction::checkArrayAccessInLoop(Loop *L)
             {
                 F = allocI->getParent()->getParent();
             }
-            LoopIRName2Array[curLoopName].push_back(std::pair<std::string, std::string>(L->getHeader()->getParent()->getName(), target->getName()));
-            TargetExtName2ArrayInfo[std::pair<std::string, std::string>(L->getHeader()->getParent()->getName(), target->getName())] = Target2ArrayInfo[target];
+            LoopIRName2Array[curLoopName].push_back(std::pair<std::string, std::string>(
+                L->getHeader()->getParent()->getName(), target->getName()));
+            TargetExtName2ArrayInfo[std::pair<std::string, std::string>(
+                L->getHeader()->getParent()->getName(), target->getName())] =
+                Target2ArrayInfo[target];
             if (DEBUG)
-                *arrayTarget_Log << "array/pointer : " << target->getName() << ", declared at function: " << demangleFunctionName(F->getName()) << ", is used by loop: " << curLoopName << " in function " << L->getHeader()->getParent()->getName() << "\n";
+                *arrayTarget_Log << "array/pointer : " << target->getName()
+                                 << ", declared at function: " << demangleFunctionName(F->getName())
+                                 << ", is used by loop: " << curLoopName << " in function "
+                                 << L->getHeader()->getParent()->getName() << "\n";
         }
     }
 }

@@ -189,7 +189,8 @@ using namespace llvm;
 class HI_VarWidthReduce : public FunctionPass
 {
   public:
-    HI_VarWidthReduce(const char *VarWidthChangeLog_Name, bool DEBUG = 0) : FunctionPass(ID), DEBUG(DEBUG)
+    HI_VarWidthReduce(const char *VarWidthChangeLog_Name, bool DEBUG = 0)
+        : FunctionPass(ID), DEBUG(DEBUG)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;
@@ -275,8 +276,8 @@ class HI_VarWidthReduce : public FunctionPass
     virtual bool runOnFunction(Function &M);
     static char ID;
     bool DEBUG;
-    // Determine the range for a particular SCEV, but bypass the operands generated from PtrToInt Instruction, considering the actual
-    // implementation in HLS
+    // Determine the range for a particular SCEV, but bypass the operands generated from PtrToInt
+    // Instruction, considering the actual implementation in HLS
     const ConstantRange HI_getSignedRangeRef(const SCEV *S);
 
     const ConstantRange HI_getUnsignedRangeRef(const SCEV *S);
@@ -297,25 +298,32 @@ class HI_VarWidthReduce : public FunctionPass
 
     void ReplaceUses_withNewOperand_oriBW(Instruction *from, Value *to);
 
-    // Analysis: check the value range of the instructions in the source code and determine the bitwidth
+    // Analysis: check the value range of the instructions in the source code and determine the
+    // bitwidth
     void Bitwidth_Analysis(Function *F);
 
-    // Forward Process: check the bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of the instruction
+    // Forward Process: check the bitwidth of operands and output of an instruction, trunc/ext the
+    // operands, update the bitwidth of the instruction
     bool InsturctionUpdate_WidthCast(Function *F);
 
-    // Forward Process of BinaryOperator: check the bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of the instruction
+    // Forward Process of BinaryOperator: check the bitwidth of operands and output of an
+    // instruction, trunc/ext the operands, update the bitwidth of the instruction
     void BOI_WidthCast(BinaryOperator *BOI);
 
-    // Forward Process of ICmpInst: check the bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of the instruction
+    // Forward Process of ICmpInst: check the bitwidth of operands and output of an instruction,
+    // trunc/ext the operands, update the bitwidth of the instruction
     void ICMP_WidthCast(ICmpInst *ICMP_I);
 
-    // Forward Process of PHI: check the bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of the instruction
+    // Forward Process of PHI: check the bitwidth of operands and output of an instruction,
+    // trunc/ext the operands, update the bitwidth of the instruction
     void PHI_WidthCast(PHINode *PHI_I);
 
-    // Check Redundancy: Some instructions could be truncated to be an operand, but itself is actually updated with the same bitwidth with the truncation.
+    // Check Redundancy: Some instructions could be truncated to be an operand, but itself is
+    // actually updated with the same bitwidth with the truncation.
     bool RedundantCastRemove(Function *F);
 
-    // Validation Check: Check whether there is any binary operation with operands in different types.
+    // Validation Check: Check whether there is any binary operation with operands in different
+    // types.
     void VarWidthReduce_Validation(Function *F);
 
     // copy the metadata from one to another

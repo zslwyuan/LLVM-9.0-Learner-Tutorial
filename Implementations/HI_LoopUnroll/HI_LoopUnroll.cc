@@ -14,10 +14,16 @@
 #include <stdlib.h>
 #include <string>
 
-LoopUnrollResult HI_LoopUnroll::tryToUnrollLoop(Loop *L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution &SE, const TargetTransformInfo &TTI, AssumptionCache &AC, OptimizationRemarkEmitter &ORE, bool PreserveLCSSA, int OptLevel, bool OnlyWhenForced, int ProvidedCount, Optional<unsigned> ProvidedThreshold, Optional<bool> ProvidedAllowPartial, Optional<bool> ProvidedRuntime, Optional<bool> ProvidedUpperBound, Optional<bool> ProvidedAllowPeeling)
+LoopUnrollResult HI_LoopUnroll::tryToUnrollLoop(
+    Loop *L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution &SE, const TargetTransformInfo &TTI,
+    AssumptionCache &AC, OptimizationRemarkEmitter &ORE, bool PreserveLCSSA, int OptLevel,
+    bool OnlyWhenForced, int ProvidedCount, Optional<unsigned> ProvidedThreshold,
+    Optional<bool> ProvidedAllowPartial, Optional<bool> ProvidedRuntime,
+    Optional<bool> ProvidedUpperBound, Optional<bool> ProvidedAllowPeeling)
 {
 
-    (*LoopUnrollLog << "Loop Unrolling: F[" << L->getHeader()->getParent()->getName() << "] Loop %" << L->getHeader()->getName() << " with factor=" << ProvidedCount << "\n");
+    (*LoopUnrollLog << "Loop Unrolling: F[" << L->getHeader()->getParent()->getName() << "] Loop %"
+                    << L->getHeader()->getName() << " with factor=" << ProvidedCount << "\n");
     TransformationMode TM = hasUnrollTransformation(L);
     LoopUnrollLog->flush();
 
@@ -37,7 +43,9 @@ LoopUnrollResult HI_LoopUnroll::tryToUnrollLoop(Loop *L, DominatorTree &DT, Loop
     unsigned NumInlineCandidates;
     bool NotDuplicatable;
     bool Convergent;
-    TargetTransformInfo::UnrollingPreferences UP = gatherUnrollingPreferences(L, SE, TTI, OptLevel, ProvidedThreshold, ProvidedCount, ProvidedAllowPartial, ProvidedRuntime, ProvidedUpperBound, ProvidedAllowPeeling);
+    TargetTransformInfo::UnrollingPreferences UP = gatherUnrollingPreferences(
+        L, SE, TTI, OptLevel, ProvidedThreshold, ProvidedCount, ProvidedAllowPartial,
+        ProvidedRuntime, ProvidedUpperBound, ProvidedAllowPeeling);
     // Exit early if unrolling is disabled.
     if (UP.Threshold == 0 && (!UP.Partial || UP.PartialThreshold == 0))
         return LoopUnrollResult::Unmodified;
@@ -144,13 +152,17 @@ LoopUnrollResult HI_LoopUnroll::tryToUnrollLoop(Loop *L, DominatorTree &DT, Loop
     //     UseUpperBound, MaxOrZero, TripMultiple, UP.PeelCount, UP.UnrollRemainder,
     //     LI, &SE, &DT, &AC, &ORE, PreserveLCSSA, &RemainderLoop);
 
-    Function *recordFunc = L->getHeader()->getParent(); // if loop in unrolled completely, the L will be missed.
+    Function *recordFunc =
+        L->getHeader()->getParent(); // if loop in unrolled completely, the L will be missed.
 
-    LoopUnrollResult UnrollResult = UnrollLoop(L, ProvidedCount, TripCount, true, false, true, false, false, 1, 0, true, LI, &SE, &DT, &AC, &ORE, PreserveLCSSA, &RemainderLoop);
+    LoopUnrollResult UnrollResult =
+        UnrollLoop(L, ProvidedCount, TripCount, true, false, true, false, false, 1, 0, true, LI,
+                   &SE, &DT, &AC, &ORE, PreserveLCSSA, &RemainderLoop);
 
     if (UnrollResult == LoopUnrollResult::Unmodified)
     {
-        (*LoopUnrollLog << "  Not unrolling loop with UnrollResult == LoopUnrollResult::Unmodified.\n");
+        (*LoopUnrollLog
+         << "  Not unrolling loop with UnrollResult == LoopUnrollResult::Unmodified.\n");
         return LoopUnrollResult::Unmodified;
     }
 
@@ -160,14 +172,16 @@ LoopUnrollResult HI_LoopUnroll::tryToUnrollLoop(Loop *L, DominatorTree &DT, Loop
     if (RemainderLoop)
     {
         *LoopUnrollLog << "\n\n Loop Unroll remainder \n\n" << *RemainderLoop << "\n";
-        Optional<MDNode *> RemainderLoopID = makeFollowupLoopID(OrigLoopID, {LLVMLoopUnrollFollowupAll, LLVMLoopUnrollFollowupRemainder});
+        Optional<MDNode *> RemainderLoopID = makeFollowupLoopID(
+            OrigLoopID, {LLVMLoopUnrollFollowupAll, LLVMLoopUnrollFollowupRemainder});
         if (RemainderLoopID.hasValue())
             RemainderLoop->setLoopID(RemainderLoopID.getValue());
     }
 
     if (UnrollResult != LoopUnrollResult::FullyUnrolled)
     {
-        Optional<MDNode *> NewLoopID = makeFollowupLoopID(OrigLoopID, {LLVMLoopUnrollFollowupAll, LLVMLoopUnrollFollowupUnrolled});
+        Optional<MDNode *> NewLoopID = makeFollowupLoopID(
+            OrigLoopID, {LLVMLoopUnrollFollowupAll, LLVMLoopUnrollFollowupUnrolled});
         if (NewLoopID.hasValue())
         {
             L->setLoopID(NewLoopID.getValue());
@@ -200,11 +214,15 @@ bool HI_LoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM)
     if (IRLoop2LoopLabel.find(tmp_loop_name) == IRLoop2LoopLabel.end())
     {
         llvm::errs() << "bypass loop without label tmp_loop_name=" << tmp_loop_name << "\n";
-        assert(false && "bypass loop without label tmp_loop_name. Each loop should has its own label. In the evaluation test, each loop will be set with label automatically while in other tests, the loops might need to be set with labels manually.");
+        assert(false &&
+               "bypass loop without label tmp_loop_name. Each loop should has its own label. In "
+               "the evaluation test, each loop will be set with label automatically while in other "
+               "tests, the loops might need to be set with labels manually.");
         return false;
     }
 
-    // assert(IRLoop2LoopLabel.find(tmp_loop_name) != IRLoop2LoopLabel.end() && "each loop in source code should be labeled!");
+    // assert(IRLoop2LoopLabel.find(tmp_loop_name) != IRLoop2LoopLabel.end() && "each loop in source
+    // code should be labeled!");
 
     std::string loop_label_name = IRLoop2LoopLabel[tmp_loop_name];
 
@@ -227,7 +245,10 @@ bool HI_LoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM)
     OptimizationRemarkEmitter ORE(&F);
     bool PreserveLCSSA = mustPreserveAnalysisID(LCSSAID);
 
-    LoopUnrollResult Result = tryToUnrollLoop(L, DT, LI, SE, TTI, AC, ORE, PreserveLCSSA, OptLevel, OnlyWhenForced, LoopLabel2UnrollFactor[loop_label_name], ProvidedThreshold, ProvidedAllowPartial, ProvidedRuntime, ProvidedUpperBound, ProvidedAllowPeeling);
+    LoopUnrollResult Result = tryToUnrollLoop(
+        L, DT, LI, SE, TTI, AC, ORE, PreserveLCSSA, OptLevel, OnlyWhenForced,
+        LoopLabel2UnrollFactor[loop_label_name], ProvidedThreshold, ProvidedAllowPartial,
+        ProvidedRuntime, ProvidedUpperBound, ProvidedAllowPeeling);
 
     if (Result == LoopUnrollResult::FullyUnrolled)
         LPM.markLoopAsDeleted(*L);
@@ -235,4 +256,6 @@ bool HI_LoopUnroll::runOnLoop(Loop *L, LPPassManager &LPM)
     return Result != LoopUnrollResult::Unmodified;
 }
 
-char HI_LoopUnroll::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_LoopUnroll::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.

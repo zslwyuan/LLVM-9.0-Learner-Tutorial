@@ -50,11 +50,15 @@ void HI_ArraySensitiveToLoopLevel::Parse_Config()
     assert(HLS_lib_path != "" && "The HLS Lib is necessary in the configuration file!\n");
 }
 
-// Organize the information into timingBase after getting the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
-HI_ArraySensitiveToLoopLevel::timingBase HI_ArraySensitiveToLoopLevel::get_inst_TimingInfo_result(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period)
+// Organize the information into timingBase after getting the information of a specific instruction,
+// based on its opcode, operand_bitwidth, result_bitwidth and clock period.
+HI_ArraySensitiveToLoopLevel::timingBase
+HI_ArraySensitiveToLoopLevel::get_inst_TimingInfo_result(std::string opcode, int operand_bitwid,
+                                                         int res_bitwidth, std::string period)
 {
     timingBase result(0, 0, 1, clock_period);
-    inst_timing_resource_info info = get_inst_info(opcode, operand_bitwid, res_bitwidth, clock_period_str);
+    inst_timing_resource_info info =
+        get_inst_info(opcode, operand_bitwid, res_bitwidth, clock_period_str);
     result.latency = info.Lat;
     result.timing = info.delay;
     result.II = info.II;
@@ -62,26 +66,36 @@ HI_ArraySensitiveToLoopLevel::timingBase HI_ArraySensitiveToLoopLevel::get_inst_
     return result;
 }
 
-// Organize the information into resourceBase after getting the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
-HI_ArraySensitiveToLoopLevel::resourceBase HI_ArraySensitiveToLoopLevel::get_inst_ResourceInfo_result(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period)
+// Organize the information into resourceBase after getting the information of a specific
+// instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
+HI_ArraySensitiveToLoopLevel::resourceBase
+HI_ArraySensitiveToLoopLevel::get_inst_ResourceInfo_result(std::string opcode, int operand_bitwid,
+                                                           int res_bitwidth, std::string period)
 {
     resourceBase result(0, 0, 0, clock_period);
-    inst_timing_resource_info info = get_inst_info(opcode, operand_bitwid, res_bitwidth, clock_period_str);
+    inst_timing_resource_info info =
+        get_inst_info(opcode, operand_bitwid, res_bitwidth, clock_period_str);
     result.DSP = info.DSP;
     result.FF = info.FF;
     result.LUT = info.LUT;
     return result;
 }
 
-// get the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period
-inst_timing_resource_info HI_ArraySensitiveToLoopLevel::get_inst_info(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period)
+// get the information of a specific instruction, based on its opcode, operand_bitwidth,
+// result_bitwidth and clock period
+inst_timing_resource_info HI_ArraySensitiveToLoopLevel::get_inst_info(std::string opcode,
+                                                                      int operand_bitwid,
+                                                                      int res_bitwidth,
+                                                                      std::string period)
 {
     if (checkInfoAvailability(opcode, operand_bitwid, res_bitwidth, period))
         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period];
     if (!checkFreqProblem(opcode, operand_bitwid, res_bitwidth, period) && (operand_bitwid % 2))
     {
-        inst_timing_resource_info info_A = get_inst_info(opcode, operand_bitwid + 1, res_bitwidth + 1, period);
-        inst_timing_resource_info info_B = get_inst_info(opcode, operand_bitwid - 1, res_bitwidth - 1, period);
+        inst_timing_resource_info info_A =
+            get_inst_info(opcode, operand_bitwid + 1, res_bitwidth + 1, period);
+        inst_timing_resource_info info_B =
+            get_inst_info(opcode, operand_bitwid - 1, res_bitwidth - 1, period);
         inst_timing_resource_info tmp_info;
 
         tmp_info.DSP = (info_A.DSP + info_B.DSP + 1) / 2;
@@ -95,31 +109,38 @@ inst_timing_resource_info HI_ArraySensitiveToLoopLevel::get_inst_info(std::strin
     }
     else
     {
-        BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid, res_bitwidth, period);
+        BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+            checkInfo_HigherFreq(opcode, operand_bitwid, res_bitwidth, period);
     }
 
     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period];
 
-    llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
+    llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth
+                 << " -- " << period << " \n";
     assert(false && "no such information in the database\n");
 }
 
 // check whether a specific information is in the database
-bool HI_ArraySensitiveToLoopLevel::checkInfoAvailability(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period)
+bool HI_ArraySensitiveToLoopLevel::checkInfoAvailability(std::string opcode, int operand_bitwid,
+                                                         int res_bitwidth, std::string period)
 {
     if (BiOp_Info_name2list_map.find(opcode) != BiOp_Info_name2list_map.end())
     {
-        if (BiOp_Info_name2list_map[opcode].find(operand_bitwid) != BiOp_Info_name2list_map[opcode].end())
+        if (BiOp_Info_name2list_map[opcode].find(operand_bitwid) !=
+            BiOp_Info_name2list_map[opcode].end())
         {
-            if (BiOp_Info_name2list_map[opcode][operand_bitwid].find(res_bitwidth) != BiOp_Info_name2list_map[opcode][operand_bitwid].end())
+            if (BiOp_Info_name2list_map[opcode][operand_bitwid].find(res_bitwidth) !=
+                BiOp_Info_name2list_map[opcode][operand_bitwid].end())
             {
-                if (BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth].find(period) != BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth].end())
+                if (BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth].find(period) !=
+                    BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth].end())
                 {
                     return true;
                 }
                 else
                 {
-                    // llvm::errs() << "not in BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth]\n";
+                    // llvm::errs() << "not in
+                    // BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth]\n";
                 }
             }
             else
@@ -141,13 +162,16 @@ bool HI_ArraySensitiveToLoopLevel::checkInfoAvailability(std::string opcode, int
 }
 
 // check whether we can infer the information by increasing the clock frequency
-bool HI_ArraySensitiveToLoopLevel::checkFreqProblem(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period)
+bool HI_ArraySensitiveToLoopLevel::checkFreqProblem(std::string opcode, int operand_bitwid,
+                                                    int res_bitwidth, std::string period)
 {
     if (BiOp_Info_name2list_map.find(opcode) != BiOp_Info_name2list_map.end())
     {
-        if (BiOp_Info_name2list_map[opcode].find(operand_bitwid) != BiOp_Info_name2list_map[opcode].end())
+        if (BiOp_Info_name2list_map[opcode].find(operand_bitwid) !=
+            BiOp_Info_name2list_map[opcode].end())
         {
-            if (BiOp_Info_name2list_map[opcode][operand_bitwid].find(res_bitwidth) != BiOp_Info_name2list_map[opcode][operand_bitwid].end())
+            if (BiOp_Info_name2list_map[opcode][operand_bitwid].find(res_bitwidth) !=
+                BiOp_Info_name2list_map[opcode][operand_bitwid].end())
             {
                 return true;
             }
@@ -169,8 +193,12 @@ bool HI_ArraySensitiveToLoopLevel::checkFreqProblem(std::string opcode, int oper
     return false;
 }
 
-// if the information is not found in database, we may infer the information by increasing the clock frequency
-inst_timing_resource_info HI_ArraySensitiveToLoopLevel::checkInfo_HigherFreq(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period)
+// if the information is not found in database, we may infer the information by increasing the clock
+// frequency
+inst_timing_resource_info HI_ArraySensitiveToLoopLevel::checkInfo_HigherFreq(std::string opcode,
+                                                                             int operand_bitwid,
+                                                                             int res_bitwidth,
+                                                                             std::string period)
 {
     int i;
 
@@ -180,14 +208,16 @@ inst_timing_resource_info HI_ArraySensitiveToLoopLevel::checkInfo_HigherFreq(std
         {
             if (checkInfoAvailability(opcode, operand_bitwid, res_bitwidth, clockStrs[i]))
             {
-                BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][clockStrs[i]];
+                BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+                    BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][clockStrs[i]];
                 return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][clockStrs[i]];
             }
             break;
         }
     i--;
     if (i < 0)
-        llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
+        llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- "
+                     << res_bitwidth << " -- " << period << " \n";
     assert(i >= 0 && "The clock should be found.\n");
 
     // iterate to find available information in database
@@ -196,7 +226,8 @@ inst_timing_resource_info HI_ArraySensitiveToLoopLevel::checkInfo_HigherFreq(std
         if (checkInfoAvailability(opcode, operand_bitwid, res_bitwidth, clockStrs[i]))
             return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][clockStrs[i]];
     }
-    llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
+    llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth
+                 << " -- " << period << " \n";
     assert(false && "no such information in the database\n");
 }
 
@@ -227,7 +258,8 @@ void HI_ArraySensitiveToLoopLevel::parseArrayPartition(std::stringstream &iss)
         case hash_compile_time("dim"):
             consumeEqual(iss);
             iss >> tmp_val;
-            ans_pragma.dim = std::stoi(tmp_val) - 1; // count from dim="0" to match the storage format
+            ans_pragma.dim =
+                std::stoi(tmp_val) - 1; // count from dim="0" to match the storage format
             break;
 
         case hash_compile_time("factor"):
@@ -324,7 +356,8 @@ void HI_ArraySensitiveToLoopLevel::parseLoopUnroll(std::stringstream &iss)
 }
 
 // match the configuration and the corresponding declaration of memory (array)
-void HI_ArraySensitiveToLoopLevel::matchArrayAndConfiguration(Value *target, HI_ArrayInfo &resArrayInfo)
+void HI_ArraySensitiveToLoopLevel::matchArrayAndConfiguration(Value *target,
+                                                              HI_ArrayInfo &resArrayInfo)
 {
     for (auto &pragma : PragmaInfo_List)
     {
@@ -339,7 +372,8 @@ void HI_ArraySensitiveToLoopLevel::matchArrayAndConfiguration(Value *target, HI_
                 {
                     continue;
                 }
-                // assert(arrayDirectives.find(target)==arrayDirectives.end() && "The target should be not in arrayDirectives list.\n") ;
+                // assert(arrayDirectives.find(target)==arrayDirectives.end() && "The target should
+                // be not in arrayDirectives list.\n") ;
                 pragma.targetArray = target;
                 pragma.ScopeFunc = F;
                 arrayDirectives[target].push_back(pragma);
@@ -368,52 +402,62 @@ Function *HI_ArraySensitiveToLoopLevel::getFunctionOfValue(Value *target)
     }
 }
 
-// int HI_ArraySensitiveToLoopLevel::get_N_DSP(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// int HI_ArraySensitiveToLoopLevel::get_N_DSP(std::string opcode, int operand_bitwid , int
+// res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].DSP;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].DSP;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].DSP; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }
 
-// int HI_ArraySensitiveToLoopLevel::get_N_FF(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// int HI_ArraySensitiveToLoopLevel::get_N_FF(std::string opcode, int operand_bitwid , int
+// res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].FF;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].FF;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].FF; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }
 
-// int HI_ArraySensitiveToLoopLevel::get_N_LUT(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// int HI_ArraySensitiveToLoopLevel::get_N_LUT(std::string opcode, int operand_bitwid , int
+// res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].LUT;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].LUT;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].LUT; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }
 
-// int HI_ArraySensitiveToLoopLevel::get_N_Lat(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// int HI_ArraySensitiveToLoopLevel::get_N_Lat(std::string opcode, int operand_bitwid , int
+// res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].Lat;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].Lat;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].Lat; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }
 
-// double HI_ArraySensitiveToLoopLevel::get_N_Delay(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// double HI_ArraySensitiveToLoopLevel::get_N_Delay(std::string opcode, int operand_bitwid , int
+// res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].delay;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].delay;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].delay; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }

@@ -5,7 +5,8 @@
 
 // WARNING!!!!!!!
 // WARNING!!!!!!!
-// when you modify this file, remember that there is another file you need to modify for HI_WithDirectiveTimingResourceEvaluation
+// when you modify this file, remember that there is another file you need to modify for
+// HI_WithDirectiveTimingResourceEvaluation
 
 // WARNING!!!!!!!
 // WARNING!!!!!!!

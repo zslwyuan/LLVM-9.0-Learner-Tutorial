@@ -207,7 +207,8 @@ using namespace llvm;
 class HI_ArrayAccessPattern : public FunctionPass
 {
   public:
-    HI_ArrayAccessPattern(const char *ArrayLog_Name, std::string _top_function_name) : FunctionPass(ID), top_function_name(_top_function_name)
+    HI_ArrayAccessPattern(const char *ArrayLog_Name, std::string _top_function_name)
+        : FunctionPass(ID), top_function_name(_top_function_name)
     {
         ArrayLog = new raw_fd_ostream(ArrayLog_Name, ErrInfo, sys::fs::F_None);
         tmp_stream = new raw_string_ostream(tmp_stream_str);
@@ -242,7 +243,8 @@ class HI_ArrayAccessPattern : public FunctionPass
     // find the array access in the function F and trace the accesses to them
     void findMemoryAccessin(Function *F);
 
-    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
+    // find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr,
+    // Store, Load instructions
     void TraceAccessForTarget(Value *cur_node);
 
     // check the memory access in the function
@@ -387,7 +389,8 @@ class HI_ArrayAccessPattern : public FunctionPass
 
     friend raw_ostream &operator<<(raw_ostream &stream, const ArrayInfo &tb)
     {
-        stream << "ArrayInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
+        stream << "ArrayInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType
+               << ", num_dims=" << tb.num_dims << ", ";
         for (int i = 0; i < tb.num_dims; i++)
         {
             stream << "dim-" << i << "-size=" << tb.dim_size[i] << ", ";
@@ -404,7 +407,8 @@ class HI_ArrayAccessPattern : public FunctionPass
 
     friend raw_ostream &operator<<(raw_ostream &stream, const HI_AccessInfo &tb)
     {
-        stream << "HI_AccessInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType << ", num_dims=" << tb.num_dims << ", ";
+        stream << "HI_AccessInfo for: <<" << *tb.target << ">> [ele_Type= " << *tb.elementType
+               << ", num_dims=" << tb.num_dims << ", ";
         for (int i = 0; i < tb.num_dims; i++)
         {
             stream << "dim-" << i << "-size=" << tb.dim_size[i] << ", ";

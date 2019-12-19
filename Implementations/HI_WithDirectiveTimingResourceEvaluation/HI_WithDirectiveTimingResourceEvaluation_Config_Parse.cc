@@ -63,7 +63,8 @@ void HI_WithDirectiveTimingResourceEvaluation::Parse_Config_fromFile()
     assert(HLS_lib_path != "" && "The HLS Lib is necessary in the configuration file!\n");
 }
 
-void HI_WithDirectiveTimingResourceEvaluation::Parse_Config_toInfo(HI_DesignConfigInfo &desginconfig)
+void HI_WithDirectiveTimingResourceEvaluation::Parse_Config_toInfo(
+    HI_DesignConfigInfo &desginconfig)
 {
     std::string tmp_s;
     std::string tmpStr_forParsing;
@@ -121,7 +122,8 @@ void HI_WithDirectiveTimingResourceEvaluation::Parse_Config_toInfo(HI_DesignConf
 }
 
 // parse the argument for array partitioning
-void HI_WithDirectiveTimingResourceEvaluation::parseArrayPartition(std::stringstream &iss, HI_DesignConfigInfo &desginconfig)
+void HI_WithDirectiveTimingResourceEvaluation::parseArrayPartition(
+    std::stringstream &iss, HI_DesignConfigInfo &desginconfig)
 {
     std::string targetStr, scopeStr;
     int dim, partition_factor;
@@ -190,7 +192,8 @@ void HI_WithDirectiveTimingResourceEvaluation::parseArrayPartition(std::stringst
 }
 
 // parse the argument for array port num setting
-void HI_WithDirectiveTimingResourceEvaluation::parseArrayPortNum(std::stringstream &iss, HI_DesignConfigInfo &desginconfig)
+void HI_WithDirectiveTimingResourceEvaluation::parseArrayPortNum(std::stringstream &iss,
+                                                                 HI_DesignConfigInfo &desginconfig)
 {
     std::string targetStr, scopeStr;
     int port_num;
@@ -230,7 +233,8 @@ void HI_WithDirectiveTimingResourceEvaluation::parseArrayPortNum(std::stringstre
 }
 
 // parse the argument for function dataflow setting
-void HI_WithDirectiveTimingResourceEvaluation::parseFuncDataflow(std::stringstream &iss, HI_DesignConfigInfo &desginconfig)
+void HI_WithDirectiveTimingResourceEvaluation::parseFuncDataflow(std::stringstream &iss,
+                                                                 HI_DesignConfigInfo &desginconfig)
 {
     std::string targetStr, scopeStr;
     int port_num;
@@ -268,7 +272,8 @@ void HI_WithDirectiveTimingResourceEvaluation::parseFuncDataflow(std::stringstre
 }
 
 // parse the argument for local array setting
-void HI_WithDirectiveTimingResourceEvaluation::parseLocalArray(std::stringstream &iss, HI_DesignConfigInfo &desginconfig)
+void HI_WithDirectiveTimingResourceEvaluation::parseLocalArray(std::stringstream &iss,
+                                                               HI_DesignConfigInfo &desginconfig)
 {
     std::string targetStr, scopeStr;
     bool enable = false;
@@ -311,7 +316,8 @@ void HI_WithDirectiveTimingResourceEvaluation::parseLocalArray(std::stringstream
 }
 
 // parse the argument for loop unrolling
-void HI_WithDirectiveTimingResourceEvaluation::parseLoopUnroll(std::stringstream &iss, HI_DesignConfigInfo &desginconfig)
+void HI_WithDirectiveTimingResourceEvaluation::parseLoopUnroll(std::stringstream &iss,
+                                                               HI_DesignConfigInfo &desginconfig)
 {
     int factor = -1;
     std::string loopLabel("");
@@ -344,7 +350,8 @@ void HI_WithDirectiveTimingResourceEvaluation::parseLoopUnroll(std::stringstream
 }
 
 // parse the argument for loop pipelining
-void HI_WithDirectiveTimingResourceEvaluation::parseLoopPipeline(std::stringstream &iss, HI_DesignConfigInfo &desginconfig)
+void HI_WithDirectiveTimingResourceEvaluation::parseLoopPipeline(std::stringstream &iss,
+                                                                 HI_DesignConfigInfo &desginconfig)
 {
     int factor = -1;
     std::string loopLabel("");
@@ -549,11 +556,17 @@ void HI_WithDirectiveTimingResourceEvaluation::Load_Instruction_Info()
     }
 }
 
-// Organize the information into timingBase after getting the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
-HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResourceEvaluation::get_inst_TimingInfo_result(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period)
+// Organize the information into timingBase after getting the information of a specific instruction,
+// based on its opcode, operand_bitwidth, result_bitwidth and clock period.
+HI_WithDirectiveTimingResourceEvaluation::timingBase
+HI_WithDirectiveTimingResourceEvaluation::get_inst_TimingInfo_result(std::string opcode,
+                                                                     int operand_bitwid,
+                                                                     int res_bitwidth,
+                                                                     std::string period)
 {
     timingBase result(0, 0, 1, clock_period);
-    inst_timing_resource_info info = get_inst_info(opcode, operand_bitwid, res_bitwidth, clock_period_str);
+    inst_timing_resource_info info =
+        get_inst_info(opcode, operand_bitwid, res_bitwidth, clock_period_str);
     result.latency = info.Lat;
     result.timing = info.delay;
     result.II = info.II;
@@ -561,32 +574,45 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
     return result;
 }
 
-// Organize the information into resourceBase after getting the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
-HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingResourceEvaluation::get_inst_ResourceInfo_result(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period)
+// Organize the information into resourceBase after getting the information of a specific
+// instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period.
+HI_WithDirectiveTimingResourceEvaluation::resourceBase
+HI_WithDirectiveTimingResourceEvaluation::get_inst_ResourceInfo_result(std::string opcode,
+                                                                       int operand_bitwid,
+                                                                       int res_bitwidth,
+                                                                       std::string period)
 {
     resourceBase result(0, 0, 0, clock_period);
-    inst_timing_resource_info info = get_inst_info(opcode, operand_bitwid, res_bitwidth, clock_period_str);
+    inst_timing_resource_info info =
+        get_inst_info(opcode, operand_bitwid, res_bitwidth, clock_period_str);
     result.DSP = info.DSP;
     result.FF = info.FF;
     result.LUT = info.LUT;
     return result;
 }
 
-// get the information of a specific instruction, based on its opcode, operand_bitwidth, result_bitwidth and clock period
-inst_timing_resource_info HI_WithDirectiveTimingResourceEvaluation::get_inst_info(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period)
+// get the information of a specific instruction, based on its opcode, operand_bitwidth,
+// result_bitwidth and clock period
+inst_timing_resource_info
+HI_WithDirectiveTimingResourceEvaluation::get_inst_info(std::string opcode, int operand_bitwid,
+                                                        int res_bitwidth, std::string period)
 {
     if (checkInfoAvailability(opcode, operand_bitwid, res_bitwidth, period))
         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period];
     if ((operand_bitwid % 2) && operand_bitwid > 0)
     {
-        inst_timing_resource_info info_A = get_inst_info(opcode, operand_bitwid + 1, res_bitwidth + 1, period);
-        inst_timing_resource_info info_B = get_inst_info(opcode, operand_bitwid - 1, res_bitwidth - 1, period);
+        inst_timing_resource_info info_A =
+            get_inst_info(opcode, operand_bitwid + 1, res_bitwidth + 1, period);
+        inst_timing_resource_info info_B =
+            get_inst_info(opcode, operand_bitwid - 1, res_bitwidth - 1, period);
     }
 
     if ((operand_bitwid % 2) && operand_bitwid > 0)
     {
-        inst_timing_resource_info info_A = get_inst_info(opcode, operand_bitwid + 1, res_bitwidth + 1, period);
-        inst_timing_resource_info info_B = get_inst_info(opcode, operand_bitwid - 1, res_bitwidth - 1, period);
+        inst_timing_resource_info info_A =
+            get_inst_info(opcode, operand_bitwid + 1, res_bitwidth + 1, period);
+        inst_timing_resource_info info_B =
+            get_inst_info(opcode, operand_bitwid - 1, res_bitwidth - 1, period);
         inst_timing_resource_info tmp_info;
 
         tmp_info.DSP = (info_A.DSP + info_B.DSP + 1) / 2;
@@ -600,36 +626,46 @@ inst_timing_resource_info HI_WithDirectiveTimingResourceEvaluation::get_inst_inf
     }
     else if (checkFreqProblem(opcode, operand_bitwid, res_bitwidth, period))
     {
-        BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid, res_bitwidth, period);
+        BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+            checkInfo_HigherFreq(opcode, operand_bitwid, res_bitwidth, period);
     }
     else
     {
-        llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
+        llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- "
+                     << res_bitwidth << " -- " << period << " \n";
         assert(false && "should not reach here.");
     }
 
     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period];
 
-    llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
+    llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth
+                 << " -- " << period << " \n";
     assert(false && "no such information in the database\n");
 }
 
 // check whether a specific information is in the database
-bool HI_WithDirectiveTimingResourceEvaluation::checkInfoAvailability(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period)
+bool HI_WithDirectiveTimingResourceEvaluation::checkInfoAvailability(std::string opcode,
+                                                                     int operand_bitwid,
+                                                                     int res_bitwidth,
+                                                                     std::string period)
 {
     if (BiOp_Info_name2list_map.find(opcode) != BiOp_Info_name2list_map.end())
     {
-        if (BiOp_Info_name2list_map[opcode].find(operand_bitwid) != BiOp_Info_name2list_map[opcode].end())
+        if (BiOp_Info_name2list_map[opcode].find(operand_bitwid) !=
+            BiOp_Info_name2list_map[opcode].end())
         {
-            if (BiOp_Info_name2list_map[opcode][operand_bitwid].find(res_bitwidth) != BiOp_Info_name2list_map[opcode][operand_bitwid].end())
+            if (BiOp_Info_name2list_map[opcode][operand_bitwid].find(res_bitwidth) !=
+                BiOp_Info_name2list_map[opcode][operand_bitwid].end())
             {
-                if (BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth].find(period) != BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth].end())
+                if (BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth].find(period) !=
+                    BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth].end())
                 {
                     return true;
                 }
                 else
                 {
-                    // llvm::errs() << "not in BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth]\n";
+                    // llvm::errs() << "not in
+                    // BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth]\n";
                 }
             }
             else
@@ -651,13 +687,18 @@ bool HI_WithDirectiveTimingResourceEvaluation::checkInfoAvailability(std::string
 }
 
 // check whether we can infer the information by increasing the clock frequency
-bool HI_WithDirectiveTimingResourceEvaluation::checkFreqProblem(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period)
+bool HI_WithDirectiveTimingResourceEvaluation::checkFreqProblem(std::string opcode,
+                                                                int operand_bitwid,
+                                                                int res_bitwidth,
+                                                                std::string period)
 {
     if (BiOp_Info_name2list_map.find(opcode) != BiOp_Info_name2list_map.end())
     {
-        if (BiOp_Info_name2list_map[opcode].find(operand_bitwid) != BiOp_Info_name2list_map[opcode].end())
+        if (BiOp_Info_name2list_map[opcode].find(operand_bitwid) !=
+            BiOp_Info_name2list_map[opcode].end())
         {
-            if (BiOp_Info_name2list_map[opcode][operand_bitwid].find(res_bitwidth) != BiOp_Info_name2list_map[opcode][operand_bitwid].end())
+            if (BiOp_Info_name2list_map[opcode][operand_bitwid].find(res_bitwidth) !=
+                BiOp_Info_name2list_map[opcode][operand_bitwid].end())
             {
                 return true;
             }
@@ -679,8 +720,10 @@ bool HI_WithDirectiveTimingResourceEvaluation::checkFreqProblem(std::string opco
     return false;
 }
 
-// if the information is not found in database, we may infer the information by increasing the clock frequency
-inst_timing_resource_info HI_WithDirectiveTimingResourceEvaluation::checkInfo_HigherFreq(std::string opcode, int operand_bitwid, int res_bitwidth, std::string period)
+// if the information is not found in database, we may infer the information by increasing the clock
+// frequency
+inst_timing_resource_info HI_WithDirectiveTimingResourceEvaluation::checkInfo_HigherFreq(
+    std::string opcode, int operand_bitwid, int res_bitwidth, std::string period)
 {
     int i;
 
@@ -690,14 +733,16 @@ inst_timing_resource_info HI_WithDirectiveTimingResourceEvaluation::checkInfo_Hi
         {
             if (checkInfoAvailability(opcode, operand_bitwid, res_bitwidth, clockStrs[i]))
             {
-                BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][clockStrs[i]];
+                BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+                    BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][clockStrs[i]];
                 return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][clockStrs[i]];
             }
             break;
         }
     i--;
     if (i < 0)
-        llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
+        llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- "
+                     << res_bitwidth << " -- " << period << " \n";
     assert(i >= 0 && "The clock should be found.\n");
 
     // iterate to find available information in database
@@ -706,7 +751,8 @@ inst_timing_resource_info HI_WithDirectiveTimingResourceEvaluation::checkInfo_Hi
         if (checkInfoAvailability(opcode, operand_bitwid, res_bitwidth, clockStrs[i]))
             return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][clockStrs[i]];
     }
-    llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
+    llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth
+                 << " -- " << period << " \n";
     assert(false && "no such information in the database\n");
 }
 
@@ -737,7 +783,8 @@ void HI_WithDirectiveTimingResourceEvaluation::parseArrayPartition(std::stringst
         case hash_compile_time("dim"):
             consumeEqual(iss);
             iss >> tmp_val;
-            ans_pragma.dim = std::stoi(tmp_val) - 1; // count from dim="0" to match the storage format
+            ans_pragma.dim =
+                std::stoi(tmp_val) - 1; // count from dim="0" to match the storage format
             break;
 
         case hash_compile_time("factor"):
@@ -795,7 +842,8 @@ void HI_WithDirectiveTimingResourceEvaluation::parseArrayPortNum(std::stringstre
         case hash_compile_time("port_num"):
             consumeEqual(iss);
             iss >> tmp_val;
-            ans_pragma.port_num = std::stoi(tmp_val); // count from dim="0" to match the storage format
+            ans_pragma.port_num =
+                std::stoi(tmp_val); // count from dim="0" to match the storage format
             break;
 
         default:
@@ -955,7 +1003,8 @@ void HI_WithDirectiveTimingResourceEvaluation::parseLoopUnroll(std::stringstream
 }
 
 // match the configuration and the corresponding declaration of memory (array)
-void HI_WithDirectiveTimingResourceEvaluation::matchArrayAndConfiguration(Value *target, HI_ArrayInfo &resArrayInfo)
+void HI_WithDirectiveTimingResourceEvaluation::matchArrayAndConfiguration(
+    Value *target, HI_ArrayInfo &resArrayInfo)
 {
     // by default, we set the port number for BRAM to 1 (single port BRAM)
     resArrayInfo.port_num = 1;
@@ -975,7 +1024,8 @@ void HI_WithDirectiveTimingResourceEvaluation::matchArrayAndConfiguration(Value 
                 pragma.targetArray = target;
                 pragma.ScopeFunc = F;
                 arrayDirectives[target].push_back(pragma);
-                FuncArray2PartitionBenefit[std::pair<std::string, std::string>(nameOfFunction, pragma.targetStr)] = false;
+                FuncArray2PartitionBenefit[std::pair<std::string, std::string>(
+                    nameOfFunction, pragma.targetStr)] = false;
                 resArrayInfo.cyclic[pragma.dim] = pragma.cyclic;
                 if (pragma.complete)
                 {
@@ -1029,23 +1079,33 @@ raw_ostream &operator<<(raw_ostream &stream, const HI_DesignConfigInfo &tb)
 
     for (auto unroll_pair : tb.loopUnrollConfigs)
     {
-        stream << "    Loop: [" << unroll_pair.first << "] Unrolled with factor=" << unroll_pair.second << "\n";
+        stream << "    Loop: [" << unroll_pair.first
+               << "] Unrolled with factor=" << unroll_pair.second << "\n";
     }
     for (auto pipeline_pair : tb.loopPipelineConfigs)
     {
-        stream << "    Loop: [" << pipeline_pair.first << "] Pipelined with II=" << pipeline_pair.second << "\n";
+        stream << "    Loop: [" << pipeline_pair.first
+               << "] Pipelined with II=" << pipeline_pair.second << "\n";
     }
     for (auto partition_seq : tb.cyclicPartitionConfigs)
     {
-        stream << "    Array: [" << partition_seq.second.first << "] in Function: [" << partition_seq.first << "] cyclic partition at dim=" << partition_seq.second.second.first << " factor=" << partition_seq.second.second.second << "\n";
+        stream << "    Array: [" << partition_seq.second.first << "] in Function: ["
+               << partition_seq.first
+               << "] cyclic partition at dim=" << partition_seq.second.second.first
+               << " factor=" << partition_seq.second.second.second << "\n";
     }
     for (auto partition_seq : tb.blockPartitionConfigs)
     {
-        stream << "    Array: [" << partition_seq.second.first << "] in Function: [" << partition_seq.first << "] block partition at dim=" << partition_seq.second.second.first << " factor=" << partition_seq.second.second.second << "\n";
+        stream << "    Array: [" << partition_seq.second.first << "] in Function: ["
+               << partition_seq.first
+               << "] block partition at dim=" << partition_seq.second.second.first
+               << " factor=" << partition_seq.second.second.second << "\n";
     }
     for (auto partition_seq : tb.completePartitionConfigs)
     {
-        stream << "    Array: [" << partition_seq.second.first << "] in Function: [" << partition_seq.first << "] complete partition at dim=" << partition_seq.second.second << "\n";
+        stream << "    Array: [" << partition_seq.second.first << "] in Function: ["
+               << partition_seq.first
+               << "] complete partition at dim=" << partition_seq.second.second << "\n";
     }
     stream << "\n\n";
 
@@ -1057,87 +1117,108 @@ raw_ostream &operator<<(raw_ostream &stream, const HI_DesignConfigInfo &tb)
 
     for (auto unroll_pair : tb.loopUnrollConfigs)
     {
-        stream << "loop_unroll label=" << unroll_pair.first << " factor=" << unroll_pair.second << "\n";
+        stream << "loop_unroll label=" << unroll_pair.first << " factor=" << unroll_pair.second
+               << "\n";
     }
     for (auto pipeline_pair : tb.loopPipelineConfigs)
     {
-        stream << "loop_pipeline label=" << pipeline_pair.first << " II=" << pipeline_pair.second << "\n";
+        stream << "loop_pipeline label=" << pipeline_pair.first << " II=" << pipeline_pair.second
+               << "\n";
     }
     for (auto partition_seq : tb.cyclicPartitionConfigs)
     {
-        stream << "array_partition variable=" << partition_seq.second.first << " scope=" << partition_seq.first << " dim=" << partition_seq.second.second.first << " factor=" << partition_seq.second.second.second << " cyclic\n";
+        stream << "array_partition variable=" << partition_seq.second.first
+               << " scope=" << partition_seq.first << " dim=" << partition_seq.second.second.first
+               << " factor=" << partition_seq.second.second.second << " cyclic\n";
     }
     for (auto partition_seq : tb.blockPartitionConfigs)
     {
-        stream << "array_partition variable=" << partition_seq.second.first << " scope=" << partition_seq.first << " dim=" << partition_seq.second.second.first << " factor=" << partition_seq.second.second.second << " block\n";
+        stream << "array_partition variable=" << partition_seq.second.first
+               << " scope=" << partition_seq.first << " dim=" << partition_seq.second.second.first
+               << " factor=" << partition_seq.second.second.second << " block\n";
     }
 
     stream << "\n\n";
 
     for (auto partition_seq : tb.cyclicPartitionConfigs)
     {
-        stream << "#pragma HLS array_partition  variable=" << partition_seq.second.first << " dim=" << partition_seq.second.second.first << " factor=" << partition_seq.second.second.second << " cyclic\n";
+        stream << "#pragma HLS array_partition  variable=" << partition_seq.second.first
+               << " dim=" << partition_seq.second.second.first
+               << " factor=" << partition_seq.second.second.second << " cyclic\n";
     }
 
     for (auto partition_seq : tb.blockPartitionConfigs)
     {
-        stream << "#pragma HLS array_partition  variable=" << partition_seq.second.first << " dim=" << partition_seq.second.second.first << " factor=" << partition_seq.second.second.second << " block\n";
+        stream << "#pragma HLS array_partition  variable=" << partition_seq.second.first
+               << " dim=" << partition_seq.second.second.first
+               << " factor=" << partition_seq.second.second.second << " block\n";
     }
 
     for (auto partition_seq : tb.completePartitionConfigs)
     {
-        stream << "#pragma HLS array_partition  variable=" << partition_seq.second.first << " dim=" << partition_seq.second.second << " complete\n";
+        stream << "#pragma HLS array_partition  variable=" << partition_seq.second.first
+               << " dim=" << partition_seq.second.second << " complete\n";
     }
 
     return stream;
 }
 
-// int HI_WithDirectiveTimingResourceEvaluation::get_N_DSP(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// int HI_WithDirectiveTimingResourceEvaluation::get_N_DSP(std::string opcode, int operand_bitwid ,
+// int res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].DSP;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].DSP;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].DSP; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }
 
-// int HI_WithDirectiveTimingResourceEvaluation::get_N_FF(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// int HI_WithDirectiveTimingResourceEvaluation::get_N_FF(std::string opcode, int operand_bitwid ,
+// int res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].FF;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].FF;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].FF; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }
 
-// int HI_WithDirectiveTimingResourceEvaluation::get_N_LUT(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// int HI_WithDirectiveTimingResourceEvaluation::get_N_LUT(std::string opcode, int operand_bitwid ,
+// int res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].LUT;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].LUT;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].LUT; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }
 
-// int HI_WithDirectiveTimingResourceEvaluation::get_N_Lat(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// int HI_WithDirectiveTimingResourceEvaluation::get_N_Lat(std::string opcode, int operand_bitwid ,
+// int res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].Lat;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].Lat;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].Lat; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }
 
-// double HI_WithDirectiveTimingResourceEvaluation::get_N_Delay(std::string opcode, int operand_bitwid , int res_bitwidth, std::string period)
+// double HI_WithDirectiveTimingResourceEvaluation::get_N_Delay(std::string opcode, int
+// operand_bitwid , int res_bitwidth, std::string period)
 // {
 //     if (checkInfoAvailability( opcode, operand_bitwid , res_bitwidth, period))
 //         return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].delay;
-//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] = checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period);
-//     return BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].delay;
-//     llvm::errs() << "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " << period << " \n";
-//     assert(false && "no such information in the database\n");
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period] =
+//     checkInfo_HigherFreq(opcode, operand_bitwid , res_bitwidth, period); return
+//     BiOp_Info_name2list_map[opcode][operand_bitwid][res_bitwidth][period].delay; llvm::errs() <<
+//     "inquirying : " << opcode << " -- " << operand_bitwid << " -- " << res_bitwidth << " -- " <<
+//     period << " \n"; assert(false && "no such information in the database\n");
 // }

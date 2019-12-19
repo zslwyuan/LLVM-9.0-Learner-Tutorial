@@ -1,5 +1,6 @@
 
-void convs(int input[32][32], int output[32][32], int filter2[3][3], int filter1[5][5], int filter0[5][5])
+void convs(int input[32][32], int output[32][32], int filter2[3][3], int filter1[5][5],
+           int filter0[5][5])
 {
     int mid0[32][32];
     for (int i = 2; i < 30; i++)

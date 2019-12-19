@@ -18,14 +18,14 @@ using namespace llvm;
     Evaluate the latency of the block
     (1) iterate the instructions in the block
     (2) for the timing evaluation:
-            a. check the CP to the instruction's predecessors and find the maximum one to update its CP
-            b. get the maximum CP among instructions and take it as the CP of block
-            c. for BRAM accesses, we need to consider the BRAM port num limitation to schedule the accessess
-    (3) for the resource evaluation:
-            a. check the reuse and operation chaining for LUT/DSP shared among instruction
-            b. for the operands in different cycles, we need to insert FFs for them
+            a. check the CP to the instruction's predecessors and find the maximum one to update its
+   CP b. get the maximum CP among instructions and take it as the CP of block c. for BRAM accesses,
+   we need to consider the BRAM port num limitation to schedule the accessess (3) for the resource
+   evaluation: a. check the reuse and operation chaining for LUT/DSP shared among instruction b. for
+   the operands in different cycles, we need to insert FFs for them
 */
-HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResourceEvaluation::BlockLatencyResourceEvaluation(BasicBlock *B)
+HI_WithDirectiveTimingResourceEvaluation::timingBase
+HI_WithDirectiveTimingResourceEvaluation::BlockLatencyResourceEvaluation(BasicBlock *B)
 {
     if (DEBUG)
         *Evaluating_log << "---- Evaluating Block Latency for Block: " << B->getName() << ":\n";
@@ -33,7 +33,8 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
     if (BlockLatency.find(B) != BlockLatency.end())
     {
         if (DEBUG)
-            *Evaluating_log << "---- Done evaluation of Block Latency for Block: " << B->getName() << " and the latency is " << BlockLatency[B] << "\n";
+            *Evaluating_log << "---- Done evaluation of Block Latency for Block: " << B->getName()
+                            << " and the latency is " << BlockLatency[B] << "\n";
         return BlockLatency[B] * 1; // if B is evaluated, return directly.
     }
 
@@ -57,8 +58,10 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
             bool Chained = 0;
             bool PartialChained = 0;
 
-            // (2) check the CP to the instruction's predecessors and find the maximum one to update its CP
-            //     but Store/Load operation should be scheduled specially due to the limited number of BRAM ports
+            // (2) check the CP to the instruction's predecessors and find the maximum one to update
+            // its CP
+            //     but Store/Load operation should be scheduled specially due to the limited number
+            //     of BRAM ports
 
             timingBase latest_timing(0, 0, 1, clock_period);
 
@@ -66,17 +69,23 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
             resourceBase partialChainedResource;
 
             // for general instructions, we find the latest-finished operand of them
-            for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp) // update the critical path to I by checking its predecessors' critical path
+            for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end();
+                 I_tmp != I_Pred_end; ++I_tmp) // update the critical path to I by checking its
+                                               // predecessors' critical path
             {
                 if (auto I_Pred = dyn_cast<Instruction>(I_tmp))
                 {
                     // (1) ensure that the predecessor is in the block and before I
-                    // (2) considering that some predecessors may be located behind the instruction itself (not in cur_InstructionCriticalPath yet) in some loop structures
-                    if (BlockContain(B, I_Pred) && cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
+                    // (2) considering that some predecessors may be located behind the instruction
+                    // itself (not in cur_InstructionCriticalPath yet) in some loop structures
+                    if (BlockContain(B, I_Pred) && cur_InstructionCriticalPath.find(I_Pred) !=
+                                                       cur_InstructionCriticalPath.end())
                     {
-                        if (I->getOpcode() == Instruction::Add || I->getOpcode() == Instruction::Sub)
+                        if (I->getOpcode() == Instruction::Add ||
+                            I->getOpcode() == Instruction::Sub)
                         {
-                            if (I_Pred->getOpcode() == Instruction::Add || I_Pred->getOpcode() == Instruction::Sub)
+                            if (I_Pred->getOpcode() == Instruction::Add ||
+                                I_Pred->getOpcode() == Instruction::Sub)
                             {
                                 if (I_Pred->getType()->getIntegerBitWidth() == 32)
                                 {
@@ -85,28 +94,37 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
                             }
                         }
 
-                        // check whether the instruction can be chained with the operand instructions to use DSPs
+                        // check whether the instruction can be chained with the operand
+                        // instructions to use DSPs
                         if (canCompleteChainOrNot(I_Pred, I))
                         {
                             // TODO: maybe we need to rethink the machanism carefully
-                            // *Evaluating_log << "        --------- Evaluated Instruction critical path for Instruction: <<" << *I << " which can be chained.\n";
-                            if (cur_InstructionCriticalPath[I_Pred] > cur_InstructionCriticalPath[I]) // addition chained with multiplication
+                            // *Evaluating_log << "        --------- Evaluated Instruction critical
+                            // path for Instruction: <<" << *I << " which can be chained.\n";
+                            if (cur_InstructionCriticalPath[I_Pred] >
+                                cur_InstructionCriticalPath[I]) // addition chained with
+                                                                // multiplication
                             {
-                                cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred];
+                                cur_InstructionCriticalPath[I] =
+                                    cur_InstructionCriticalPath[I_Pred];
                                 latest_timing = cur_InstructionCriticalPath[I_Pred];
                                 Inst2LatestOperand[I] = I_Pred;
                             }
                             if (DEBUG)
-                                *Evaluating_log << "  " << *I << " is completely chained with " << *I_Pred << "\n";
+                                *Evaluating_log << "  " << *I << " is completely chained with "
+                                                << *I_Pred << "\n";
                             Chained = 1;
                             chained_I.insert(I);
                         }
                         else
                         {
-                            // *Evaluating_log << "        --------- Evaluated Instruction critical path for Instruction: <<" << *I << " which cannot be chained.\n";
-                            if (cur_InstructionCriticalPath[I_Pred] + tmp_I_latency >= cur_InstructionCriticalPath[I]) // update the critical path
+                            // *Evaluating_log << "        --------- Evaluated Instruction critical
+                            // path for Instruction: <<" << *I << " which cannot be chained.\n";
+                            if (cur_InstructionCriticalPath[I_Pred] + tmp_I_latency >=
+                                cur_InstructionCriticalPath[I]) // update the critical path
                             {
-                                cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] + tmp_I_latency;
+                                cur_InstructionCriticalPath[I] =
+                                    cur_InstructionCriticalPath[I_Pred] + tmp_I_latency;
                                 latest_timing = cur_InstructionCriticalPath[I_Pred];
                                 Inst2LatestOperand[I] = I_Pred;
                             }
@@ -119,40 +137,51 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
             {
                 auto I_Pred = Inst2LatestOperand[I];
                 // currerntly some adders might be partially chained togather
-                if (canPartitalChainOrNot(I_Pred, I)) //  && (cur_InstructionCriticalPath[I_Pred] + tmp_I_latency).latency == cur_InstructionCriticalPath[I].latency
+                if (canPartitalChainOrNot(
+                        I_Pred,
+                        I)) //  && (cur_InstructionCriticalPath[I_Pred] + tmp_I_latency).latency ==
+                            //  cur_InstructionCriticalPath[I].latency
                 {
-                    cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] + getPartialTimingOverhead(I_Pred, I);
+                    cur_InstructionCriticalPath[I] =
+                        cur_InstructionCriticalPath[I_Pred] + getPartialTimingOverhead(I_Pred, I);
                     latest_timing = cur_InstructionCriticalPath[I_Pred];
                     partialChainedResource = getPartialResourceOverhead(Inst2LatestOperand[I], I);
                     PartialChained = 1;
                     if (DEBUG)
-                        *Evaluating_log << "  " << *I << " is partially chained with " << *I_Pred << "\n";
+                        *Evaluating_log << "  " << *I << " is partially chained with " << *I_Pred
+                                        << "\n";
                     chained_I.insert(I);
                     chained_I.insert(I_Pred);
                 }
             }
 
-            // for the access to pointer or callInst with pointer arguments, check previous access to the target
-            // because we don't know whether there is any access in function, when there is pointer interface
-            // therefore, we insert the following dependence:
-            // the IR in the following patterns, there will be dependence between Load/Store and Call instructions:
+            // for the access to pointer or callInst with pointer arguments, check previous access
+            // to the target because we don't know whether there is any access in function, when
+            // there is pointer interface therefore, we insert the following dependence: the IR in
+            // the following patterns, there will be dependence between Load/Store and Call
+            // instructions:
 
             // pattern 1:
             //      store XXX -> *ptr_A
             //      call func(*ptr_A)
-            // the call operands of the call may not include the store instruction but there are implict dependences
+            // the call operands of the call may not include the store instruction but there are
+            // implict dependences
 
             // pattern 2:
             //      call func(*ptr_A)
             //      XXX = load *ptr_A
-            //  the load operands may not include the call instruction but there are implict dependences.
-            if (I->getOpcode() == Instruction::Load || I->getOpcode() == Instruction::Store || I->getOpcode() == Instruction::Call)
+            //  the load operands may not include the call instruction but there are implict
+            //  dependences.
+            if (I->getOpcode() == Instruction::Load || I->getOpcode() == Instruction::Store ||
+                I->getOpcode() == Instruction::Call)
             {
                 bool bypassAnalysis = false;
 
                 if (auto callI = dyn_cast<CallInst>(I))
                 {
-                    if (callI->getCalledFunction()->getName().find("llvm.") != std::string::npos || callI->getCalledFunction()->getName().find("HIPartitionMux") != std::string::npos)
+                    if (callI->getCalledFunction()->getName().find("llvm.") != std::string::npos ||
+                        callI->getCalledFunction()->getName().find("HIPartitionMux") !=
+                            std::string::npos)
                         bypassAnalysis = true;
                 }
 
@@ -165,7 +194,8 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
                     for (auto tmp_ptr : ptrInOperands)
                     {
                         if (DEBUG)
-                            *BRAM_log << "       checking pointer in args :  " << *tmp_ptr << " of targets: ";
+                            *BRAM_log << "       checking pointer in args :  " << *tmp_ptr
+                                      << " of targets: ";
                         if (DEBUG)
                         {
                             for (auto tmp_target : Value2Target[tmp_ptr])
@@ -173,21 +203,35 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
                             *BRAM_log << "\n";
                         }
 
-                        Instruction *latestPointerAccess = findLatestPointerAccess(I, Value2Target[tmp_ptr], cur_InstructionCriticalPath);
+                        Instruction *latestPointerAccess = findLatestPointerAccess(
+                            I, Value2Target[tmp_ptr], cur_InstructionCriticalPath);
                         if (latestPointerAccess)
                         {
                             if (DEBUG)
-                                *BRAM_log << "           has pointer access :  " << *latestPointerAccess << "\n";
-                            if (cur_InstructionCriticalPath.find(latestPointerAccess) != cur_InstructionCriticalPath.end() && latestPointerAccess != I)
+                                *BRAM_log
+                                    << "           has pointer access :  " << *latestPointerAccess
+                                    << "\n";
+                            if (cur_InstructionCriticalPath.find(latestPointerAccess) !=
+                                    cur_InstructionCriticalPath.end() &&
+                                latestPointerAccess != I)
                             {
-                                if (I->getOpcode() != Instruction::Call && latestPointerAccess->getOpcode() != Instruction::Call) // bypass this situation
+                                if (I->getOpcode() != Instruction::Call &&
+                                    latestPointerAccess->getOpcode() !=
+                                        Instruction::Call) // bypass this situation
                                     continue;
-                                if (cur_InstructionCriticalPath[latestPointerAccess] + tmp_I_latency > cur_InstructionCriticalPath[I]) // update the critical path
+                                if (cur_InstructionCriticalPath[latestPointerAccess] +
+                                        tmp_I_latency >
+                                    cur_InstructionCriticalPath[I]) // update the critical path
                                 {
                                     if (DEBUG)
-                                        *BRAM_log << "   current access :  " << *I << " limited by previous access: " << *latestPointerAccess << "\n";
-                                    cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[latestPointerAccess] + tmp_I_latency;
-                                    latest_timing = cur_InstructionCriticalPath[latestPointerAccess];
+                                        *BRAM_log << "   current access :  " << *I
+                                                  << " limited by previous access: "
+                                                  << *latestPointerAccess << "\n";
+                                    cur_InstructionCriticalPath[I] =
+                                        cur_InstructionCriticalPath[latestPointerAccess] +
+                                        tmp_I_latency;
+                                    latest_timing =
+                                        cur_InstructionCriticalPath[latestPointerAccess];
                                     Inst2LatestOperand[I] = latestPointerAccess;
                                 }
                             }
@@ -234,7 +278,9 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
                         if (Inst2LatestOperand.find(I) != Inst2LatestOperand.end())
                         {
                             if (DEBUG)
-                                *Evaluating_log << "----------- A Memory Access Instruction: " << *I << " is found,\n-----------  information fot this access is:  ";
+                                *Evaluating_log
+                                    << "----------- A Memory Access Instruction: " << *I
+                                    << " is found,\n-----------  information fot this access is:  ";
                             if (DEBUG)
                                 Evaluating_log->flush();
                             if (DEBUG)
@@ -242,11 +288,13 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
                             if (DEBUG)
                                 Evaluating_log->flush();
                             if (DEBUG)
-                                *Evaluating_log << "\n-----------  the access is to partition #" << target_partition;
+                                *Evaluating_log << "\n-----------  the access is to partition #"
+                                                << target_partition;
                             if (DEBUG)
                                 Evaluating_log->flush();
                             if (DEBUG)
-                                *Evaluating_log << "\n addressI:" << *Inst2LatestOperand[I] << " is ready at " << latest_timing;
+                                *Evaluating_log << "\n addressI:" << *Inst2LatestOperand[I]
+                                                << " is ready at " << latest_timing;
                             if (DEBUG)
                                 Evaluating_log->flush();
                             if (DEBUG)
@@ -256,7 +304,9 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
                         else
                         {
                             if (DEBUG)
-                                *Evaluating_log << "----------- A Memory Access Instruction: " << *I << " is found,\n-----------  information fot this access is:  ";
+                                *Evaluating_log
+                                    << "----------- A Memory Access Instruction: " << *I
+                                    << " is found,\n-----------  information fot this access is:  ";
                             if (DEBUG)
                                 Evaluating_log->flush();
                             if (DEBUG)
@@ -264,11 +314,13 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
                             if (DEBUG)
                                 Evaluating_log->flush();
                             if (DEBUG)
-                                *Evaluating_log << "\n-----------  the access is to partition #" << target_partition;
+                                *Evaluating_log << "\n-----------  the access is to partition #"
+                                                << target_partition;
                             if (DEBUG)
                                 Evaluating_log->flush();
                             if (DEBUG)
-                                *Evaluating_log << "\n addressI is in previous block, is ready at " << latest_timing;
+                                *Evaluating_log << "\n addressI is in previous block, is ready at "
+                                                << latest_timing;
                             if (DEBUG)
                                 Evaluating_log->flush();
                             if (DEBUG)
@@ -281,7 +333,8 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
                     if (DEBUG)
                         Evaluating_log->flush();
 
-                    timingBase tmp_schedule = scheduleBRAMAccess(I, B, latest_timing, target_partition);
+                    timingBase tmp_schedule =
+                        scheduleBRAMAccess(I, B, latest_timing, target_partition);
                     if (tmp_schedule > latest_schedule_access)
                         latest_schedule_access = tmp_schedule;
                 }
@@ -292,13 +345,17 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
             // for the operands in different cycles, we need to insert FFs for them
             // update the lifetime of the predecessors' result registers
             // by keeping updating the latest user of the result of the operand (I_Pred)
-            for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp) // update the critical path to I by checking its predecessors' critical path
+            for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end();
+                 I_tmp != I_Pred_end; ++I_tmp) // update the critical path to I by checking its
+                                               // predecessors' critical path
             {
                 if (auto I_Pred = dyn_cast<Instruction>(I_tmp))
                 {
                     // update the latest user of the result of the operand (I_Pred)
                     // so we can know when a result reg can be released (ResultRelease).
-                    updateResultRelease(I, I_Pred, (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency);
+                    updateResultRelease(
+                        I, I_Pred,
+                        (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency);
                 }
             }
 
@@ -311,7 +368,9 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
                 {
                     resourceAccmulator = resourceAccmulator + partialChainedResource;
                 }
-                else if (!checkAndTryRecordReuseOperatorDSP(I, (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency))
+                else if (!checkAndTryRecordReuseOperatorDSP(
+                             I,
+                             (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency))
                 {
                     resourceAccmulator = resourceAccmulator + getInstructionResource(I);
                 }
@@ -330,13 +389,21 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
             resourceAccmulator = resourceAccmulator + FF_Num + PHI_LUT_Num;
 
             // record where the instruction is scheduled
-            Inst_Schedule[I] = std::pair<BasicBlock *, int>(B, (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency);
+            Inst_Schedule[I] = std::pair<BasicBlock *, int>(
+                B, (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency);
 
             // (3) get the maximum CP among instructions and take it as the CP of block
             if (cur_InstructionCriticalPath[I] > max_critical_path)
                 max_critical_path = cur_InstructionCriticalPath[I];
             if (DEBUG)
-                *Evaluating_log << "--------- Evaluated Instruction critical path for Instruction: <<" << *I << ">> and its CP is :" << cur_InstructionCriticalPath[I] << " the resource cost is: " << (Chained ? (resourceBase(0, 0, 0, clock_period)) : (PartialChained ? partialChainedResource : (getInstructionResource(I) + PHI_LUT_Num))) << " + reg_FF: [" << FF_Num.FF << "] ";
+                *Evaluating_log
+                    << "--------- Evaluated Instruction critical path for Instruction: <<" << *I
+                    << ">> and its CP is :" << cur_InstructionCriticalPath[I]
+                    << " the resource cost is: "
+                    << (Chained ? (resourceBase(0, 0, 0, clock_period))
+                                : (PartialChained ? partialChainedResource
+                                                  : (getInstructionResource(I) + PHI_LUT_Num)))
+                    << " + reg_FF: [" << FF_Num.FF << "] ";
             if (PHI_LUT_Num.LUT > 0)
             {
                 if (DEBUG)
@@ -377,7 +444,9 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
     BlockLatency[B] = max_critical_path;
     BlockResource[B] = resourceAccmulator;
     if (DEBUG)
-        *Evaluating_log << "---- Done evaluation of Block Latency for Block: " << B->getName() << " and the latency is " << BlockLatency[B] << " and the cost of resource is : " << resourceAccmulator << "\n";
+        *Evaluating_log << "---- Done evaluation of Block Latency for Block: " << B->getName()
+                        << " and the latency is " << BlockLatency[B]
+                        << " and the cost of resource is : " << resourceAccmulator << "\n";
     BlockEvaluated.insert(B);
     return max_critical_path * 1;
 }
@@ -392,7 +461,9 @@ bool HI_WithDirectiveTimingResourceEvaluation::BlockContain(BasicBlock *B, Instr
 
 // among the scheduled instructions, find the latest access to the specific target
 // excluding the instruction "curI"
-Instruction *HI_WithDirectiveTimingResourceEvaluation::findLatestPointerAccess(Instruction *curI, std::set<Value *> targets, std::map<Instruction *, timingBase> &cur_InstructionCriticalPath)
+Instruction *HI_WithDirectiveTimingResourceEvaluation::findLatestPointerAccess(
+    Instruction *curI, std::set<Value *> targets,
+    std::map<Instruction *, timingBase> &cur_InstructionCriticalPath)
 {
     timingBase latest_timing(0, 0, 1, clock_period);
     Instruction *res_I = nullptr;
@@ -404,11 +475,15 @@ Instruction *HI_WithDirectiveTimingResourceEvaluation::findLatestPointerAccess(I
             {
                 if (I == curI)
                     continue;
-                if (I->getOpcode() == Instruction::Load || I->getOpcode() == Instruction::Store || I->getOpcode() == Instruction::Call)
+                if (I->getOpcode() == Instruction::Load || I->getOpcode() == Instruction::Store ||
+                    I->getOpcode() == Instruction::Call)
                 {
                     if (auto callI = dyn_cast<CallInst>(I))
                     {
-                        if (callI->getCalledFunction()->getName().find("llvm.") != std::string::npos || callI->getCalledFunction()->getName().find("HIPartitionMux") != std::string::npos)
+                        if (callI->getCalledFunction()->getName().find("llvm.") !=
+                                std::string::npos ||
+                            callI->getCalledFunction()->getName().find("HIPartitionMux") !=
+                                std::string::npos)
                             continue;
                     }
                     if (it.second > latest_timing)
@@ -475,13 +550,15 @@ int HI_WithDirectiveTimingResourceEvaluation::getStageNumOfBlock(BasicBlock *B)
             max_stage_num = stage_to_inst;
     }
     if (DEBUG)
-        *Evaluating_log << "checking BLOCK: " << B->getName() << " #stage=" << max_stage_num << "\n";
+        *Evaluating_log << "checking BLOCK: " << B->getName() << " #stage=" << max_stage_num
+                        << "\n";
     assert(max_stage_num >= 0);
     return max_stage_num;
 }
 
 // get the pointers in the operands
-void HI_WithDirectiveTimingResourceEvaluation::checkPtrInOperands(Instruction *I, std::vector<Value *> &ptrInOperands)
+void HI_WithDirectiveTimingResourceEvaluation::checkPtrInOperands(
+    Instruction *I, std::vector<Value *> &ptrInOperands)
 {
 
     if (CallInst *callI = dyn_cast<CallInst>(I))
@@ -504,14 +581,16 @@ void HI_WithDirectiveTimingResourceEvaluation::checkPtrInOperands(Instruction *I
 
 // check whether the DSP used for this instruction could be reused by the others
 // reuse condition: operator / bitwidth / data source (partition) are the same
-bool HI_WithDirectiveTimingResourceEvaluation::checkAndTryRecordReuseOperatorDSP(Instruction *I, int timeslot)
+bool HI_WithDirectiveTimingResourceEvaluation::checkAndTryRecordReuseOperatorDSP(Instruction *I,
+                                                                                 int timeslot)
 {
     int DSPnum = getInstructionResource(I).DSP;
     if (DSPnum <= 0)
         return false;
 
     if (DEBUG)
-        *Evaluating_log << "    check whether Instruction with DSPs [" << *I << "] can reuse previous DSPs]\n";
+        *Evaluating_log << "    check whether Instruction with DSPs [" << *I
+                        << "] can reuse previous DSPs]\n";
 
     unsigned opcode = I->getOpcode();
     if (auto binOp = dyn_cast<BinaryOperator>(I))
@@ -519,7 +598,8 @@ bool HI_WithDirectiveTimingResourceEvaluation::checkAndTryRecordReuseOperatorDSP
         auto LLoad = dyn_cast<LoadInst>(I->getOperand(0));
         auto RLoad = dyn_cast<LoadInst>(I->getOperand(1));
 
-        if (I->getOpcode() == Instruction::FMul || I->getOpcode() == Instruction::FAdd || I->getOpcode() == Instruction::FDiv || I->getOpcode() == Instruction::FSub)
+        if (I->getOpcode() == Instruction::FMul || I->getOpcode() == Instruction::FAdd ||
+            I->getOpcode() == Instruction::FDiv || I->getOpcode() == Instruction::FSub)
         {
             // for floating point operations, we first pass all the possible DSP re-users
             // and analysis them after the analysis of total latency of blocks/loops/functions
@@ -540,31 +620,38 @@ bool HI_WithDirectiveTimingResourceEvaluation::checkAndTryRecordReuseOperatorDSP
             // and we will also record which operator might reuse the resource.
 
             // based on these record, at the end of the overall function evaluation,
-            // we will check and allocate them after the analysis of total latency of blocks/loops/functions
-            // BECAUSE it seems that fixed-point operations have specific conditions to reuse DSP
+            // we will check and allocate them after the analysis of total latency of
+            // blocks/loops/functions BECAUSE it seems that fixed-point operations have specific
+            // conditions to reuse DSP
 
             if (!LLoad || !RLoad)
             {
                 // at least one of the operands is not load instruction
 
                 if (DEBUG)
-                    *Evaluating_log << "    Instruction with DSPs [" << *I << "] --> data are not from LoadInst]\n";
-                if (clock_period <= 6.0001) // when the clock period is too low, the DSP might not be reused due the the routing limitation
+                    *Evaluating_log << "    Instruction with DSPs [" << *I
+                                    << "] --> data are not from LoadInst]\n";
+                if (clock_period <= 6.0001) // when the clock period is too low, the DSP might not
+                                            // be reused due the the routing limitation
                     return false;
                 else
                 {
-                    // initialize schUnit (a potential reuse DSP unit), with a mark: operands-are-not-simply-from-BRAM-partitions
-                    // which means, when using "==" for it, it will not consider the effect of BRAM partitions
-                    DSPReuseScheduleUnit schUnit(I, DSPnum, opcode, timeslot, I->getOperand(0), I->getOperand(1));
+                    // initialize schUnit (a potential reuse DSP unit), with a mark:
+                    // operands-are-not-simply-from-BRAM-partitions which means, when using "==" for
+                    // it, it will not consider the effect of BRAM partitions
+                    DSPReuseScheduleUnit schUnit(I, DSPnum, opcode, timeslot, I->getOperand(0),
+                                                 I->getOperand(1));
                     if (DEBUG)
-                        *Evaluating_log << "    check whether [" << schUnit << "] can reuse previous DSPs]\n";
+                        *Evaluating_log << "    check whether [" << schUnit
+                                        << "] can reuse previous DSPs]\n";
 
                     // check whether the operator can reuse the DSPs from previous operaotor
                     bool reuse = false;
                     for (auto pre_schUnit : Block2IntDSPReuseScheduleUnits[I->getParent()])
                     {
                         if (DEBUG)
-                            *Evaluating_log << "    checking potential reusee [" << pre_schUnit << "]]\n";
+                            *Evaluating_log << "    checking potential reusee [" << pre_schUnit
+                                            << "]]\n";
 
                         // the operator "==" is overrided
                         // it means "operator / bitwidth / data source (partition) are the same"
@@ -574,7 +661,8 @@ bool HI_WithDirectiveTimingResourceEvaluation::checkAndTryRecordReuseOperatorDSP
                             {
                                 reuse = true;
                                 if (DEBUG)
-                                    *Evaluating_log << "    DSP used by: [" << *pre_schUnit.opI << "] can be reused by [" << *I << "]\n";
+                                    *Evaluating_log << "    DSP used by: [" << *pre_schUnit.opI
+                                                    << "] can be reused by [" << *I << "]\n";
                                 break;
                             }
                         }
@@ -594,18 +682,22 @@ bool HI_WithDirectiveTimingResourceEvaluation::checkAndTryRecordReuseOperatorDSP
                 // and they are not from MUX, therefore,
                 // they simply come from one partition respectively
 
-                // initialize schUnit (a potential reuse DSP unit), with a mark: operands-are-simply-from-BRAM-partitions
-                // which means, when using "==" for it, it will consider the effect of BRAM partition
-                DSPReuseScheduleUnit schUnit(I, DSPnum, opcode, timeslot, Inst2Partitions[LLoad][0], Inst2Partitions[RLoad][0]);
+                // initialize schUnit (a potential reuse DSP unit), with a mark:
+                // operands-are-simply-from-BRAM-partitions which means, when using "==" for it, it
+                // will consider the effect of BRAM partition
+                DSPReuseScheduleUnit schUnit(I, DSPnum, opcode, timeslot, Inst2Partitions[LLoad][0],
+                                             Inst2Partitions[RLoad][0]);
                 if (DEBUG)
-                    *Evaluating_log << "    check whether [" << schUnit << "] can reuse previous DSPs]\n";
+                    *Evaluating_log << "    check whether [" << schUnit
+                                    << "] can reuse previous DSPs]\n";
 
                 // check whether the operator can reuse the  DSPs from previous operaotor
                 bool reuse = false;
                 for (auto pre_schUnit : Block2IntDSPReuseScheduleUnits[I->getParent()])
                 {
                     if (DEBUG)
-                        *Evaluating_log << "    checking potential reusee [" << pre_schUnit << "]]\n";
+                        *Evaluating_log << "    checking potential reusee [" << pre_schUnit
+                                        << "]]\n";
                     if (pre_schUnit.opcode == schUnit.opcode)
                     {
                         // this region is just for debug.
@@ -636,7 +728,8 @@ bool HI_WithDirectiveTimingResourceEvaluation::checkAndTryRecordReuseOperatorDSP
                         {
                             reuse = true;
                             if (DEBUG)
-                                *Evaluating_log << "    DSP used by: [" << *pre_schUnit.opI << "] can be reused by [" << *I << "]\n";
+                                *Evaluating_log << "    DSP used by: [" << *pre_schUnit.opI
+                                                << "] can be reused by [" << *I << "]\n";
                             break;
                         }
                     }
@@ -656,12 +749,15 @@ bool HI_WithDirectiveTimingResourceEvaluation::checkAndTryRecordReuseOperatorDSP
     }
 }
 
-// for blocks, we need to re-check the resource cost  FOR FLOATING POINT OPERATOR since some of them might be reused.
-void HI_WithDirectiveTimingResourceEvaluation::recordCostRescheduleFPDSPOperators_forBlock(BasicBlock *tmp_block, int block_latency)
+// for blocks, we need to re-check the resource cost  FOR FLOATING POINT OPERATOR since some of them
+// might be reused.
+void HI_WithDirectiveTimingResourceEvaluation::recordCostRescheduleFPDSPOperators_forBlock(
+    BasicBlock *tmp_block, int block_latency)
 {
     resourceBase res(0, 0, 0, clock_period);
 
-    std::vector<std::string> checkopcodes = {"fmul", "fadd", "fdiv", "fsub", "dmul", "dadd", "ddiv", "dsub"};
+    std::vector<std::string> checkopcodes = {"fmul", "fadd", "fdiv", "fsub",
+                                             "dmul", "dadd", "ddiv", "dsub"};
 
     // Block2FPDSPReuseScheduleUnits[I->getParent()][opcode].push_back(schUnit);
     for (auto cur_opcode : checkopcodes)
@@ -673,7 +769,8 @@ void HI_WithDirectiveTimingResourceEvaluation::recordCostRescheduleFPDSPOperator
             Block2FPDSPOpCnt[tmp_block][cur_opcode] = 0;
             continue;
         }
-        if (Block2FPDSPReuseScheduleUnits[tmp_block].find(cur_opcode) == Block2FPDSPReuseScheduleUnits[tmp_block].end())
+        if (Block2FPDSPReuseScheduleUnits[tmp_block].find(cur_opcode) ==
+            Block2FPDSPReuseScheduleUnits[tmp_block].end())
         {
             Block2FPDSPOpCnt[tmp_block][cur_opcode] = 0;
             continue;
@@ -688,7 +785,9 @@ void HI_WithDirectiveTimingResourceEvaluation::recordCostRescheduleFPDSPOperator
             reuse_DSPModule = op_totalcnt / block_latency;
 
         if (DEBUG)
-            *Evaluating_log << " for block: the amount of floating point operators (refI):" << cur_opcode << " is " << reuse_DSPModule << " each cost =[" << checkFPOperatorCost(cur_opcode) << "]\n";
+            *Evaluating_log << " for block: the amount of floating point operators (refI):"
+                            << cur_opcode << " is " << reuse_DSPModule << " each cost =["
+                            << checkFPOperatorCost(cur_opcode) << "]\n";
 
         Block2FPDSPOpCnt[tmp_block][cur_opcode] = reuse_DSPModule;
     }

@@ -41,8 +41,10 @@ using namespace llvm;
 class HI_SimpleTimingEvaluation : public ModulePass
 {
   public:
-    // Pass for simple evluation of the latency of the top function, without considering HLS directives
-    HI_SimpleTimingEvaluation(const char *evaluating_log_name, const char *top_function) : ModulePass(ID)
+    // Pass for simple evluation of the latency of the top function, without considering HLS
+    // directives
+    HI_SimpleTimingEvaluation(const char *evaluating_log_name, const char *top_function)
+        : ModulePass(ID)
     {
         BlockEvaluated.clear();
         LoopEvaluated.clear();
@@ -103,7 +105,8 @@ class HI_SimpleTimingEvaluation : public ModulePass
     // evaluatate the latency of a outer loop, which could be a nested one
     double getOuterLoopLatency(Loop *outerL);
 
-    // get the most outer loop which contains the block, treat the loop as a node for the evaluation of latency
+    // get the most outer loop which contains the block, treat the loop as a node for the evaluation
+    // of latency
     Loop *getOuterLoopOfBlock(BasicBlock *B);
 
     // find the inner unevaluated loop for processing
@@ -152,7 +155,8 @@ class HI_SimpleTimingEvaluation : public ModulePass
     // record the list of outer loops for functions
     std::map<Function *, std::vector<Loop *>> Function2OuterLoops;
 
-    // record which evaluated loop the block is belong to, so the pass can directly trace to the loop for the latency
+    // record which evaluated loop the block is belong to, so the pass can directly trace to the
+    // loop for the latency
     std::map<BasicBlock *, Loop *> Block2EvaluatedLoop;
 
     // record the critical path from the loop header to the end of the specific block
@@ -177,13 +181,16 @@ class HI_SimpleTimingEvaluation : public ModulePass
     double getFunctionLatency(Function *F);
 
     // get the function critical path by traversing the blocks based on DFS
-    void getFunctionLatency_traverseFromEntryToExiting(double tmp_critical_path, Function *F, BasicBlock *curBlock);
+    void getFunctionLatency_traverseFromEntryToExiting(double tmp_critical_path, Function *F,
+                                                       BasicBlock *curBlock);
 
     // get the loop latency by traversing from the header to the exiting blocks
-    void LoopLatencyEvaluation_traversFromHeaderToExitingBlocks(double tmp_critical_path, Loop *L, BasicBlock *curBlock);
+    void LoopLatencyEvaluation_traversFromHeaderToExitingBlocks(double tmp_critical_path, Loop *L,
+                                                                BasicBlock *curBlock);
 
     // mark the block in loop with latency by traversing from the header to the exiting blocks
-    void MarkBlock_traversFromHeaderToExitingBlocks(double total_latency, Loop *L, BasicBlock *curBlock);
+    void MarkBlock_traversFromHeaderToExitingBlocks(double total_latency, Loop *L,
+                                                    BasicBlock *curBlock);
 
     // evaluate the block latency by traversing the instructions
     double BlockLatencyEvaluation(BasicBlock *B);

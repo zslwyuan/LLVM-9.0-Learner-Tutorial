@@ -42,7 +42,8 @@ using namespace llvm;
 class HI_DependenceList : public FunctionPass
 {
   public:
-    HI_DependenceList(const char *Instruction_out_file, const char *dependence_out_file) : FunctionPass(ID)
+    HI_DependenceList(const char *Instruction_out_file, const char *dependence_out_file)
+        : FunctionPass(ID)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;
@@ -122,7 +123,8 @@ class HI_DependenceList : public FunctionPass
     virtual bool doFinalization(Module &M)
     {
         InstructionsNameSet.clear();
-        *Instruction_out << "\n\n\n\n\n=================== Instruction Set and Example ======================\n\n";
+        *Instruction_out << "\n\n\n\n\n=================== Instruction Set and Example "
+                            "======================\n\n";
         for (auto &F : M)
             for (auto &B : F)
                 for (auto &I : B)
@@ -147,7 +149,8 @@ class HI_DependenceList : public FunctionPass
                     std::string checker = tmp_stream->str();
                     if (InstructionsNameSet.find(checker) == InstructionsNameSet.end())
                     {
-                        *Instruction_out << "I-ID:" << Instruction_id[&I] << "-->" << checker << "\n";
+                        *Instruction_out << "I-ID:" << Instruction_id[&I] << "-->" << checker
+                                         << "\n";
                         InstructionsNameSet.insert(checker);
                     }
                 }

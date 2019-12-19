@@ -16,7 +16,9 @@
 
 using namespace llvm;
 
-bool HI_HLSDuplicateInstRm::runOnFunction(Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
+bool HI_HLSDuplicateInstRm::runOnFunction(
+    Function &F) // The runOnModule declaration will overide the virtual one in ModulePass, which
+                 // will be executed for each Module.
 {
     print_status("Running HI_HLSDuplicateInstRm pass.");
     if (F.getName().find("llvm.") != std::string::npos)
@@ -38,7 +40,9 @@ bool HI_HLSDuplicateInstRm::runOnFunction(Function &F) // The runOnModule declar
             {
                 PHINodeList.push_back(&I);
             }
-            if (I.getOpcode() == Instruction::Load || I.getOpcode() == Instruction::Store || I.getOpcode() == Instruction::Call || I.getOpcode() == Instruction::Alloca || I.getOpcode() == Instruction::Br)
+            if (I.getOpcode() == Instruction::Load || I.getOpcode() == Instruction::Store ||
+                I.getOpcode() == Instruction::Call || I.getOpcode() == Instruction::Alloca ||
+                I.getOpcode() == Instruction::Br)
                 continue;
             checkDuplicationInBlock(&B, &I);
         }
@@ -96,7 +100,9 @@ bool HI_HLSDuplicateInstRm::runOnFunction(Function &F) // The runOnModule declar
     return removed;
 }
 
-char HI_HLSDuplicateInstRm::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_HLSDuplicateInstRm::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 void HI_HLSDuplicateInstRm::getAnalysisUsage(AnalysisUsage &AU) const
 {

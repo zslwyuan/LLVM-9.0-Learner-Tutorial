@@ -69,7 +69,8 @@ int main(int argc, char **argv)
     PM1.add(hi_duplicateinstrm);
     print_info("Enable HI_DuplicateInstRm Pass");
 
-    auto hi_separateconstoffsetfromgep = new HI_SeparateConstOffsetFromGEP("HI_SeparateConstOffsetFromGEP", true);
+    auto hi_separateconstoffsetfromgep =
+        new HI_SeparateConstOffsetFromGEP("HI_SeparateConstOffsetFromGEP", true);
     PM1.add(hi_separateconstoffsetfromgep);
     print_info("Enable HI_SeparateConstOffsetFromGEP Pass");
     // auto separateconstoffsetfromgep = createSeparateConstOffsetFromGEPPass(true);
@@ -91,7 +92,8 @@ int main(int argc, char **argv)
     PM1.add(hi_varwidthreduce);
     print_info("Enable HI_VarWidthReduce Pass");
 
-    auto hi_intstructionmovebackward = new HI_IntstructionMoveBackward("HI_IntstructionMoveBackward");
+    auto hi_intstructionmovebackward =
+        new HI_IntstructionMoveBackward("HI_IntstructionMoveBackward");
     PM1.add(hi_intstructionmovebackward);
     print_info("Enable HI_IntstructionMoveBackward Pass");
 
@@ -192,11 +194,13 @@ int main(int argc, char **argv)
     print_info("Enable HI_LoopDependenceAnalysis Pass");
     PM.add(hi_loopdependenceanalysis);
 
-    // auto hi_simpletimingevaluation = new HI_SimpleTimingEvaluation("HI_SimpleTimingEvaluation",top_str.c_str());
-    // print_info("Enable HI_SimpleTimingEvaluation Pass");
-    // PM.add(hi_simpletimingevaluation);
+    // auto hi_simpletimingevaluation = new
+    // HI_SimpleTimingEvaluation("HI_SimpleTimingEvaluation",top_str.c_str()); print_info("Enable
+    // HI_SimpleTimingEvaluation Pass"); PM.add(hi_simpletimingevaluation);
 
-    auto hi_nodirectivetimingresourceevaluation = new HI_NoDirectiveTimingResourceEvaluation(configFile_str.c_str(), "HI_NoDirectiveTimingResourceEvaluation", "BRAM_info", top_str.c_str());
+    auto hi_nodirectivetimingresourceevaluation = new HI_NoDirectiveTimingResourceEvaluation(
+        configFile_str.c_str(), "HI_NoDirectiveTimingResourceEvaluation", "BRAM_info",
+        top_str.c_str());
     print_info("Enable HI_NoDirectiveTimingResourceEvaluation Pass");
     PM.add(hi_nodirectivetimingresourceevaluation);
 
@@ -219,14 +223,16 @@ int main(int argc, char **argv)
     //     // int LUT = testObj->get_N_LUT(opcode, opBitWid , outBitWid, ClockPerid);
     //     // int Lat = testObj->get_N_Lat(opcode, opBitWid , outBitWid, ClockPerid);
     //     // double Delay = testObj->get_N_Delay(opcode, opBitWid , outBitWid, ClockPerid);
-    //     hi_nodirectivetimingresourceevaluation->get_inst_info(opcode, opBitWid , outBitWid, ClockPerid).print();
+    //     hi_nodirectivetimingresourceevaluation->get_inst_info(opcode, opBitWid , outBitWid,
+    //     ClockPerid).print();
     // }
 
     print_status("Start LLVM processing");
     PM.run(*Mod);
     print_status("Accomplished LLVM processing");
 
-    assert(hi_nodirectivetimingresourceevaluation->topFunctionFound && "The specified top function is not found in the program");
+    assert(hi_nodirectivetimingresourceevaluation->topFunctionFound &&
+           "The specified top function is not found in the program");
 
     print_status("Writing LLVM IR to File");
 

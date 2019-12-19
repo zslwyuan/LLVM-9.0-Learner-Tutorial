@@ -16,7 +16,9 @@
 
 using namespace llvm;
 
-bool HI_RemoveRedundantAccess::runOnModule(Module &M) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
+bool HI_RemoveRedundantAccess::runOnModule(
+    Module &M) // The runOnModule declaration will overide the virtual one in ModulePass, which will
+               // be executed for each Module.
 {
     print_status("Running HI_RemoveRedundantAccess pass.");
     noAliasHazard_cache.clear();
@@ -27,7 +29,8 @@ bool HI_RemoveRedundantAccess::runOnModule(Module &M) // The runOnModule declara
     Access2TargetMap.clear();
 
     if (DEBUG)
-        *RemoveRedundantAccess_Log << M << "\n\n\n\n\n=======================================\n\n\n\n";
+        *RemoveRedundantAccess_Log << M
+                                   << "\n\n\n\n\n=======================================\n\n\n\n";
 
     for (auto &it : M.global_values())
     {
@@ -46,7 +49,8 @@ bool HI_RemoveRedundantAccess::runOnModule(Module &M) // The runOnModule declara
         std::string mangled_name = F.getName();
         std::string demangled_name;
         demangled_name = demangleFunctionName(mangled_name);
-        findMemoryDeclarationin(&F, demangled_name == top_function_name && F.getName().find(".") == std::string::npos);
+        findMemoryDeclarationin(&F, demangled_name == top_function_name &&
+                                        F.getName().find(".") == std::string::npos);
     }
 
     for (auto &F : M)
@@ -68,7 +72,8 @@ bool HI_RemoveRedundantAccess::runOnModule(Module &M) // The runOnModule declara
             ActionTaken = false;
 
             if (DEBUG)
-                *RemoveRedundantAccess_Log << "\n\n\n================================\nbefore FUNCTION:\n " << F << "\n";
+                *RemoveRedundantAccess_Log
+                    << "\n\n\n================================\nbefore FUNCTION:\n " << F << "\n";
 
             ActionTaken = checkAndRemoveRedundantLoadin(F);
             changed |= ActionTaken;
@@ -82,7 +87,9 @@ bool HI_RemoveRedundantAccess::runOnModule(Module &M) // The runOnModule declara
     return changed;
 }
 
-char HI_RemoveRedundantAccess::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
+char HI_RemoveRedundantAccess::ID =
+    0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the
+       // address of this variable as label instead of its value.
 
 void HI_RemoveRedundantAccess::getAnalysisUsage(AnalysisUsage &AU) const
 {
@@ -129,7 +136,8 @@ bool HI_RemoveRedundantAccess::checkMustAlias(Instruction *I0, Instruction *I1)
         return pointer_I0 == pointer_I1;
     }
 
-    assert(pointer_I1 && pointer_I1->getOpcode() == Instruction::IntToPtr && "ITP should be found for the access instruction");
+    assert(pointer_I1 && pointer_I1->getOpcode() == Instruction::IntToPtr &&
+           "ITP should be found for the access instruction");
 
     // std::string tmp0(""),tmp1("");
     // raw_string_ostream *SCEV_Stream0 = new raw_string_ostream(tmp0);
@@ -196,8 +204,9 @@ bool HI_RemoveRedundantAccess::noAliasHazard(Instruction *I0, Instruction *I1)
         return pointer_I0 != pointer_I1;
     }
 
-    // assert(pointer_I0 && pointer_I0->getOpcode() == Instruction::IntToPtr && "ITP should be found for the access instruction");
-    // assert(pointer_I1 && pointer_I1->getOpcode() == Instruction::IntToPtr && "ITP should be found for the access instruction");
+    // assert(pointer_I0 && pointer_I0->getOpcode() == Instruction::IntToPtr && "ITP should be found
+    // for the access instruction"); assert(pointer_I1 && pointer_I1->getOpcode() ==
+    // Instruction::IntToPtr && "ITP should be found for the access instruction");
 
     // std::string tmp0(""),tmp1("");
     // raw_string_ostream *SCEV_Stream0 = new raw_string_ostream(tmp0);
@@ -207,7 +216,8 @@ bool HI_RemoveRedundantAccess::noAliasHazard(Instruction *I0, Instruction *I1)
     const SCEV *tmp_S1 = SE->getSCEV(pointer_I1->getOperand(0));
 
     Optional<APInt> res = computeConstantDifference(tmp_S0, tmp_S1);
-    // if (DEBUG) *RemoveRedundantAccess_Log << "    compute diff between " << *tmp_S0 << " and " << *tmp_S1 << "\n";
+    // if (DEBUG) *RemoveRedundantAccess_Log << "    compute diff between " << *tmp_S0 << " and " <<
+    // *tmp_S1 << "\n";
     if (res != None)
     {
         // if (DEBUG) *RemoveRedundantAccess_Log << "    result= " << res << "\n";
@@ -236,13 +246,15 @@ void HI_RemoveRedundantAccess::checkAliasFor(Instruction *I)
 
     for (auto anotherI : accessInsts)
     {
-        if (anotherI->getOpcode() != Instruction::Load && anotherI->getOpcode() != Instruction::Store)
+        if (anotherI->getOpcode() != Instruction::Load &&
+            anotherI->getOpcode() != Instruction::Store)
             continue;
 
         if (anotherI == I)
             continue;
 
-        // if (DEBUG) *RemoveRedundantAccess_Log << "check alias between <<" << *I << ">> and <<" << anotherI << ">> .\n";
+        // if (DEBUG) *RemoveRedundantAccess_Log << "check alias between <<" << *I << ">> and <<" <<
+        // anotherI << ">> .\n";
         if (!noAliasHazard(I, anotherI))
         {
             // if (DEBUG) *RemoveRedundantAccess_Log << " (== could be Alias==).\n";
@@ -350,13 +362,17 @@ bool HI_RemoveRedundantAccess::checkAndRemoveRedundantLoadin(Function &F)
                                         if (noAliasHazard(nextI, I))
                                         {
                                             if (DEBUG)
-                                                *RemoveRedundantAccess_Log << "----- find store " << *nextI << " but no possibility of alias\n";
+                                                *RemoveRedundantAccess_Log
+                                                    << "----- find store " << *nextI
+                                                    << " but no possibility of alias\n";
                                             continue;
                                         }
                                         else
                                         {
                                             if (DEBUG)
-                                                *RemoveRedundantAccess_Log << "----- find store " << *nextI << " with possibility of alias\n";
+                                                *RemoveRedundantAccess_Log
+                                                    << "----- find store " << *nextI
+                                                    << " with possibility of alias\n";
                                             break;
                                         }
                                     }
@@ -366,7 +382,9 @@ bool HI_RemoveRedundantAccess::checkAndRemoveRedundantLoadin(Function &F)
                                         if (nextI->getOpcode() == Instruction::Load)
                                         {
                                             if (DEBUG)
-                                                *RemoveRedundantAccess_Log << "----- remove RAR redundant load" << *nextI << "\n";
+                                                *RemoveRedundantAccess_Log
+                                                    << "----- remove RAR redundant load" << *nextI
+                                                    << "\n";
                                             nextI->replaceAllUsesWith(I);
                                             nextI->eraseFromParent();
                                             lastI = I;
@@ -407,7 +425,9 @@ bool HI_RemoveRedundantAccess::checkAndRemoveRedundantLoadin(Function &F)
                                         if (nextI->getOpcode() == Instruction::Load)
                                         {
                                             if (DEBUG)
-                                                *RemoveRedundantAccess_Log << "----- remove RAW redundant load" << *nextI << "\n";
+                                                *RemoveRedundantAccess_Log
+                                                    << "----- remove RAW redundant load" << *nextI
+                                                    << "\n";
                                             lastI = I;
                                             forwardAndRemove(I->getOperand(0), nextI);
                                             ActionTaken = true;
@@ -526,7 +546,8 @@ bool HI_RemoveRedundantAccess::checkAndRemoveRedundantStorein(Function &F)
                                     if (nextI->getOpcode() == Instruction::Store)
                                     {
                                         if (DEBUG)
-                                            *RemoveRedundantAccess_Log << "----- remove redundant store" << *I << "\n";
+                                            *RemoveRedundantAccess_Log
+                                                << "----- remove redundant store" << *I << "\n";
                                         I->eraseFromParent();
                                         ActionTaken = true;
                                         changed = true;
@@ -577,7 +598,8 @@ bool HI_RemoveRedundantAccess::checkAndRemoveRedundantStorein(Function &F)
 void HI_RemoveRedundantAccess::findMemoryDeclarationin(Function *F, bool isTopFunction)
 {
     if (DEBUG)
-        *RemoveRedundantAccess_Log << "checking the BRAM information in Function: " << F->getName() << "\n";
+        *RemoveRedundantAccess_Log << "checking the BRAM information in Function: " << F->getName()
+                                   << "\n";
     ValueVisited.clear();
 
     // for top function in HLS, arrays in interface may involve BRAM
@@ -597,7 +619,9 @@ void HI_RemoveRedundantAccess::findMemoryDeclarationin(Function *F, bool isTopFu
                         *RemoveRedundantAccess_Log << " beging to trace arg: " << it << "\n";
                     TraceAccessForTarget(it, it);
                 }
-                else if (tmp_PtrType->getElementType()->isIntegerTy() || tmp_PtrType->getElementType()->isFloatingPointTy() || tmp_PtrType->getElementType()->isDoubleTy())
+                else if (tmp_PtrType->getElementType()->isIntegerTy() ||
+                         tmp_PtrType->getElementType()->isFloatingPointTy() ||
+                         tmp_PtrType->getElementType()->isDoubleTy())
                 {
                     if (DEBUG)
                         *RemoveRedundantAccess_Log << " beging to trace arg: " << it << "\n";
@@ -629,13 +653,14 @@ void HI_RemoveRedundantAccess::findMemoryDeclarationin(Function *F, bool isTopFu
                                    << "\n";
     // for (auto it : Access2TargetMap)
     // {
-    //     if (DEBUG) *RemoveRedundantAccess_Log << "The instruction [" << *it.first << "] will access :";
-    //     for (auto tmpI : it.second)
+    //     if (DEBUG) *RemoveRedundantAccess_Log << "The instruction [" << *it.first << "] will
+    //     access :"; for (auto tmpI : it.second)
     //     {
     //         if (Alias2Target.find(tmpI) == Alias2Target.end())
     //             if (DEBUG) *RemoveRedundantAccess_Log << " (" << tmpI->getName() << ") ";
     //         else
-    //             if (DEBUG) *RemoveRedundantAccess_Log << " (" << Alias2Target[tmpI]->getName() << ") ";
+    //             if (DEBUG) *RemoveRedundantAccess_Log << " (" << Alias2Target[tmpI]->getName() <<
+    //             ") ";
 
     //     }
     //     if (DEBUG) *RemoveRedundantAccess_Log << "\n";
@@ -646,11 +671,13 @@ void HI_RemoveRedundantAccess::findMemoryDeclarationin(Function *F, bool isTopFu
     RemoveRedundantAccess_Log->flush();
 }
 
-// find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr, Store, Load instructions
+// find out which instrctuins are related to the array, going through PtrToInt, Add, IntToPtr,
+// Store, Load instructions
 void HI_RemoveRedundantAccess::TraceAccessForTarget(Value *cur_node, Value *ori_node)
 {
     if (DEBUG)
-        *RemoveRedundantAccess_Log << "\n\n\nTracing the access to Array " << ori_node->getName() << " and looking for the users of " << *cur_node << "\n";
+        *RemoveRedundantAccess_Log << "\n\n\nTracing the access to Array " << ori_node->getName()
+                                   << " and looking for the users of " << *cur_node << "\n";
     if (Instruction *tmpI = dyn_cast<Instruction>(cur_node))
     {
         if (DEBUG)
@@ -691,7 +718,8 @@ void HI_RemoveRedundantAccess::TraceAccessForTarget(Value *cur_node, Value *ori_
     for (auto it = cur_node->use_begin(), ie = cur_node->use_end(); it != ie; ++it)
     {
         if (DEBUG)
-            *RemoveRedundantAccess_Log << "    find user of " << ori_node->getName() << " --> " << *it->getUser() << "\n";
+            *RemoveRedundantAccess_Log << "    find user of " << ori_node->getName() << " --> "
+                                       << *it->getUser() << "\n";
 
         // Load and Store Instructions are leaf nodes in the DFS
         if (LoadInst *LoadI = dyn_cast<LoadInst>(it->getUser()))
@@ -702,7 +730,8 @@ void HI_RemoveRedundantAccess::TraceAccessForTarget(Value *cur_node, Value *ori_
                     *RemoveRedundantAccess_Log << "    is an LOAD instruction: " << *LoadI << "\n";
                 std::vector<Value *> tmp_vec;
                 tmp_vec.push_back(ori_node);
-                Access2TargetMap.insert(std::pair<Instruction *, std::vector<Value *>>(LoadI, tmp_vec));
+                Access2TargetMap.insert(
+                    std::pair<Instruction *, std::vector<Value *>>(LoadI, tmp_vec));
             }
             else
             {
@@ -714,10 +743,12 @@ void HI_RemoveRedundantAccess::TraceAccessForTarget(Value *cur_node, Value *ori_
             if (Access2TargetMap.find(StoreI) == Access2TargetMap.end())
             {
                 if (DEBUG)
-                    *RemoveRedundantAccess_Log << "    is an STORE instruction: " << *StoreI << "\n";
+                    *RemoveRedundantAccess_Log << "    is an STORE instruction: " << *StoreI
+                                               << "\n";
                 std::vector<Value *> tmp_vec;
                 tmp_vec.push_back(ori_node);
-                Access2TargetMap.insert(std::pair<Instruction *, std::vector<Value *>>(StoreI, tmp_vec));
+                Access2TargetMap.insert(
+                    std::pair<Instruction *, std::vector<Value *>>(StoreI, tmp_vec));
             }
             else
             {
@@ -731,7 +762,8 @@ void HI_RemoveRedundantAccess::TraceAccessForTarget(Value *cur_node, Value *ori_
                 *RemoveRedundantAccess_Log << "    is an CALL instruction: " << *CallI << "\n";
             for (int i = 0; i < CallI->getNumArgOperands(); ++i)
             {
-                if (CallI->getArgOperand(i) == cur_node) // find which argument is exactly the pointer we are tracing
+                if (CallI->getArgOperand(i) ==
+                    cur_node) // find which argument is exactly the pointer we are tracing
                 {
                     auto arg_it = CallI->getCalledFunction()->arg_begin();
                     auto arg_ie = CallI->getCalledFunction()->arg_end();
@@ -749,7 +781,8 @@ void HI_RemoveRedundantAccess::TraceAccessForTarget(Value *cur_node, Value *ori_
         else
         {
             if (DEBUG)
-                *RemoveRedundantAccess_Log << "    is an general instruction: " << *it->getUser() << "\n";
+                *RemoveRedundantAccess_Log << "    is an general instruction: " << *it->getUser()
+                                           << "\n";
             TraceAccessForTarget(it->getUser(), ori_node);
         }
     }
@@ -768,7 +801,8 @@ bool HI_RemoveRedundantAccess::hasRisk(Instruction *accessI)
     {
         pointer_I = dyn_cast<Instruction>(accessI->getOperand(1));
     }
-    assert(pointer_I && pointer_I->getOpcode() == Instruction::IntToPtr && "the pointer for access should be found.");
+    assert(pointer_I && pointer_I->getOpcode() == Instruction::IntToPtr &&
+           "the pointer for access should be found.");
 
     //  const SCEVAddRecExpr *SARE = dyn_cast<SCEVAddRecExpr>(SE->getSCEV());
 }
@@ -795,7 +829,8 @@ Value *HI_RemoveRedundantAccess::getTargetFromInst(Instruction *accessI)
         assert(false && "Accesses should be pre-processed.");
     }
 
-    // assert(Access2TargetMap[accessI].size()==1 && "currently, we do not support 1-access-multi-target.");
+    // assert(Access2TargetMap[accessI].size()==1 && "currently, we do not support
+    // 1-access-multi-target.");
     if (Access2TargetMap[accessI].size() > 1)
     {
 
@@ -815,7 +850,8 @@ Value *HI_RemoveRedundantAccess::getTargetFromInst(Instruction *accessI)
                 for (auto target : Access2TargetMap[accessI])
                     llvm::errs() << "    " << *target << "\n";
             }
-            assert(tmp_target == tmp_reftarget && "currently, we do not support 1-access-multi-target.");
+            assert(tmp_target == tmp_reftarget &&
+                   "currently, we do not support 1-access-multi-target.");
         }
     }
 
@@ -832,7 +868,8 @@ Value *HI_RemoveRedundantAccess::getTargetFromInst(Instruction *accessI)
     }
 }
 
-Optional<APInt> HI_RemoveRedundantAccess::computeConstantDifference(const SCEV *More, const SCEV *Less)
+Optional<APInt> HI_RemoveRedundantAccess::computeConstantDifference(const SCEV *More,
+                                                                    const SCEV *Less)
 {
     std::pair<const SCEV *, const SCEV *> ML_pair(More, Less);
     if (differentCache.find(ML_pair) != differentCache.end())
@@ -850,8 +887,10 @@ Optional<APInt> HI_RemoveRedundantAccess::computeConstantDifference(const SCEV *
         {
             if (LU->getValue() == LU->getValue())
             {
-                // if (DEBUG) *RemoveRedundantAccess_Log << "----- downgrade " << *nextI << " but no possibility of alias\n";
-                differentCache[ML_pair] = computeConstantDifference(MA->getOperand(0), LA->getOperand(0));
+                // if (DEBUG) *RemoveRedundantAccess_Log << "----- downgrade " << *nextI << " but no
+                // possibility of alias\n";
+                differentCache[ML_pair] =
+                    computeConstantDifference(MA->getOperand(0), LA->getOperand(0));
                 return differentCache[ML_pair];
             }
         }
@@ -929,7 +968,8 @@ Optional<APInt> HI_RemoveRedundantAccess::computeConstantDifference(const SCEV *
     return None;
 }
 
-bool HI_RemoveRedundantAccess::splitBinaryAdd(const SCEV *Expr, const SCEV *&L, const SCEV *&R, SCEV::NoWrapFlags &Flags)
+bool HI_RemoveRedundantAccess::splitBinaryAdd(const SCEV *Expr, const SCEV *&L, const SCEV *&R,
+                                              SCEV::NoWrapFlags &Flags)
 {
     const auto *AE = dyn_cast<SCEVAddExpr>(Expr);
     if (!AE || AE->getNumOperands() != 2)
@@ -943,7 +983,8 @@ bool HI_RemoveRedundantAccess::splitBinaryAdd(const SCEV *Expr, const SCEV *&L, 
 
 bool HI_RemoveRedundantAccess::hasSameTargetPair(Instruction *I0, Instruction *I1)
 {
-    if (SameTargetPair.find(std::pair<Instruction *, Instruction *>(I0, I1)) == SameTargetPair.end())
+    if (SameTargetPair.find(std::pair<Instruction *, Instruction *>(I0, I1)) ==
+        SameTargetPair.end())
     {
         return SameTargetPair[std::pair<Instruction *, Instruction *>(I0, I1)];
     }

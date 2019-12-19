@@ -46,8 +46,12 @@ using namespace llvm;
 class HI_InstructionLatencyCollect : public FunctionPass
 {
   public:
-    // Pass for simple evluation of the latency of the top function, without considering HLS directives
-    HI_InstructionLatencyCollect(const char *evaluating_log_name, const char *top_function, std::map<Loop *, std::vector<BasicBlock *> *> *L2Bs, std::map<BasicBlock *, std::vector<Loop *> *> *B2Ls) : FunctionPass(ID)
+    // Pass for simple evluation of the latency of the top function, without considering HLS
+    // directives
+    HI_InstructionLatencyCollect(const char *evaluating_log_name, const char *top_function,
+                                 std::map<Loop *, std::vector<BasicBlock *> *> *L2Bs,
+                                 std::map<BasicBlock *, std::vector<Loop *> *> *B2Ls)
+        : FunctionPass(ID)
     {
         BlockEvaluated.clear();
         LoopEvaluated.clear();
@@ -136,7 +140,8 @@ class HI_InstructionLatencyCollect : public FunctionPass
     // record the list of outer loops for functions
     std::map<Function *, std::vector<Loop *>> Function2OuterLoops;
 
-    // record which evaluated loop the block is belong to, so the pass can directly trace to the loop for the latency
+    // record which evaluated loop the block is belong to, so the pass can directly trace to the
+    // loop for the latency
     std::map<BasicBlock *, Loop *> Block2EvaluatedLoop;
 
     // record the critical path from the loop header to the end of the specific block

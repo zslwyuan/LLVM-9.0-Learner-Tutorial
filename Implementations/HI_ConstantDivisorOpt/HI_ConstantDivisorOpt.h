@@ -109,19 +109,22 @@ class HI_ConstantDivisorOpt : public FunctionPass
         }
     };
 
-    std::priority_queue<std::pair<int, Value *>, std::vector<std::pair<int, Value *>>, cmp_mulorder> heap_opCnt;
+    std::priority_queue<std::pair<int, Value *>, std::vector<std::pair<int, Value *>>, cmp_mulorder>
+        heap_opCnt;
     std::map<MulOperator *, std::map<Value *, int>> op2Cnt;
     std::set<Value *> generatedI;
 
     /// Generate code for signed division by a constant. Implementation follows
     /// TargetLowering::BuildSDIV that replaces division with multiplication
     /// by a magic number.
-    Value *generateSignedDivisionByConstant(Value *Dividend, ConstantInt *Divisor, IRBuilder<> &Builder);
+    Value *generateSignedDivisionByConstant(Value *Dividend, ConstantInt *Divisor,
+                                            IRBuilder<> &Builder);
 
     /// Generate code for unsigned division by a constant. Implementation follows
     /// TargetLowering::BuildSDIV that replaces division with multiplication
     /// by a magic number.
-    Value *generateUnsignedDivisionByConstant(Value *Dividend, ConstantInt *Divisor, IRBuilder<> &Builder);
+    Value *generateUnsignedDivisionByConstant(Value *Dividend, ConstantInt *Divisor,
+                                              IRBuilder<> &Builder);
 
     std::error_code ErrInfo;
     raw_ostream *DivisionOptLog;
