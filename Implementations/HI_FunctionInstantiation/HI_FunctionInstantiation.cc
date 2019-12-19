@@ -1,32 +1,32 @@
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Module.h"
+#include "HI_FunctionInstantiation.h"
+#include "HI_print.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
-#include "HI_print.h"
-#include "HI_FunctionInstantiation.h"
-#include <stdio.h>
-#include <string>
 #include <ios>
-#include <stdlib.h>
 #include <queue>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string>
 
 using namespace llvm;
- 
+
 bool HI_FunctionInstantiation::runOnModule(Module &M) // The runOnModule declaration will overide the virtual one in ModulePass, which will be executed for each Module.
 {
-    print_status("Running HI_FunctionInstantiation pass."); 
+    print_status("Running HI_FunctionInstantiation pass.");
 
     bool initiated = false;
     collectCallInsts(&M);
-    initiated = FunctionShouldBeInitiated.size()>0;
+    initiated = FunctionShouldBeInitiated.size() > 0;
     for (auto &F : M)
     {
-        if (F.getName().find("llvm.")!=std::string::npos)
+        if (F.getName().find("llvm.") != std::string::npos)
             continue;
         if (demangleFunctionName(F.getName().str()) == topFunctionName)
         {
@@ -39,11 +39,10 @@ bool HI_FunctionInstantiation::runOnModule(Module &M) // The runOnModule declara
     return initiated;
 }
 
+char HI_FunctionInstantiation::ID = 0; // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
 
-
-char HI_FunctionInstantiation::ID = 0;  // the ID for pass should be initialized but the value does not matter, since LLVM uses the address of this variable as label instead of its value.
-
-void HI_FunctionInstantiation::getAnalysisUsage(AnalysisUsage &AU) const {
+void HI_FunctionInstantiation::getAnalysisUsage(AnalysisUsage &AU) const
+{
     AU.setPreservesCFG();
 }
 
@@ -61,9 +60,9 @@ void HI_FunctionInstantiation::collectCallInsts(Module *M)
         for (auto &B : F)
             for (auto &I : B)
             {
-                if (CallInst* callI = dyn_cast<CallInst>(&I))
+                if (CallInst *callI = dyn_cast<CallInst>(&I))
                 {
-                    if (callI->getCalledFunction()->getName().find("llvm.")!=std::string::npos)
+                    if (callI->getCalledFunction()->getName().find("llvm.") != std::string::npos)
                         continue;
                     for (auto _callI : CallInst_List)
                     {
@@ -77,7 +76,7 @@ void HI_FunctionInstantiation::collectCallInsts(Module *M)
                     CallInst_List.push_back(callI);
                 }
             }
-    
+
     return;
 }
 
@@ -88,7 +87,7 @@ void HI_FunctionInstantiation::insertFunctionShouldBeInitiated(Function *F)
         if (tmpF == F)
             return;
     }
-    *FuncInitiationLog << "    The function [" << F->getName() << "] is inserted into instantiation list.\n" ;
+    *FuncInitiationLog << "    The function [" << F->getName() << "] is inserted into instantiation list.\n";
     FunctionShouldBeInitiated.push_back(F);
 }
 
@@ -107,15 +106,15 @@ void HI_FunctionInstantiation::BFS_check_and_initiate(Function *startF, Module *
     std::queue<Function *> FuncQ;
     std::set<Function *> FuncVisited;
     FuncQ.push(startF);
-    
-    while (FuncQ.size()>0)
+
+    while (FuncQ.size() > 0)
     {
         Function *curF = FuncQ.front();
         FuncVisited.insert(curF);
         FuncQ.pop();
-        if (curF->getName().find("llvm.")!=std::string::npos)
+        if (curF->getName().find("llvm.") != std::string::npos)
             continue;
-        *FuncInitiationLog << "    BFS reach the function [" << curF->getName() << "] \n" ;
+        *FuncInitiationLog << "    BFS reach the function [" << curF->getName() << "] \n";
         checkAndInitiateCallInstIn(curF);
         pushCalledFunctionIntoQueue(curF, FuncQ, FuncVisited);
     }
@@ -125,7 +124,7 @@ void HI_FunctionInstantiation::BFS_check_and_initiate(Function *startF, Module *
 void HI_FunctionInstantiation::checkAndInitiateCallInstIn(Function *curF)
 {
     // generate instantiation and replace call instrutctions
-    *FuncInitiationLog << "          check and initiate sub-functions invoked by call instructions for the function [" << curF->getName() << "] \n" ;
+    *FuncInitiationLog << "          check and initiate sub-functions invoked by call instructions for the function [" << curF->getName() << "] \n";
     bool updated = 1;
     while (updated)
     {
@@ -134,10 +133,10 @@ void HI_FunctionInstantiation::checkAndInitiateCallInstIn(Function *curF)
         {
             for (auto &I : B)
             {
-                if (CallInst* callI = dyn_cast<CallInst>(&I))
+                if (CallInst *callI = dyn_cast<CallInst>(&I))
                 {
                     auto targetF = callI->getCalledFunction();
-                    if (targetF->getName().find("llvm.")!=std::string::npos)
+                    if (targetF->getName().find("llvm.") != std::string::npos)
                         continue;
                     if (ShouldFunctionBeInitiated(targetF))
                     {
@@ -145,7 +144,7 @@ void HI_FunctionInstantiation::checkAndInitiateCallInstIn(Function *curF)
                         Function *F_clone = CloneFunction(targetF, vmap);
                         std::string newName = targetF->getName().str() + std::to_string(newFuncID(targetF));
                         F_clone->setName(newName);
-                        *FuncInitiationLog << "          ---- going to replace called function for CallInst [" << *callI <<  "] with function: [" << F_clone->getName() << "]\n";
+                        *FuncInitiationLog << "          ---- going to replace called function for CallInst [" << *callI << "] with function: [" << F_clone->getName() << "]\n";
                         replaceCallInst(callI, F_clone);
                         updated = 1;
                         break;
@@ -156,24 +155,23 @@ void HI_FunctionInstantiation::checkAndInitiateCallInstIn(Function *curF)
                 break;
         }
     }
-
 }
 
 void HI_FunctionInstantiation::pushCalledFunctionIntoQueue(Function *curF, std::queue<Function *> &FuncQ, std::set<Function *> &FuncVisited)
 {
-    *FuncInitiationLog << "          push called sub-function into queue for the function [" << curF->getName() << "] \n" ;
+    *FuncInitiationLog << "          push called sub-function into queue for the function [" << curF->getName() << "] \n";
     for (auto &B : *curF)
     {
         for (auto &I : B)
         {
-            if (CallInst* callI = dyn_cast<CallInst>(&I))
+            if (CallInst *callI = dyn_cast<CallInst>(&I))
             {
                 auto targetF = callI->getCalledFunction();
-                if (targetF->getName().find("llvm.")!=std::string::npos)
+                if (targetF->getName().find("llvm.") != std::string::npos)
                     continue;
                 if (FuncVisited.find(targetF) == FuncVisited.end())
                 {
-                    *FuncInitiationLog << "          ---- push the sub-function [" << targetF->getName() << "] into queue\n" ;
+                    *FuncInitiationLog << "          ---- push the sub-function [" << targetF->getName() << "] into queue\n";
                     FuncQ.push(targetF);
                 }
             }
@@ -181,9 +179,9 @@ void HI_FunctionInstantiation::pushCalledFunctionIntoQueue(Function *curF, std::
     }
 }
 
-int HI_FunctionInstantiation::newFuncID(Function* F)
+int HI_FunctionInstantiation::newFuncID(Function *F)
 {
-    if (IntitiatedFunctionCnt.find(F)==IntitiatedFunctionCnt.end())
+    if (IntitiatedFunctionCnt.find(F) == IntitiatedFunctionCnt.end())
     {
         IntitiatedFunctionCnt[F] = 0;
         return 0;
@@ -192,16 +190,14 @@ int HI_FunctionInstantiation::newFuncID(Function* F)
     return IntitiatedFunctionCnt[F];
 }
 
-void HI_FunctionInstantiation::replaceCallInst(Instruction *callI, Function* F)
+void HI_FunctionInstantiation::replaceCallInst(Instruction *callI, Function *F)
 {
-    *FuncInitiationLog << "          ---- replacing called function for CallInst [" << *callI <<  "] with function: [" << F->getName() << "]\n";
-                    
-
+    *FuncInitiationLog << "          ---- replacing called function for CallInst [" << *callI << "] with function: [" << F->getName() << "]\n";
 
     IRBuilder<> Builder(callI);
-    std::vector<Value*> ori_args;
+    std::vector<Value *> ori_args;
     *FuncInitiationLog << "          ---- args are: ";
-    for (int i = 0; i < F->getFunctionType()->getNumParams();i++)
+    for (int i = 0; i < F->getFunctionType()->getNumParams(); i++)
     {
         ori_args.push_back(callI->getOperand(i));
         *FuncInitiationLog << "#" << i << ": [" << *callI->getOperand(i) << "] ";
@@ -209,42 +205,37 @@ void HI_FunctionInstantiation::replaceCallInst(Instruction *callI, Function* F)
     *FuncInitiationLog << "\n";
     *FuncInitiationLog << "          ---- args_size=" << ori_args.size() << " FuncParams_size=" << F->getFunctionType()->getNumParams() << "\n";
 
-    *FuncInitiationLog << "\n\n================== new function =================================\n" 
-                        << *F
-                       << "\n===================================================\n\n";
+    *FuncInitiationLog << "\n\n================== new function =================================\n" << *F << "\n===================================================\n\n";
 
-    CallInst* newCallI = Builder.CreateCall(F, ori_args);
+    CallInst *newCallI = Builder.CreateCall(F, ori_args);
     callI->replaceAllUsesWith(newCallI);
     callI->eraseFromParent();
-    *FuncInitiationLog << "\n\n=============== new module ============================\n" 
-                        << *F->getParent()  
-                       << "\n===================================================\n\n";
+    *FuncInitiationLog << "\n\n=============== new module ============================\n" << *F->getParent() << "\n===================================================\n\n";
     *FuncInitiationLog << "          ---- replaced\n";
-    
 }
 
 void HI_FunctionInstantiation::BFS_checkDeadFunction(Function *startF, Module *M)
 {
-    *FuncInitiationLog << "\n\n\n=========================================\nremoving dead function \n" ;
+    *FuncInitiationLog << "\n\n\n=========================================\nremoving dead function \n";
     std::queue<Function *> FuncQ;
     std::set<Function *> FuncVisited;
     FuncQ.push(startF);
-    
-    while (FuncQ.size()>0)
+
+    while (FuncQ.size() > 0)
     {
         Function *curF = FuncQ.front();
         FuncVisited.insert(curF);
         FuncQ.pop();
-        if (curF->getName().find("llvm.")!=std::string::npos)
+        if (curF->getName().find("llvm.") != std::string::npos)
             continue;
         for (auto &B : *curF)
         {
             for (auto &I : B)
             {
-                if (CallInst* callI = dyn_cast<CallInst>(&I))
+                if (CallInst *callI = dyn_cast<CallInst>(&I))
                 {
                     auto targetF = callI->getCalledFunction();
-                    if (targetF->getName().find("llvm.")!=std::string::npos)
+                    if (targetF->getName().find("llvm.") != std::string::npos)
                         continue;
                     if (FuncVisited.find(targetF) == FuncVisited.end())
                     {
@@ -262,7 +253,7 @@ void HI_FunctionInstantiation::BFS_checkDeadFunction(Function *startF, Module *M
         {
             if (FuncVisited.find(&F) == FuncVisited.end())
             {
-                if (F.getName().find("llvm.")!=std::string::npos)
+                if (F.getName().find("llvm.") != std::string::npos)
                     continue;
 
                 *FuncInitiationLog << "          ---- remove dead function [" << F.getName() << "] from module\n";

@@ -1,67 +1,68 @@
+#include "HI_ArraySensitiveToLoopLevel.h"
+#include "HI_print.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
-#include "HI_print.h"
-#include "HI_ArraySensitiveToLoopLevel.h"
 
-#include <stdio.h>
-#include <string>
 #include <ios>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string>
 
 using namespace llvm;
 
-
 bool HI_ArraySensitiveToLoopLevel::isInLoop(BasicBlock *BB)
 {
-    return (Block2Loops.find(BB)!=Block2Loops.end());
+    return (Block2Loops.find(BB) != Block2Loops.end());
 }
 
 /*
     find the outer loop and evaluate it as a integration
 */
-Loop* HI_ArraySensitiveToLoopLevel::getOuterLoopOfBlock(BasicBlock* B)
+Loop *HI_ArraySensitiveToLoopLevel::getOuterLoopOfBlock(BasicBlock *B)
 {
-    for (auto tmp_Loop: *Block2Loops[B]) // find the most outer loop
+    for (auto tmp_Loop : *Block2Loops[B]) // find the most outer loop
     {
         if (tmp_Loop->getLoopDepth() == 1)
         {
             return tmp_Loop;
         }
-    }    
+    }
     assert(false && "a loop shoud be found but actually not");
 }
 
-
-void HI_ArraySensitiveToLoopLevel::getLoopBlockMap(Function* F)
+void HI_ArraySensitiveToLoopLevel::getLoopBlockMap(Function *F)
 {
-     if (DEBUG) *Evaluating_log << "    getLoopBlockMap for Function : " << F->getName() << " \n ";
-    for (auto ele : Loop2Blocks) 
+    if (DEBUG)
+        *Evaluating_log << "    getLoopBlockMap for Function : " << F->getName() << " \n ";
+    for (auto ele : Loop2Blocks)
     {
         delete ele.second;
     }
-    for (auto ele : Block2Loops) 
+    for (auto ele : Block2Loops)
     {
         delete ele.second;
     }
     Loop2Blocks.clear();
     Block2Loops.clear();
-    for(LoopInfo::iterator i=LI->begin(),e=LI->end();i!=e;++i)
+    for (LoopInfo::iterator i = LI->begin(), e = LI->end(); i != e; ++i)
     {
-        Loop* L = *i;
-        if (DEBUG) *Evaluating_log << "--------- Loop: " << L->getName() << " address: " << L->getHeader() <<" contains:\n ";
+        Loop *L = *i;
+        if (DEBUG)
+            *Evaluating_log << "--------- Loop: " << L->getName() << " address: " << L->getHeader() << " contains:\n ";
         for (auto BinL : L->getBlocks())
         {
-            if (DEBUG) *Evaluating_log << "------------- Block: " << BinL->getName() << " address: " << BinL  <<" \n";
-            std::vector<BasicBlock*> *tmp_vec_block;
-            std::vector<Loop*> *tmp_vec_loop;
-            
+            if (DEBUG)
+                *Evaluating_log << "------------- Block: " << BinL->getName() << " address: " << BinL << " \n";
+            std::vector<BasicBlock *> *tmp_vec_block;
+            std::vector<Loop *> *tmp_vec_loop;
+
             if (Block2Loops.find(BinL) == Block2Loops.end())
             {
-                tmp_vec_loop = new std::vector<Loop*>;
+                tmp_vec_loop = new std::vector<Loop *>;
                 Block2Loops[BinL] = tmp_vec_loop;
             }
             else
@@ -70,7 +71,7 @@ void HI_ArraySensitiveToLoopLevel::getLoopBlockMap(Function* F)
             }
             if (Loop2Blocks.find(L) == Loop2Blocks.end())
             {
-                tmp_vec_block = new std::vector<BasicBlock*>;
+                tmp_vec_block = new std::vector<BasicBlock *>;
                 Loop2Blocks[L] = tmp_vec_block;
             }
             else
@@ -81,39 +82,44 @@ void HI_ArraySensitiveToLoopLevel::getLoopBlockMap(Function* F)
             tmp_vec_loop->push_back(L);
         }
     }
-
 }
 
-
-
 /*
-    find the inner unevaluated loop, 
-    (1) check all the sub-loops 
+    find the inner unevaluated loop,
+    (1) check all the sub-loops
     (2) check the loop itself
 */
-Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
+Loop *HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop *outerL)
 {
     int dep = 0;
-    Loop* tmp_inner_Loop = NULL;
-    for (auto tmp_Loop: *outerL) // find the most inner unevaluated loop
+    Loop *tmp_inner_Loop = NULL;
+    for (auto tmp_Loop : *outerL) // find the most inner unevaluated loop
     {
-        if (DEBUG) *Evaluating_log << "--------- checking sub-loop: " << tmp_Loop->getName() << " address:" << tmp_Loop->getHeader() <<" -> dep = " << tmp_Loop->getLoopDepth() << " ";
+        if (DEBUG)
+            *Evaluating_log << "--------- checking sub-loop: " << tmp_Loop->getName() << " address:" << tmp_Loop->getHeader() << " -> dep = " << tmp_Loop->getLoopDepth() << " ";
         if (LoopEvaluated.find(tmp_Loop->getHeader()) != LoopEvaluated.end())
-            { if (DEBUG) *Evaluating_log << " which is evaluated.\n";}
+        {
+            if (DEBUG)
+                *Evaluating_log << " which is evaluated.\n";
+        }
         else
-            {if (DEBUG) *Evaluating_log << " which is NOT evaluated.\n";}
-        
+        {
+            if (DEBUG)
+                *Evaluating_log << " which is NOT evaluated.\n";
+        }
+
         // larger depth means more inner
 
         // go to the sub-sub-...-Loop to have a check
-        Loop* tmp_inner_Sub_Loop = getInnerUnevaluatedLoop(tmp_Loop);
+        Loop *tmp_inner_Sub_Loop = getInnerUnevaluatedLoop(tmp_Loop);
         if (tmp_inner_Sub_Loop)
         {
             if (tmp_inner_Sub_Loop->getLoopDepth() > dep && LoopEvaluated.find(tmp_inner_Sub_Loop->getHeader()) == LoopEvaluated.end())
             {
                 dep = tmp_inner_Sub_Loop->getLoopDepth();
                 tmp_inner_Loop = tmp_inner_Sub_Loop; //  the sub-sub-...-loop could be the most inner loop
-                if (DEBUG) *Evaluating_log << "--------- update target sub-loop to Loop: " << tmp_inner_Loop->getName() <<"\n";
+                if (DEBUG)
+                    *Evaluating_log << "--------- update target sub-loop to Loop: " << tmp_inner_Loop->getName() << "\n";
             }
         }
         else
@@ -122,25 +128,29 @@ Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
             {
                 dep = tmp_Loop->getLoopDepth();
                 tmp_inner_Loop = tmp_Loop; //  no the sub-sub-...-loop could be the most inner loop but current sub-loop could be
-                if (DEBUG) *Evaluating_log << "--------- update target sub-loop to Loop: " << tmp_inner_Loop->getName() <<"\n";
-            }            
-        }               
+                if (DEBUG)
+                    *Evaluating_log << "--------- update target sub-loop to Loop: " << tmp_inner_Loop->getName() << "\n";
+            }
+        }
     }
-    auto tmp_Loop =  outerL;
+    auto tmp_Loop = outerL;
     if (tmp_inner_Loop == NULL) // all sub-loops are evaluated, check the loop itself.
     {
-        if (DEBUG) *Evaluating_log << "--------- checking loop itself: " << tmp_Loop->getName() << " address:" << tmp_Loop->getHeader() <<" -> dep = " << tmp_Loop->getLoopDepth() << " ";
+        if (DEBUG)
+            *Evaluating_log << "--------- checking loop itself: " << tmp_Loop->getName() << " address:" << tmp_Loop->getHeader() << " -> dep = " << tmp_Loop->getLoopDepth() << " ";
         if (LoopEvaluated.find(tmp_Loop->getHeader()) != LoopEvaluated.end())
-            if (DEBUG) *Evaluating_log << " which is evaluated.\n";
-        else
-            if (DEBUG) *Evaluating_log << " which is NOT evaluated.\n";
-        
+            if (DEBUG)
+                *Evaluating_log << " which is evaluated.\n";
+            else if (DEBUG)
+                *Evaluating_log << " which is NOT evaluated.\n";
+
         // larger depth means more inner
         if (tmp_Loop->getLoopDepth() > dep && LoopEvaluated.find(tmp_Loop->getHeader()) == LoopEvaluated.end())
         {
             dep = tmp_Loop->getLoopDepth();
             tmp_inner_Loop = tmp_Loop;
-            if (DEBUG) *Evaluating_log << "--------- update target loop to Loop: " << tmp_inner_Loop->getName() <<"\n";
+            if (DEBUG)
+                *Evaluating_log << "--------- update target loop to Loop: " << tmp_inner_Loop->getName() << "\n";
         }
     }
 
@@ -148,8 +158,8 @@ Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
 }
 
 /*
-    To get the latency of the entire outer loop, 
-    (1) iteratively handle the most inner loop, 
+    To get the latency of the entire outer loop,
+    (1) iteratively handle the most inner loop,
     (2) traverse the blocks in loop by DFS to find the longest path
     (3) get the total latency by TripCount * IterationLatency
     (4) mark the blocks in loop with the loop latency, so later processing can regard this loop as an integration
@@ -169,7 +179,7 @@ Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
 //     timingBase origin_latency(0,0,1,clock_period);
 //     // (1) iteratively handle the most inner loop
 //     cur_Loop = getInnerUnevaluatedLoop(outerL);
-//     while (cur_Loop!=NULL) 
+//     while (cur_Loop!=NULL)
 //     {
 //         if (DEBUG) *Evaluating_log << "-- Handling the inner Loop " << cur_Loop->getName() <<":\n";
 //         BasicBlock *tmp_LoopHeader = cur_Loop->getHeader(); //get the header of the loop
@@ -184,10 +194,9 @@ Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
 //         for (auto B_it:tmp_ExitingBlocks)
 //         {
 //             if (DEBUG) *Evaluating_log << "---- its exiting block(s): " << B_it->getName() <<" -- ";
-//         }        
+//         }
 //         if (DEBUG) *Evaluating_log << "\n";
 
-        
 //         // (2) traverse the block in loop by DFS to find the longest path
 //         timingBase max_critial_path_in_curLoop(0,0,1,clock_period);
 //         resourceBase resourceAccumulator(0,0,0,clock_period);
@@ -197,14 +206,14 @@ Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
 //         BlockVisited.clear();
 //         LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(origin_latency, cur_Loop, tmp_LoopHeader, resourceAccumulator);
 //         BlockCriticalPath_inLoop[cur_Loop] = tmp_BlockCriticalPath_inLoop;
-       
+
 //         for (auto tmp_it : tmp_BlockCriticalPath_inLoop)
 //             if (tmp_it.second > max_critial_path_in_curLoop)
 //                 max_critial_path_in_curLoop = tmp_it.second;
 //         for (auto tmp_it : tmp_SubLoop_CriticalPath)
 //             if (tmp_it.second > max_critial_path_in_curLoop)
 //                 max_critial_path_in_curLoop = tmp_it.second;
-        
+
 //         Loop2CP[cur_Loop->getHeader()] = max_critial_path_in_curLoop.latency;
 //         // (3) get the total latency by TripCount * IterationLatency? (consider whether the loop is pipelined)
 //         int II_for_loop = checkIIForLoop(cur_Loop, tmp_BlockCriticalPath_inLoop);
@@ -212,7 +221,7 @@ Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
 //         {
 //             if (II_for_loop >= max_critial_path_in_curLoop.latency)
 //             {
-//                 print_warning("Loop  " + std::string(cur_Loop->getName()) + " is pipelined with II=" 
+//                 print_warning("Loop  " + std::string(cur_Loop->getName()) + " is pipelined with II="
 //                                 + std::to_string(II_for_loop) + " which means it is not worthy to pipeline the loop.");
 //             }
 //             tmp_total_latency = SE->getSmallConstantMaxTripCount(cur_Loop) * max_critial_path_in_curLoop;
@@ -223,8 +232,8 @@ Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
 //             std::string tmp_loop_name = cur_Loop->getHeader()->getParent()->getName();
 //             tmp_loop_name += "-";
 //             tmp_loop_name += cur_Loop->getHeader()->getName();
-            
-//             int tmp_unroll_factor = -1; 
+
+//             int tmp_unroll_factor = -1;
 //             int original_tripcount = -1;
 //             if (LoopLabel2UnrollFactor.find(IRLoop2LoopLabel[tmp_loop_name]) != LoopLabel2UnrollFactor.end())
 //             {
@@ -235,8 +244,8 @@ Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
 //             // original trip count is not the multiple of the unroll factor
 //             // and the overhead of the remainder iterations is too high
 //             // VivadoHLS might shut down the last iteration ASAP
-//             if (tmp_unroll_factor > 0 && original_tripcount > 0 
-//                 && (original_tripcount%tmp_unroll_factor<original_tripcount/2) 
+//             if (tmp_unroll_factor > 0 && original_tripcount > 0
+//                 && (original_tripcount%tmp_unroll_factor<original_tripcount/2)
 //                 && II_for_loop > 10)
 //             {
 //                 if (DEBUG) *Evaluating_log << "the overhead of the remainder iterations after unrolling is too high and approximately reduce the latency of the last iteration after unrolling\n";
@@ -252,9 +261,8 @@ Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
 //             {
 //                 tmp_total_latency = (SE->getSmallConstantMaxTripCount(cur_Loop)-1) * II_for_loop * timingBase(1,0,1,clock_period) + max_critial_path_in_curLoop;
 //             }
-            
-           
-//             resourceAccumulator = resourceAccumulator 
+
+//             resourceAccumulator = resourceAccumulator
 //                                   + costRescheduleIntDSPOperators_forLoop(cur_Loop, tmp_BlockCriticalPath_inLoop, II_for_loop);
 //             recordCostRescheduleFPDSPOperators_forLoop(cur_Loop, tmp_BlockCriticalPath_inLoop, II_for_loop);
 
@@ -267,13 +275,13 @@ Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
 //         //     tmp_total_latency = tmp_total_latency + BlockLatencyResourceEvaluation(cur_Loop->getLoopPreheader());
 //         tmp_total_latency = tmp_total_latency + timingBase(1,0,1,clock_period);
 
-//         // (4) mark the blocks in loop with the loop latency, so later processing can regard this loop as an integration    
+//         // (4) mark the blocks in loop with the loop latency, so later processing can regard this loop as an integration
 //         BlockVisited.clear();
 //         MarkBlock_traversFromHeaderToExitingBlocks(tmp_total_latency, cur_Loop, tmp_LoopHeader);
 //         LoopLatency[cur_Loop->getHeader()] = tmp_total_latency;
 //         LoopResource[cur_Loop->getHeader()] = resourceAccumulator;
 //         LoopEvaluated.insert(cur_Loop->getHeader());
-        
+
 //         if (DEBUG) *Evaluating_log << "Trip Count for Loop " << cur_Loop->getName() << " is " << SE->getSmallConstantMaxTripCount(cur_Loop) <<"\n";
 //         if (DEBUG) *Evaluating_log << "Done evaluation Loop Latency for Loop " << cur_Loop->getName() << " and its latency is " << tmp_total_latency <<" cycles and its resource cost is: " << LoopResource[cur_Loop->getHeader()] << ".\n\n\n";
 
@@ -290,9 +298,9 @@ Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
     traverse the block in loop by DFS to find the longest path:
     (1) Mark the block visited, as a step of typical DFS
     (2) Check whether the search reaches a block in the sub-loops
-    (3a) -- If it is a block in sub-loops, regard the loop as intergration and update the critical path if necessary (max(ori_CP, lastStateCP + LoopLatency)). 
+    (3a) -- If it is a block in sub-loops, regard the loop as intergration and update the critical path if necessary (max(ori_CP, lastStateCP + LoopLatency)).
          -- find the successors of the loop by checking its exiting blocks' successors and continue the DFS
-    (3b) -- If it is a block out of sub-loops, evaluate the block latency and update the critical path if necessary (max(ori_CP, lastStateCP + BlockLatency)). 
+    (3b) -- If it is a block out of sub-loops, evaluate the block latency and update the critical path if necessary (max(ori_CP, lastStateCP + BlockLatency)).
          -- find the successors of the block and continue the DFS
     (4) Release the block from visited flag, as a step of typical DFS
 
@@ -302,28 +310,28 @@ Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
 
 //     // (1) Mark the block visited, as a step of typical DFS
 //     BlockVisited.insert(curBlock);
-    
+
 //     if (DEBUG) *Evaluating_log << "---- traverser arrive Block: " << curBlock->getName() <<" ";
 
 //     // (2) Check whether the search reaches a block in the sub-loops
-//     if (Block2EvaluatedLoop.find(curBlock) != Block2EvaluatedLoop.end()) 
-//     {        
+//     if (Block2EvaluatedLoop.find(curBlock) != Block2EvaluatedLoop.end())
+//     {
 //         // (3a) -- If it is a block in sub-loops, regard the loop as intergration and update the critical path if necessary (max(ori_CP, lastStateCP + LoopLatency)).
 //         Loop* tmp_SubLoop = Block2EvaluatedLoop[curBlock];
 //         if (DEBUG) *Evaluating_log << " which is evluated in Loop " << tmp_SubLoop->getName() <<" ";
 //         if (DEBUG) *Evaluating_log << " LoopLatency =  " << LoopLatency[tmp_SubLoop->getHeader()] <<" ";
 //         timingBase try_critical_path = tmp_critical_path + LoopLatency[tmp_SubLoop->getHeader()];  // first, get the critical path to the end of sub-loop
 //         if (DEBUG) *Evaluating_log << " NewCP =  " << try_critical_path <<" ";
-//         bool checkFlag = false;         
-       
-//         if (tmp_SubLoop_CriticalPath.find(tmp_SubLoop) == tmp_SubLoop_CriticalPath.end() ) 
-//         {  
+//         bool checkFlag = false;
+
+//         if (tmp_SubLoop_CriticalPath.find(tmp_SubLoop) == tmp_SubLoop_CriticalPath.end() )
+//         {
 //             assert(LoopResource.find(tmp_SubLoop->getHeader())!=LoopResource.end());
 //             resourceAccumulator = resourceAccumulator + LoopResource[tmp_SubLoop->getHeader()];
 //             checkFlag = true;
 //         }
 //         else if (try_critical_path > tmp_SubLoop_CriticalPath[tmp_SubLoop]) checkFlag = true;
-                
+
 //         if (checkFlag)
 //         {
 //             if (tmp_SubLoop_CriticalPath.find(tmp_SubLoop) != tmp_SubLoop_CriticalPath.end())
@@ -333,9 +341,9 @@ Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
 //             else
 //             {
 //                 if (DEBUG) *Evaluating_log << " No OriCP" <<"\n";
-//             }            
+//             }
 //             tmp_SubLoop_CriticalPath[tmp_SubLoop] = try_critical_path;
-            
+
 //              //  (3a)  -- find the successors of the loop by checking its exiting blocks' successors and continue the DFS
 //             SmallVector<BasicBlock*, 8>  tmp_SubLoop_ExitingBlocks;
 //             tmp_SubLoop->getExitingBlocks(tmp_SubLoop_ExitingBlocks);
@@ -352,26 +360,26 @@ Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
 //             }
 
 //         }
-        
+
 //     }
 //     else
 //     {
-//         //     (3b) -- If it is a block out of sub-loops, evaluate the block latency and update the critical path if necessary (max(ori_CP, lastStateCP + BlockLatency)).         
+//         //     (3b) -- If it is a block out of sub-loops, evaluate the block latency and update the critical path if necessary (max(ori_CP, lastStateCP + BlockLatency)).
 //         if (DEBUG) *Evaluating_log << " which is  not evaluated in Loop " << " ";
 //         timingBase latency_CurBlock = BlockLatencyResourceEvaluation(curBlock); // first, get the latency of the current block
 //         timingBase try_critical_path = tmp_critical_path + latency_CurBlock;
 //         if (DEBUG) *Evaluating_log << "---- latencyBlock =  " << latency_CurBlock <<" ";
 //         if (DEBUG) *Evaluating_log << " NewCP =  " << try_critical_path <<" ";
 //         bool checkFlag = false;
-        
+
 //         if (tmp_BlockCriticalPath_inLoop.find(curBlock) == tmp_BlockCriticalPath_inLoop.end() )
 //         {
 //             assert(BlockResource.find(curBlock)!=BlockResource.end());
-//             resourceAccumulator = resourceAccumulator + BlockResource[curBlock];   
+//             resourceAccumulator = resourceAccumulator + BlockResource[curBlock];
 //             checkFlag = true;
 //         }
 //         else if (try_critical_path > tmp_BlockCriticalPath_inLoop[curBlock]) checkFlag = true;
-        
+
 //         if (checkFlag) // update the block-level critical path
 //         {
 //             if (tmp_BlockCriticalPath_inLoop.find(curBlock) != tmp_BlockCriticalPath_inLoop.end())
@@ -382,22 +390,22 @@ Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
 //             {
 //                 if (DEBUG) *Evaluating_log << " No OriCP" <<"\n";
 //             }
-            
-//             tmp_BlockCriticalPath_inLoop[curBlock] = try_critical_path;   
+
+//             tmp_BlockCriticalPath_inLoop[curBlock] = try_critical_path;
 //             BlockBegin_inLoop[curBlock] = tmp_critical_path;  // only one level of sub-loop in a outermost loop will be pipelined
 //                                                                // so don't worry about duplicated use of this map
-                                                               
+
 //             // (3b)  -- find the successors of the block and continue the DFS
 //             for (auto B : successors(curBlock))
 //             {
 //                 if (L->contains(B) && BlockVisited.find(B) == BlockVisited.end())
-//                 {                 
+//                 {
 //                     if (DEBUG) *Evaluating_log << "---- loop continue to traverser to Block: " << B->getName()  << " from " << curBlock->getName() << " ";
 //                     LoopLatencyResourceEvaluation_traversFromHeaderToExitingBlocks(try_critical_path,L,B,resourceAccumulator);
 //                 }
 //             }
 //         }
-//     }   
+//     }
 //     // (4) Release the block from visited flag, as a step of typical DFS
 //     BlockVisited.erase(curBlock);
 // }
@@ -405,7 +413,7 @@ Loop* HI_ArraySensitiveToLoopLevel::getInnerUnevaluatedLoop(Loop* outerL)
 /*
     Simply mark all the blocks in the loop with the totoal_latency by DFS-traverse
 */
-void HI_ArraySensitiveToLoopLevel::MarkBlock_traversFromHeaderToExitingBlocks(HI_ArraySensitiveToLoopLevel::timingBase total_latency, Loop* L, BasicBlock *curBlock)
+void HI_ArraySensitiveToLoopLevel::MarkBlock_traversFromHeaderToExitingBlocks(HI_ArraySensitiveToLoopLevel::timingBase total_latency, Loop *L, BasicBlock *curBlock)
 {
     BlockVisited.insert(curBlock);
     Block2EvaluatedLoop[curBlock] = L;
@@ -413,12 +421,11 @@ void HI_ArraySensitiveToLoopLevel::MarkBlock_traversFromHeaderToExitingBlocks(HI
     for (auto B : successors(curBlock))
     {
         if (L->contains(B) && BlockVisited.find(B) == BlockVisited.end())
-        {            
+        {
             MarkBlock_traversFromHeaderToExitingBlocks(total_latency, L, B);
         }
-    }    
+    }
 }
-
 
 // // get the II factor for loop pipelining, if there is directives of pipeline for this loop
 // int HI_ArraySensitiveToLoopLevel::checkIIForLoop(Loop *curLoop,  std::map<BasicBlock*, timingBase> &tmp_BlockCriticalPath_inLoop)
@@ -433,7 +440,7 @@ void HI_ArraySensitiveToLoopLevel::MarkBlock_traversFromHeaderToExitingBlocks(HI
 //     std::string label = IRLoop2LoopLabel[tmp_loop_name];
 //     if (LoopLabel2II.find(label) == LoopLabel2II.end())
 //         return -1;
-    
+
 //     if (DEBUG) *Evaluating_log << "--------- Loop is applied pipelining pragma\n";
 //     // When pipelined, the loop should not have any sub-loop inside
 //     if (curLoop->getSubLoops().size()>0)
@@ -458,12 +465,10 @@ void HI_ArraySensitiveToLoopLevel::MarkBlock_traversFromHeaderToExitingBlocks(HI
 //     // so we believe that VivadoHLS can optimize
 //     // II_BRAM_enum by reducing it by 1
 //     if (II_BRAM_enum - 1 > II_BRAM)
-//         II_BRAM = II_BRAM_enum - 1; 
+//         II_BRAM = II_BRAM_enum - 1;
 
 //     int II_dependence = checkDependenceIIForLoop(curLoop);
 
-
-    
 //     if (DEBUG) *Evaluating_log << "--------- Loop pipeline expected II is " << min_II << "\n";
 //     if (DEBUG) *Evaluating_log << "--------- Loop pipeline BRAM-related II is " << II_BRAM << "\n";
 //     if (DEBUG) *Evaluating_log << "--------- Loop pipeline Dependence-related II is " << II_dependence << "\n";
@@ -477,11 +482,11 @@ void HI_ArraySensitiveToLoopLevel::MarkBlock_traversFromHeaderToExitingBlocks(HI
 
 //     if (II_dependence > min_II)
 //     {
-//         min_II = II_dependence; 
+//         min_II = II_dependence;
 //         print_warning(std::string(curLoop->getName()) + " has loop carried dependence, min_II is updated to " + std::to_string(min_II) );
 //         if (DEBUG) *Evaluating_log << "--------- Loop pipeline cannot achieve expected II because of loop carried dependence\n";
 //     }
-    
+
 //     // TODO:
 //     // check the II related to loop carried dependece
 //     // II = ceiling ((C_store - C_load + 1) / dep_distance)
@@ -492,17 +497,17 @@ void HI_ArraySensitiveToLoopLevel::MarkBlock_traversFromHeaderToExitingBlocks(HI
 // }
 
 // the BRAM-related II for the loop
-int HI_ArraySensitiveToLoopLevel::checkAccessIIForLoop(Loop* curLoop)
+int HI_ArraySensitiveToLoopLevel::checkAccessIIForLoop(Loop *curLoop)
 {
     int min_II = 1;
-    std::map<std::pair<Value*, partition_info>, int> existingAccessCntForLoop;
+    std::map<std::pair<Value *, partition_info>, int> existingAccessCntForLoop;
     for (auto tmp_B : curLoop->getBlocks())
     {
         if (accessCounterForBlock.find(tmp_B) == accessCounterForBlock.end())
         {
             continue;
         }
-        for (auto it_value_partition_2_cnt : accessCounterForBlock[tmp_B] )
+        for (auto it_value_partition_2_cnt : accessCounterForBlock[tmp_B])
         {
             Value *target = it_value_partition_2_cnt.first.first;
             partition_info partID = it_value_partition_2_cnt.first.second;
@@ -515,11 +520,13 @@ int HI_ArraySensitiveToLoopLevel::checkAccessIIForLoop(Loop* curLoop)
                 existingAccessCntForLoop[it_value_partition_2_cnt.first] += it_value_partition_2_cnt.second;
             }
             int accessTotalCntInLoop = existingAccessCntForLoop[it_value_partition_2_cnt.first];
-            if ((accessTotalCntInLoop+1)/2 > min_II)
+            if ((accessTotalCntInLoop + 1) / 2 > min_II)
             {
-                if (DEBUG) *Evaluating_log << "--------- min II is updated to " << (accessTotalCntInLoop+1)/2 << " because\n";
-                if (DEBUG) *Evaluating_log << "--------- access to the partition#" << partID << " of " << *target << " exceed the bandwidth\n";
-                min_II = (accessTotalCntInLoop+1)/2;
+                if (DEBUG)
+                    *Evaluating_log << "--------- min II is updated to " << (accessTotalCntInLoop + 1) / 2 << " because\n";
+                if (DEBUG)
+                    *Evaluating_log << "--------- access to the partition#" << partID << " of " << *target << " exceed the bandwidth\n";
+                min_II = (accessTotalCntInLoop + 1) / 2;
             }
         }
     }
@@ -527,15 +534,15 @@ int HI_ArraySensitiveToLoopLevel::checkAccessIIForLoop(Loop* curLoop)
 }
 
 // check the BRAM-related II for the loop by enumerating II and checking port constraint for each cycle for each partition
-int HI_ArraySensitiveToLoopLevel::checkAccessIIForLoop_enumerateCheck(Loop* curLoop)
+int HI_ArraySensitiveToLoopLevel::checkAccessIIForLoop_enumerateCheck(Loop *curLoop)
 {
-    if (DEBUG) *ArrayLog << "\n\n============================\n \n checkAccessIIForLoop_enumerateCheck for Loop:" 
-                <<curLoop->getName() << " \n ============================\n \n";
+    if (DEBUG)
+        *ArrayLog << "\n\n============================\n \n checkAccessIIForLoop_enumerateCheck for Loop:" << curLoop->getName() << " \n ============================\n \n";
 
     // initialize an empty seq for later tests for different partitions of different targets
     int latLoop = Loop2CP[curLoop->getHeader()];
-    int lenSeq = latLoop+5; // maybe to leave some space could be better
-    
+    int lenSeq = latLoop + 5; // maybe to leave some space could be better
+
     std::vector<int> test_accessSeq(lenSeq);
 
     accessPartitionsForIITest.clear();
@@ -545,87 +552,97 @@ int HI_ArraySensitiveToLoopLevel::checkAccessIIForLoop_enumerateCheck(Loop* curL
         {
             continue;
         }
-        for (auto it_value_partition_2_cnt : accessCounterForBlock[tmp_B] )
+        for (auto it_value_partition_2_cnt : accessCounterForBlock[tmp_B])
         {
             if (accessPartitionsForIITest.find(it_value_partition_2_cnt.first) == accessPartitionsForIITest.end())
                 accessPartitionsForIITest.insert(it_value_partition_2_cnt.first);
         }
     }
-    
-    if (DEBUG) *ArrayLog << "\n\n============================\n \n printing out accesses in Loop:" 
-                <<curLoop->getName() << " \n ============================\n \n";
 
-    if (DEBUG) 
-    for (auto val_partition_pair : accessPartitionsForIITest) // check whether all partitions are met the constraints of port
-    {
-        *ArrayLog << "   access with partition#" << val_partition_pair.second << " of target:" << val_partition_pair.first->getName() << "\n";
+    if (DEBUG)
+        *ArrayLog << "\n\n============================\n \n printing out accesses in Loop:" << curLoop->getName() << " \n ============================\n \n";
 
-        for (auto block_cycle_pair : targetPartition2BlockCycleAccessCnt[val_partition_pair])
+    if (DEBUG)
+        for (auto val_partition_pair : accessPartitionsForIITest) // check whether all partitions are met the constraints of port
         {
-            *ArrayLog<< block_cycle_pair.first->getParent()->getName() << "-" << block_cycle_pair.first->getName() << ":" << block_cycle_pair.second << "\n";
+            *ArrayLog << "   access with partition#" << val_partition_pair.second << " of target:" << val_partition_pair.first->getName() << "\n";
+
+            for (auto block_cycle_pair : targetPartition2BlockCycleAccessCnt[val_partition_pair])
+            {
+                *ArrayLog << block_cycle_pair.first->getParent()->getName() << "-" << block_cycle_pair.first->getName() << ":" << block_cycle_pair.second << "\n";
+            }
+            *ArrayLog << "\n";
         }
-        *ArrayLog<< "\n";
-    }
 
     bool failFlag = false;
     for (int test_II = 1; test_II <= latLoop; test_II++)
     {
         failFlag = false;
-        if (DEBUG) *ArrayLog << "testing II=" << test_II << "\n";
+        if (DEBUG)
+            *ArrayLog << "testing II=" << test_II << "\n";
         for (auto val_partition_pair : accessPartitionsForIITest) // check whether all partitions are met the constraints of port
         {
-            if (DEBUG) *ArrayLog << "   testing with partition#" << val_partition_pair.second << " of target:" << val_partition_pair.first->getName() << "\n";
+            if (DEBUG)
+                *ArrayLog << "   testing with partition#" << val_partition_pair.second << " of target:" << val_partition_pair.first->getName() << "\n";
 
-            for (int i=0;i<lenSeq;i++) test_accessSeq[i]=0;
-            
-            
-            for (int test_iter = 0; test_iter<latLoop; test_iter+=test_II)
+            for (int i = 0; i < lenSeq; i++)
+                test_accessSeq[i] = 0;
+
+            for (int test_iter = 0; test_iter < latLoop; test_iter += test_II)
             {
                 for (auto block_cycle_pair : targetPartition2BlockCycleAccessCnt[val_partition_pair])
                 {
                     if (!curLoop->contains(block_cycle_pair.first))
                         continue;
-                        
+
                     int slotoffset = BlockBegin_inLoop[block_cycle_pair.first].latency + block_cycle_pair.second + test_iter;
-                    if (DEBUG) *ArrayLog<< "----->" << block_cycle_pair.first->getParent()->getName() << "-" << block_cycle_pair.first->getName() << ":" << block_cycle_pair.second << " exactSlot:" << slotoffset <<  "\n";
-        
+                    if (DEBUG)
+                        *ArrayLog << "----->" << block_cycle_pair.first->getParent()->getName() << "-" << block_cycle_pair.first->getName() << ":" << block_cycle_pair.second << " exactSlot:" << slotoffset << "\n";
+
                     if (slotoffset <= latLoop)
                     {
                         test_accessSeq[slotoffset]++;
-                        if (test_accessSeq[slotoffset]>2)
+                        if (test_accessSeq[slotoffset] > 2)
                         {
                             failFlag = true;
-                            if (DEBUG) *ArrayLog << "   failed at: test_iter=" << test_iter << "\n";
-                            if (DEBUG) 
+                            if (DEBUG)
+                                *ArrayLog << "   failed at: test_iter=" << test_iter << "\n";
+                            if (DEBUG)
                             {
                                 *ArrayLog << "   failed pattern :";
-                                for (int i=0;i<lenSeq;i++)  *ArrayLog << test_accessSeq[i] << " ";
+                                for (int i = 0; i < lenSeq; i++)
+                                    *ArrayLog << test_accessSeq[i] << " ";
                                 *ArrayLog << "\n";
-                            }  
+                            }
                             break;
                         }
                     }
                 }
                 if (failFlag)
                     break;
-                else if (test_iter==0)
+                else if (test_iter == 0)
                 {
-                    if (DEBUG) *ArrayLog << "   initial access pattern :";
-                    if (DEBUG) for (int i=0;i<lenSeq;i++)  *ArrayLog << test_accessSeq[i] << " ";
-                    if (DEBUG) *ArrayLog << "\n";
-                }                
+                    if (DEBUG)
+                        *ArrayLog << "   initial access pattern :";
+                    if (DEBUG)
+                        for (int i = 0; i < lenSeq; i++)
+                            *ArrayLog << test_accessSeq[i] << " ";
+                    if (DEBUG)
+                        *ArrayLog << "\n";
+                }
             }
             if (failFlag)
                 break;
         }
         if (!failFlag)
         {
-            if (DEBUG) *ArrayLog << "  II test passed with II=" << test_II << "\n";
+            if (DEBUG)
+                *ArrayLog << "  II test passed with II=" << test_II << "\n";
             return test_II;
         }
-        if (DEBUG) *ArrayLog << "\n\n\n";
+        if (DEBUG)
+            *ArrayLog << "\n\n\n";
     }
-
 }
 
 // // the Dependence-related II for the loop
@@ -634,7 +651,7 @@ int HI_ArraySensitiveToLoopLevel::checkAccessIIForLoop_enumerateCheck(Loop* curL
 //     if (DEBUG) *ArrayLog << "\n========================\n\ncheckDependenceIIForLoop: " <<curLoop->getName() << "\n========================\n\n=" << "\n";
 //     int min_II = 1;
 //     std::vector<Instruction*> potentialAccesses;
-    
+
 //     for (auto tmp_B : curLoop->getBlocks())
 //     {
 //         for (auto &I : *tmp_B)
@@ -682,7 +699,7 @@ int HI_ArraySensitiveToLoopLevel::checkAccessIIForLoop_enumerateCheck(Loop* curL
 //                 if (potentialAccess1->getOpcode() == Instruction::Load || potentialAccess1->getOpcode() == Instruction::Call)
 //                 {
 //                     checkLoopCarriedDependent(potentialAccess0, potentialAccess1, curLoop);
-//                 }                
+//                 }
 //             }
 //         }
 
@@ -699,8 +716,6 @@ int HI_ArraySensitiveToLoopLevel::checkAccessIIForLoop_enumerateCheck(Loop* curL
 //         // here, we assume that the load can be rescheduled as late as possible
 //         // therefore, we need to find when its ealiest user use the data
 
-
-
 //         int tmp_II = ( W_I_time_offset - R_I_time_offset + InstInst2DependenceDistance_pair.second ) / InstInst2DependenceDistance_pair.second;
 //         if (tmp_II > min_II)
 //         {
@@ -714,13 +729,13 @@ int HI_ArraySensitiveToLoopLevel::checkAccessIIForLoop_enumerateCheck(Loop* curL
 // }
 
 // get the time slot of the instruction in the loop
-int HI_ArraySensitiveToLoopLevel::getTimeslotForInstInLoop(Loop* curLoop, Instruction *I, std::map<BasicBlock*, timingBase> & tmp_BlockCriticalPath_inLoop)
+int HI_ArraySensitiveToLoopLevel::getTimeslotForInstInLoop(Loop *curLoop, Instruction *I, std::map<BasicBlock *, timingBase> &tmp_BlockCriticalPath_inLoop)
 {
     int res = 1;
-    int block_offset = BlockBegin_inLoop[I->getParent()].latency ;
+    int block_offset = BlockBegin_inLoop[I->getParent()].latency;
     int I_offset = Inst_Schedule[I].second;
-    Inst2TimeSlotInLoop[I] = block_offset+I_offset;
-    return block_offset+I_offset;
+    Inst2TimeSlotInLoop[I] = block_offset + I_offset;
+    return block_offset + I_offset;
 }
 
 // get the time slot of the instruction in the loop
@@ -730,109 +745,117 @@ int HI_ArraySensitiveToLoopLevel::getTimeslotForInstInLoop(Instruction *I)
     return Inst2TimeSlotInLoop[I];
 }
 
-
 // check whether the two instructions have loop carried dependence
 // if there is such dependence, record the distance in InstInst2DependenceDistance
-void HI_ArraySensitiveToLoopLevel::checkLoopCarriedDependent(Instruction *I0, Instruction *I1, Loop* curLoop)
+void HI_ArraySensitiveToLoopLevel::checkLoopCarriedDependent(Instruction *I0, Instruction *I1, Loop *curLoop)
 {
-    if (DEBUG) *ArrayLog << "checking LoopCarriedDependent:" << *I0 << " <=> " << *I1 << "\n"; 
-    
+    if (DEBUG)
+        *ArrayLog << "checking LoopCarriedDependent:" << *I0 << " <=> " << *I1 << "\n";
+
     if (!hasSameTargets(I0, I1))
     {
-        if (DEBUG) *ArrayLog << "**** different targets of " << *I0 << " <=> " << *I1 << "\n"; 
+        if (DEBUG)
+            *ArrayLog << "**** different targets of " << *I0 << " <=> " << *I1 << "\n";
         return;
     }
 
-    if (I0->getOpcode()==Instruction::Call && I1->getOpcode()==Instruction::Load)
+    if (I0->getOpcode() == Instruction::Call && I1->getOpcode() == Instruction::Load)
     {
-        InstInst2DependenceDistance[std::pair<Instruction*, Instruction*>(I0,I1)] = 1;
-        if (DEBUG) *ArrayLog << "**** distance:" << *I0 << " <=> " << *I1 << " =1\n"; 
+        InstInst2DependenceDistance[std::pair<Instruction *, Instruction *>(I0, I1)] = 1;
+        if (DEBUG)
+            *ArrayLog << "**** distance:" << *I0 << " <=> " << *I1 << " =1\n";
         return;
     }
-    else if (I0->getOpcode()==Instruction::Call && I1->getOpcode()==Instruction::Call)
+    else if (I0->getOpcode() == Instruction::Call && I1->getOpcode() == Instruction::Call)
     {
-        InstInst2DependenceDistance[std::pair<Instruction*, Instruction*>(I0,I1)] = 1;
-        if (DEBUG) *ArrayLog << "**** distance:" << *I0 << " <=> " << *I1 << " =1\n"; 
+        InstInst2DependenceDistance[std::pair<Instruction *, Instruction *>(I0, I1)] = 1;
+        if (DEBUG)
+            *ArrayLog << "**** distance:" << *I0 << " <=> " << *I1 << " =1\n";
         return;
     }
-    else if (I0->getOpcode()==Instruction::Store && I1->getOpcode()==Instruction::Call)
+    else if (I0->getOpcode() == Instruction::Store && I1->getOpcode() == Instruction::Call)
     {
-        InstInst2DependenceDistance[std::pair<Instruction*, Instruction*>(I0,I1)] = 1;
-        if (DEBUG) *ArrayLog << "**** distance:" << *I0 << " <=> " << *I1 << " =1\n"; 
+        InstInst2DependenceDistance[std::pair<Instruction *, Instruction *>(I0, I1)] = 1;
+        if (DEBUG)
+            *ArrayLog << "**** distance:" << *I0 << " <=> " << *I1 << " =1\n";
         return;
     }
 
-    assert (I0->getOpcode() == Instruction::Store && I1->getOpcode() == Instruction::Load);
+    assert(I0->getOpcode() == Instruction::Store && I1->getOpcode() == Instruction::Load);
 
     Instruction *pointer_I0 = nullptr, *pointer_I1 = nullptr;
-    if (I0->getOpcode()==Instruction::Load)
+    if (I0->getOpcode() == Instruction::Load)
     {
         pointer_I0 = dyn_cast<Instruction>(I0->getOperand(0));
     }
-    else if (I0->getOpcode()==Instruction::Store)
+    else if (I0->getOpcode() == Instruction::Store)
     {
         pointer_I0 = dyn_cast<Instruction>(I0->getOperand(1));
     }
     assert(pointer_I0 && pointer_I0->getOpcode() == Instruction::IntToPtr && "ITP should be found for the access instruction");
 
-    if (I1->getOpcode()==Instruction::Load)
+    if (I1->getOpcode() == Instruction::Load)
     {
         pointer_I1 = dyn_cast<Instruction>(I1->getOperand(0));
     }
-    else if (I1->getOpcode()==Instruction::Store)
+    else if (I1->getOpcode() == Instruction::Store)
     {
         pointer_I1 = dyn_cast<Instruction>(I1->getOperand(1));
     }
 
     assert(pointer_I1 && pointer_I1->getOpcode() == Instruction::IntToPtr && "ITP should be found for the access instruction");
 
-    std::string tmp0(""),tmp1("");
+    std::string tmp0(""), tmp1("");
     raw_string_ostream *SCEV_Stream0 = new raw_string_ostream(tmp0);
     raw_string_ostream *SCEV_Stream1 = new raw_string_ostream(tmp1);
-    
+
     const SCEV *tmp_S0 = SE->getSCEV(pointer_I0->getOperand(0));
     const SCEV *tmp_S1 = SE->getSCEV(pointer_I1->getOperand(0));
 
-    Optional<APInt> res=computeConstantDifference(tmp_S0,tmp_S1);
-    
+    Optional<APInt> res = computeConstantDifference(tmp_S0, tmp_S1);
+
     if (res != None)
-    {        
+    {
         int offset_dis = res.getValue().getSExtValue();
-        if (DEBUG) *ArrayLog  << " offset_dis=" << offset_dis << "\n"; 
+        if (DEBUG)
+            *ArrayLog << " offset_dis=" << offset_dis << "\n";
 
         if (offset_dis > 0)
         {
-            int stepLen = getStepLength(tmp_S0,tmp_S1);
-            if (DEBUG) *ArrayLog << " stepLen=" << stepLen << "\n"; 
-            if (offset_dis % stepLen ==0)
+            int stepLen = getStepLength(tmp_S0, tmp_S1);
+            if (DEBUG)
+                *ArrayLog << " stepLen=" << stepLen << "\n";
+            if (offset_dis % stepLen == 0)
             {
-                InstInst2DependenceDistance[std::pair<Instruction*, Instruction*>(I0,I1)] = offset_dis / stepLen;
-                if (DEBUG) *ArrayLog << "**** distance:" << *I0 << " <=> " << *I1 << " =" 
-                          << offset_dis / stepLen << " offset_dis=" << offset_dis << " stepLen=" << stepLen << "\n";
+                InstInst2DependenceDistance[std::pair<Instruction *, Instruction *>(I0, I1)] = offset_dis / stepLen;
+                if (DEBUG)
+                    *ArrayLog << "**** distance:" << *I0 << " <=> " << *I1 << " =" << offset_dis / stepLen << " offset_dis=" << offset_dis << " stepLen=" << stepLen << "\n";
             }
-            return; 
-        }   
-        else if (offset_dis == 0)
-        {
-            if (!checkConstantAccessInLoop(tmp_S0,tmp_S1,curLoop))
-                return;
-            int stepLen = getStepLength(tmp_S0,tmp_S1);
-            if (DEBUG) *ArrayLog << " stepLen=" << stepLen << "\n"; 
-            InstInst2DependenceDistance[std::pair<Instruction*, Instruction*>(I0,I1)] = 1;
-            if (DEBUG) *ArrayLog << "**** distance:" << *I0 << " <=> " << *I1 << " =" 
-                        << 1 << " offset_dis=" << offset_dis << " stepLen=" << stepLen << "\n";
-        
-            return; 
-        }   
-        else
-        {
-            if (DEBUG) *ArrayLog << "**** distance:" << *I0 << " <=> " << *I1 << " = None\n"; 
             return;
         }
-             
+        else if (offset_dis == 0)
+        {
+            if (!checkConstantAccessInLoop(tmp_S0, tmp_S1, curLoop))
+                return;
+            int stepLen = getStepLength(tmp_S0, tmp_S1);
+            if (DEBUG)
+                *ArrayLog << " stepLen=" << stepLen << "\n";
+            InstInst2DependenceDistance[std::pair<Instruction *, Instruction *>(I0, I1)] = 1;
+            if (DEBUG)
+                *ArrayLog << "**** distance:" << *I0 << " <=> " << *I1 << " =" << 1 << " offset_dis=" << offset_dis << " stepLen=" << stepLen << "\n";
+
+            return;
+        }
+        else
+        {
+            if (DEBUG)
+                *ArrayLog << "**** distance:" << *I0 << " <=> " << *I1 << " = None\n";
+            return;
+        }
     }
-    if (DEBUG) *ArrayLog << "**** distance:" << *I0 << " <=> " << *I1 << " =1\n"; 
-    InstInst2DependenceDistance[std::pair<Instruction*, Instruction*>(I0,I1)] = 1;
+    if (DEBUG)
+        *ArrayLog << "**** distance:" << *I0 << " <=> " << *I1 << " =1\n";
+    InstInst2DependenceDistance[std::pair<Instruction *, Instruction *>(I0, I1)] = 1;
 }
 
 bool HI_ArraySensitiveToLoopLevel::hasSameTargets(Instruction *I0, Instruction *I1)
@@ -841,9 +864,8 @@ bool HI_ArraySensitiveToLoopLevel::hasSameTargets(Instruction *I0, Instruction *
         for (auto target1 : Instruction2Target[I1])
             if (target0 == target1)
                 return true;
-    return false;    
+    return false;
 }
-
 
 // // find the earliest user of the load instruction (maybe for reschedule)
 // int HI_ArraySensitiveToLoopLevel::findEarlietUseTimeInTheLoop(Loop* curLoop, Instruction *ori_R_I)
@@ -867,24 +889,22 @@ bool HI_ArraySensitiveToLoopLevel::hasSameTargets(Instruction *I0, Instruction *
 //             R_I = ori_R_I;
 //         }
 //     }
-//     else 
+//     else
 //     {
 //         R_I = ori_R_I;
 //     }
 
-    
 //     int R_I_time_offset = BlockBegin_inLoop[R_I->getParent()].latency +  Inst_Schedule[R_I].second;
 //     int earliest_time_slot = 100000000;
 //     // here, we assume that the load can be rescheduled as late as possible
 //     // therefore, we need to find when its ealiest user use the data
 
-
 //     for (auto tmp_user : R_I->users())
 //     {
 //         *ArrayLog << "       checking user: " << *tmp_user << "\n";
-//         if (Instruction *tmp_user_I = dyn_cast<Instruction>(tmp_user)) 
+//         if (Instruction *tmp_user_I = dyn_cast<Instruction>(tmp_user))
 //         {
-            
+
 //             if (curLoop->contains(tmp_user_I->getParent()))
 //             {
 //                 // the load might be scheduled in one or two cycles in advance
@@ -897,11 +917,9 @@ bool HI_ArraySensitiveToLoopLevel::hasSameTargets(Instruction *I0, Instruction *
 //                     tmp_user_I->getOpcode() == Instruction::FDiv || tmp_user_I->getOpcode() == Instruction::FSub ||
 //                     tmp_user_I->getOpcode() == Instruction::FMul || tmp_user_I->getOpcode() == Instruction::FAdd ||
 //                     tmp_user_I->getOpcode() == Instruction::URem || tmp_user_I->getOpcode() == Instruction::SRem ||
-//                     tmp_user_I->getOpcode() == Instruction::SDiv ) 
+//                     tmp_user_I->getOpcode() == Instruction::SDiv )
 //                     cycle_inadvance = 2;
 
-
-                
 //                 if (InstructionCriticalPath_inBlock[tmp_user_I->getParent()][tmp_user_I].timing - getInstructionLatency(tmp_user_I).timing <= 0.001)
 //                 {
 //                     if (getInstructionLatency(tmp_user_I).timing + 3.25 > 0.5 * clock_period)
@@ -910,7 +928,7 @@ bool HI_ArraySensitiveToLoopLevel::hasSameTargets(Instruction *I0, Instruction *
 //                         cycle_inadvance = 2;
 //                     }
 //                 }
-                
+
 //                 if (tmp_user_I->getOpcode() == Instruction::FDiv || tmp_user_I->getOpcode() == Instruction::FSub ||
 //                     tmp_user_I->getOpcode() == Instruction::FMul || tmp_user_I->getOpcode() == Instruction::FAdd )
 //                 {
@@ -921,15 +939,13 @@ bool HI_ArraySensitiveToLoopLevel::hasSameTargets(Instruction *I0, Instruction *
 //                         {
 //                             if (getInstructionLatency(tmp_user_I).latency >=2)
 //                             {
-//                                 cycle_inadvance = -1;  
+//                                 cycle_inadvance = -1;
 //                                 break;
 //                                 // maybe for these kinds of instruction, VivadoHLS can forward the result from others iteration
 //                             }
-                            
+
 //                         }
 //                 }
-
-
 
 //                 int tmp_tmp_slot = BlockBegin_inLoop[tmp_user_I->getParent()].latency +  Inst_Schedule[tmp_user_I].second - cycle_inadvance;
 
@@ -943,8 +959,6 @@ bool HI_ArraySensitiveToLoopLevel::hasSameTargets(Instruction *I0, Instruction *
 //     }
 //     return earliest_time_slot;
 // }
-
-
 
 // // if the loop is pipelined, the reused DSP-related operators might have conflicts when sharing DSPs.
 // // therefore, we need to re-check the resource cost  FOR INTEGER OPERATION
@@ -962,11 +976,11 @@ bool HI_ArraySensitiveToLoopLevel::hasSameTargets(Instruction *I0, Instruction *
 //                 {
 //                     found = true;
 //                 }
-//             if (found)  
+//             if (found)
 //                 continue;
 
 //             if (DEBUG) *Evaluating_log << "checking schedule unit : " << tmp_schUnit0 << " at following time points: ";
-            
+
 //             processed.push_back(tmp_schUnit0);
 
 //             std::vector<int> timepoints; timepoints.clear();
@@ -996,7 +1010,7 @@ bool HI_ArraySensitiveToLoopLevel::hasSameTargets(Instruction *I0, Instruction *
 //                     {
 //                         tmp_newConflictCnt++;
 //                     }
-                    
+
 //                 }
 //                 if (tmp_originalConflictCnt > max_originalConflictCnt)
 //                 {
@@ -1013,29 +1027,25 @@ bool HI_ArraySensitiveToLoopLevel::hasSameTargets(Instruction *I0, Instruction *
 //         }
 //     }
 
-
 //     return res;
 // }
 
-
-
-
 // if the loop is pipelined, the reused DSP-related operators might have conflicts when sharing DSPs.
 // therefore, we need to re-check the resource cost  FOR FLOATING POINT OPERATOR
-void HI_ArraySensitiveToLoopLevel::recordCostRescheduleFPDSPOperators_forLoop(Loop *curLoop,  std::map<BasicBlock*, timingBase> &tmp_BlockCriticalPath_inLoop, int II)
+void HI_ArraySensitiveToLoopLevel::recordCostRescheduleFPDSPOperators_forLoop(Loop *curLoop, std::map<BasicBlock *, timingBase> &tmp_BlockCriticalPath_inLoop, int II)
 {
-    resourceBase res(0,0,0,clock_period);
+    resourceBase res(0, 0, 0, clock_period);
 
-    std::vector<std::string> checkopcodes = {"fmul", "fadd", "fdiv", "fsub", "dmul", "dadd", "ddiv", "dsub"  };
+    std::vector<std::string> checkopcodes = {"fmul", "fadd", "fdiv", "fsub", "dmul", "dadd", "ddiv", "dsub"};
 
     // Block2FPDSPReuseScheduleUnits[I->getParent()][opcode].push_back(schUnit);
     for (auto cur_opcode : checkopcodes)
     {
         int op_totalcnt = 0;
-        
+
         for (auto tmp_block : curLoop->getBlocks())
         {
-            
+
             if (Block2FPDSPReuseScheduleUnits.find(tmp_block) == Block2FPDSPReuseScheduleUnits.end())
                 continue;
             if (Block2FPDSPReuseScheduleUnits[tmp_block].find(cur_opcode) == Block2FPDSPReuseScheduleUnits[tmp_block].end())
@@ -1045,12 +1055,14 @@ void HI_ArraySensitiveToLoopLevel::recordCostRescheduleFPDSPOperators_forLoop(Lo
         }
 
         int reuse_DSPModule = 1;
-        if (op_totalcnt == 0) reuse_DSPModule = 0;
-        if (op_totalcnt > II) reuse_DSPModule = op_totalcnt / II;
-        
-        if (DEBUG) *Evaluating_log << "  for block: the amount of floating point operators (refI):" << cur_opcode << " is " << reuse_DSPModule << " each cost =[" << checkFPOperatorCost(cur_opcode) << "]\n";
+        if (op_totalcnt == 0)
+            reuse_DSPModule = 0;
+        if (op_totalcnt > II)
+            reuse_DSPModule = op_totalcnt / II;
 
-        
+        if (DEBUG)
+            *Evaluating_log << "  for block: the amount of floating point operators (refI):" << cur_opcode << " is " << reuse_DSPModule << " each cost =[" << checkFPOperatorCost(cur_opcode) << "]\n";
+
         // color the blocks in the loop with the same number of reuse module
         for (auto tmp_block : curLoop->getBlocks())
         {

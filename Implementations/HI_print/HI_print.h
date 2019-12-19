@@ -1,11 +1,10 @@
 #ifndef _HI_PRINT
 #define _HI_PRINT
 
-
-#include <stdio.h>
-#include <string>
 #include <ios>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string>
 #include <sys/time.h>
 
 // Helper method for converting the name of a LLVM type to a string

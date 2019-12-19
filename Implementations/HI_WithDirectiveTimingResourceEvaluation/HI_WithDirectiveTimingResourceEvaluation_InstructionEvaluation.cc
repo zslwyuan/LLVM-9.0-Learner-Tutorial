@@ -1,111 +1,111 @@
+#include "HI_WithDirectiveTimingResourceEvaluation.h"
+#include "HI_print.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
-#include "HI_print.h"
-#include "HI_WithDirectiveTimingResourceEvaluation.h"
 
-#include <stdio.h>
-#include <string>
 #include <ios>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string>
 
 using namespace llvm;
 
-
-
 /*
-    mainly used to get the latency of an instruction 
+    mainly used to get the latency of an instruction
 */
 HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResourceEvaluation::getInstructionLatency(Instruction *I)
 {
-    timingBase result(0,0,1,clock_period);
+    timingBase result(0, 0, 1, clock_period);
 
     ////////////////////////////// Cast Operations /////////////////////////
     if (PtrToIntInst *PTI = dyn_cast<PtrToIntInst>(I)) // such operation like trunc/ext will not cost extra timing on FPGA
-    {   
+    {
         return result;
     }
     else if (IntToPtrInst *ITP = dyn_cast<IntToPtrInst>(I))
-    {   
+    {
         return result;
     }
     else if (FPToUIInst *FTU = dyn_cast<FPToUIInst>(I))
     {
-        result = get_inst_TimingInfo_result("fptoui",FTU->getType()->getIntegerBitWidth(),FTU->getType()->getIntegerBitWidth(),clock_period_str);
+        result = get_inst_TimingInfo_result("fptoui", FTU->getType()->getIntegerBitWidth(), FTU->getType()->getIntegerBitWidth(), clock_period_str);
         return result;
     }
     else if (FPToSIInst *FTS = dyn_cast<FPToSIInst>(I))
     {
-        result = get_inst_TimingInfo_result("fptosi",FTS->getType()->getIntegerBitWidth(),FTS->getType()->getIntegerBitWidth(),clock_period_str);
+        result = get_inst_TimingInfo_result("fptosi", FTS->getType()->getIntegerBitWidth(), FTS->getType()->getIntegerBitWidth(), clock_period_str);
         return result;
     }
     else if (UIToFPInst *UTF = dyn_cast<UIToFPInst>(I))
     {
         Value *op1 = UTF->getOperand(0);
-        result = get_inst_TimingInfo_result("uitofp",op1->getType()->getIntegerBitWidth(),op1->getType()->getIntegerBitWidth(),clock_period_str);
+        result = get_inst_TimingInfo_result("uitofp", op1->getType()->getIntegerBitWidth(), op1->getType()->getIntegerBitWidth(), clock_period_str);
         return result;
     }
     else if (SIToFPInst *STF = dyn_cast<SIToFPInst>(I))
     {
         Value *op1 = STF->getOperand(0);
-        result = get_inst_TimingInfo_result("sitofp",op1->getType()->getIntegerBitWidth(),op1->getType()->getIntegerBitWidth(),clock_period_str);
+        result = get_inst_TimingInfo_result("sitofp", op1->getType()->getIntegerBitWidth(), op1->getType()->getIntegerBitWidth(), clock_period_str);
         return result;
     }
-    else if (ZExtInst *ZEXTI = dyn_cast<ZExtInst>(I))  // such operation like trunc/ext will not cost extra timing on FPGA
-    {   
+    else if (ZExtInst *ZEXTI = dyn_cast<ZExtInst>(I)) // such operation like trunc/ext will not cost extra timing on FPGA
+    {
         return result;
     }
     else if (SExtInst *SEXTI = dyn_cast<SExtInst>(I))
-    {   
+    {
         return result;
     }
     else if (TruncInst *TI = dyn_cast<TruncInst>(I))
-    {   
+    {
         return result;
     }
     else if (BitCastInst *BI = dyn_cast<BitCastInst>(I))
-    {   
+    {
         return result;
     }
 
     ////////////////////////////// Binary Operations /////////////////////////
     else if (ShlOperator *SHLI = dyn_cast<ShlOperator>(I))
-    {   
+    {
         Value *op1 = SHLI->getOperand(1);
-         
+
         if (Constant *tmpop = dyn_cast<Constant>(op1))
             return result;
-            {
-                result = get_inst_TimingInfo_result("shl",op1->getType()->getIntegerBitWidth(),SHLI->getType()->getIntegerBitWidth(),clock_period_str);
-                return result;
-            }
+        {
+            result = get_inst_TimingInfo_result("shl", op1->getType()->getIntegerBitWidth(), SHLI->getType()->getIntegerBitWidth(), clock_period_str);
+            return result;
+        }
     }
     else if (LShrOperator *LSHRI = dyn_cast<LShrOperator>(I))
-    {   
+    {
         Value *op1 = LSHRI->getOperand(1);
-         
+
         if (Constant *tmpop = dyn_cast<Constant>(op1))
             return result;
         else
         {
-            result = get_inst_TimingInfo_result("lshr",op1->getType()->getIntegerBitWidth(),LSHRI->getType()->getIntegerBitWidth(),clock_period_str);;
+            result = get_inst_TimingInfo_result("lshr", op1->getType()->getIntegerBitWidth(), LSHRI->getType()->getIntegerBitWidth(), clock_period_str);
+            ;
             return result;
-        }        
+        }
     }
     else if (AShrOperator *ASHRI = dyn_cast<AShrOperator>(I))
-    {   
+    {
         Value *op1 = ASHRI->getOperand(1);
-         
-        if (Constant *tmpop = dyn_cast<Constant>(op1)) 
+
+        if (Constant *tmpop = dyn_cast<Constant>(op1))
             return result;
         else
         {
-            result = get_inst_TimingInfo_result("ashr",op1->getType()->getIntegerBitWidth(),ASHRI->getType()->getIntegerBitWidth(),clock_period_str);;
+            result = get_inst_TimingInfo_result("ashr", op1->getType()->getIntegerBitWidth(), ASHRI->getType()->getIntegerBitWidth(), clock_period_str);
+            ;
             return result;
-        }        
+        }
     }
     else if (BinaryOperator *BinO = dyn_cast<BinaryOperator>(I))
     {
@@ -126,25 +126,26 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
             oprandBitWidth = -1;
             resBitWidth = -1;
             // for floating operator, we need to consider whether it is a operator for float value or double value
-            if (BinO->getType()->isDoubleTy() && opcode_str[0]=='f')            
-                opcode_str[0]='d';            
+            if (BinO->getType()->isDoubleTy() && opcode_str[0] == 'f')
+                opcode_str[0] = 'd';
         }
 
         // check Add for IntToPtr
-        if (BinO->getOpcode()==Instruction::Add)
+        if (BinO->getOpcode() == Instruction::Add)
         {
-            for (auto it = BinO->use_begin(),ie = BinO->use_end();it!=ie;++it)
+            for (auto it = BinO->use_begin(), ie = BinO->use_end(); it != ie; ++it)
             {
-                User* tmp_user = it->getUser();
+                User *tmp_user = it->getUser();
                 if (Instruction *UserI = dyn_cast<Instruction>(tmp_user))
                 {
-                    if (UserI->getOpcode()==Instruction::IntToPtr)
+                    if (UserI->getOpcode() == Instruction::IntToPtr)
                         return result;
                 }
-            }            
+            }
         }
 
-        result = get_inst_TimingInfo_result(opcode_str,oprandBitWidth,resBitWidth,clock_period_str);;
+        result = get_inst_TimingInfo_result(opcode_str, oprandBitWidth, resBitWidth, clock_period_str);
+        ;
         return result;
     }
 
@@ -155,25 +156,27 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
         Value *op1 = ICI->getOperand(1);
         oprandBitWidth = op1->getType()->getIntegerBitWidth();
         resBitWidth = oprandBitWidth;
-        result = get_inst_TimingInfo_result("icmp",oprandBitWidth,resBitWidth,clock_period_str);;
+        result = get_inst_TimingInfo_result("icmp", oprandBitWidth, resBitWidth, clock_period_str);
+        ;
         return result;
     }
     else if (FCmpInst *FI = dyn_cast<FCmpInst>(I))
     {
-        result = get_inst_TimingInfo_result("fcmp",-1,-1,clock_period_str);;
+        result = get_inst_TimingInfo_result("fcmp", -1, -1, clock_period_str);
+        ;
         return result;
     }
     ////////////////////////////// Memory Operations /////////////////////////
     else if (StoreInst *SI = dyn_cast<StoreInst>(I))
     {
-        result = get_inst_TimingInfo_result("store",-1,-1,clock_period_str);
-        if (LoadStore_Thredhold!=2)
+        result = get_inst_TimingInfo_result("store", -1, -1, clock_period_str);
+        if (LoadStore_Thredhold != 2)
             result.strict_timing = true;
         return result;
     }
     else if (LoadInst *LI = dyn_cast<LoadInst>(I))
     {
-        result = get_inst_TimingInfo_result("load",-1,-1,clock_period_str);
+        result = get_inst_TimingInfo_result("load", -1, -1, clock_period_str);
         return result;
     }
     else if (AllocaInst *AI = dyn_cast<AllocaInst>(I))
@@ -183,93 +186,102 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
 
     ////////////////////////////// Control Operations /////////////////////////
     else if (PHINode *PHI = dyn_cast<PHINode>(I))
-    {   
+    {
         int num_Block = PHI->getNumOperands();
-        for (int i=0;i<num_Block;i++)
+        for (int i = 0; i < num_Block; i++)
         {
             BasicBlock *tmpB = PHI->getIncomingBlock(i);
             if (tmpB == PHI->getParent())
                 return result;
-        }        
+        }
         result.latency = 0;
         result.timing = 0.1;
         return result;
     }
     else if (CallInst *CI = dyn_cast<CallInst>(I))
     {
-        if (CI->getCalledFunction()->getName().find("HIPartitionMux") !=std::string::npos)
+        if (CI->getCalledFunction()->getName().find("HIPartitionMux") != std::string::npos)
         {
             auto partitionConst = dyn_cast<ConstantInt>(CI->getArgOperand(1));
             auto LoadI = dyn_cast<LoadInst>(CI->getArgOperand(0));
             int partitionVal = partitionConst->getValue().getSExtValue();
-            if (DEBUG) *Evaluating_log << " handling mux with " << partitionVal<<" inputs.\n";
-            if (partitionVal == 2) result.timing = 0;
-            else if (partitionVal <= 4) result.timing = 1.95;
-            else if (partitionVal <= 8) result.timing = 2;
-            else if (partitionVal <= 16) result.timing = 2.19;
-            else if (partitionVal <= 32) result.timing = 2.73;
-            else if (partitionVal <= 64) result.timing = 3.35;
+            if (DEBUG)
+                *Evaluating_log << " handling mux with " << partitionVal << " inputs.\n";
+            if (partitionVal == 2)
+                result.timing = 0;
+            else if (partitionVal <= 4)
+                result.timing = 1.95;
+            else if (partitionVal <= 8)
+                result.timing = 2;
+            else if (partitionVal <= 16)
+                result.timing = 2.19;
+            else if (partitionVal <= 32)
+                result.timing = 2.73;
+            else if (partitionVal <= 64)
+                result.timing = 3.35;
             else
             {
                 result.timing = 4.1;
                 print_warning("using undefined partition factor and the mux delay for it is unknown. set delay=4.1ns for it.");
             }
-            
-            // add remainder latency for the mux if require, for example, the stride of access offset is 4, 
-            // e.g. for (i=0;i<100;i+=4) A[i]++;, 
+
+            // add remainder latency for the mux if require, for example, the stride of access offset is 4,
+            // e.g. for (i=0;i<100;i+=4) A[i]++;,
             // while the partition factor of A[] is 3
             //  we need to calculate i%3 to map the partition for the load instruction
-            if (Access2EnableArrayNo.find(LoadI)!=Access2EnableArrayNo.end())
+            if (Access2EnableArrayNo.find(LoadI) != Access2EnableArrayNo.end())
             {
                 if (Access2EnableArrayNo[LoadI])
                 {
-                    auto addrPtr =  dyn_cast<IntToPtrInst> (LoadI->getOperand(0));
+                    auto addrPtr = dyn_cast<IntToPtrInst>(LoadI->getOperand(0));
                     if (addrPtr)
                     {
-                        auto addrCalI =  dyn_cast<AddOperator> (addrPtr->getOperand(0));
+                        auto addrCalI = dyn_cast<AddOperator>(addrPtr->getOperand(0));
                         if (addrCalI)
                         {
-                            Instruction *addrOffsetI =  dyn_cast<Instruction>(byPassBitcastOp(addrCalI->getOperand(0)));
+                            Instruction *addrOffsetI = dyn_cast<Instruction>(byPassBitcastOp(addrCalI->getOperand(0)));
                             if (addrOffsetI)
                             {
-                                result = result + get_inst_TimingInfo_result("urem",addrOffsetI->getType()->getIntegerBitWidth(),addrOffsetI->getType()->getIntegerBitWidth(),clock_period_str);;
-                                if (DEBUG) *Evaluating_log << " Mux add remainder calculation timing: " << result << "based on addressI: " << *addrOffsetI <<"\n";
+                                result = result + get_inst_TimingInfo_result("urem", addrOffsetI->getType()->getIntegerBitWidth(), addrOffsetI->getType()->getIntegerBitWidth(), clock_period_str);
+                                ;
+                                if (DEBUG)
+                                    *Evaluating_log << " Mux add remainder calculation timing: " << result << "based on addressI: " << *addrOffsetI << "\n";
                             }
                         }
                     }
                 }
             }
 
-                        
             return result;
         }
-        if (CI->getCalledFunction()->getName().find("HIPartitionMux")!=std::string::npos || CI->getCalledFunction()->getName().find("llvm.")!=std::string::npos)
+        if (CI->getCalledFunction()->getName().find("HIPartitionMux") != std::string::npos || CI->getCalledFunction()->getName().find("llvm.") != std::string::npos)
             return result;
-        if (DEBUG) *Evaluating_log << " Going into subfunction: " << CI->getCalledFunction()->getName() <<"\n";
+        if (DEBUG)
+            *Evaluating_log << " Going into subfunction: " << CI->getCalledFunction()->getName() << "\n";
         result = analyzeFunction(CI->getCalledFunction());
         return result;
     }
     else if (BranchInst *BI = dyn_cast<BranchInst>(I))
     {
-        result = get_inst_TimingInfo_result("br",-1,-1,clock_period_str);
+        result = get_inst_TimingInfo_result("br", -1, -1, clock_period_str);
         return result;
     }
     else if (ReturnInst *RI = dyn_cast<ReturnInst>(I))
     {
-        result = get_inst_TimingInfo_result("ret",-1,-1,clock_period_str);
+        result = get_inst_TimingInfo_result("ret", -1, -1, clock_period_str);
         return result;
     }
     else if (SelectInst *SeI = dyn_cast<SelectInst>(I))
     {
-        result.timing=1.0;
+        result.timing = 1.0;
         return result;
     }
     else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(I))
     {
-        result = get_inst_TimingInfo_result("getelementptr",-1,-1,clock_period_str);
+        result = get_inst_TimingInfo_result("getelementptr", -1, -1, clock_period_str);
         return result;
     }
-    else 
+    else
     {
         llvm::errs() << *I << "\n";
         assert(false && "The instruction is not defined.");
@@ -279,18 +291,16 @@ HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResou
     return result;
 }
 
-
-
 // check whether the two operations can be chained
-bool HI_WithDirectiveTimingResourceEvaluation::canCompleteChainOrNot(Instruction *PredI,Instruction *I)
+bool HI_WithDirectiveTimingResourceEvaluation::canCompleteChainOrNot(Instruction *PredI, Instruction *I)
 {
     // *Evaluating_log << "        --------- checking Instruction canCompleteChainOrNot: <<" << *I << "\n";
-    if (isMACpossible(PredI,I))
+    if (isMACpossible(PredI, I))
     {
         // *Evaluating_log << "        --------- checking Instruction " << *I << " can be chained as MAC\n";
         return true;
     }
-    if (isAMApossible(PredI,I))
+    if (isAMApossible(PredI, I))
     {
         // *Evaluating_log << "        --------- checking Instruction " << *I << " can be chained as MAC\n";
         return true;
@@ -303,7 +313,7 @@ bool HI_WithDirectiveTimingResourceEvaluation::canPartitalChainOrNot(Instruction
     if (chained_I.find(PredI) != chained_I.end())
         return false;
     // for a series of addition, HLS might generate Ternary Adder to save LUT resource
-    if (isTernaryAddpossible(PredI,I))
+    if (isTernaryAddpossible(PredI, I))
     {
         // *Evaluating_log << "        --------- checking Instruction " << *I << " can be chained as MAC\n";
         return true;
@@ -315,11 +325,11 @@ bool HI_WithDirectiveTimingResourceEvaluation::isTernaryAddpossible(Instruction 
 {
     if (!PredI->hasOneUse())
         return false;
-    if (I->getOpcode()==Instruction::Add || I->getOpcode()==Instruction::Sub)
+    if (I->getOpcode() == Instruction::Add || I->getOpcode() == Instruction::Sub)
     {
-        if (PredI->getOpcode()==Instruction::Add || PredI->getOpcode()==Instruction::Sub)
+        if (PredI->getOpcode() == Instruction::Add || PredI->getOpcode() == Instruction::Sub)
         {
-            if (checkInfoAvailability( "tadd", PredI->getType()->getIntegerBitWidth() , PredI->getType()->getIntegerBitWidth(), clock_period_str))
+            if (checkInfoAvailability("tadd", PredI->getType()->getIntegerBitWidth(), PredI->getType()->getIntegerBitWidth(), clock_period_str))
             {
                 return true;
             }
@@ -331,86 +341,81 @@ bool HI_WithDirectiveTimingResourceEvaluation::isTernaryAddpossible(Instruction 
 
 HI_WithDirectiveTimingResourceEvaluation::timingBase HI_WithDirectiveTimingResourceEvaluation::getPartialTimingOverhead(Instruction *PredI, Instruction *I)
 {
-    if (isTernaryAddpossible(PredI,I))
+    if (isTernaryAddpossible(PredI, I))
     {
-        timingBase overallTiming = get_inst_TimingInfo_result( "tadd", PredI->getType()->getIntegerBitWidth() , PredI->getType()->getIntegerBitWidth(), clock_period_str);
+        timingBase overallTiming = get_inst_TimingInfo_result("tadd", PredI->getType()->getIntegerBitWidth(), PredI->getType()->getIntegerBitWidth(), clock_period_str);
         timingBase basicTiming = getInstructionLatency(PredI);
-        return timingBase(overallTiming.latency - basicTiming.latency, 
-                            overallTiming.timing - basicTiming.timing, 
-                            basicTiming.II, 
-                            basicTiming.clock_period);//timingBase( int l,double t, int i, double p)
+        return timingBase(overallTiming.latency - basicTiming.latency, overallTiming.timing - basicTiming.timing, basicTiming.II,
+                          basicTiming.clock_period); // timingBase( int l,double t, int i, double p)
     }
     assert(false && "should not reach here.");
 }
 
 HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingResourceEvaluation::getPartialResourceOverhead(Instruction *PredI, Instruction *I)
 {
-    if (isTernaryAddpossible(PredI,I))
+    if (isTernaryAddpossible(PredI, I))
     {
-        resourceBase overallResource = get_inst_ResourceInfo_result( "tadd", PredI->getType()->getIntegerBitWidth() , PredI->getType()->getIntegerBitWidth(), clock_period_str);
+        resourceBase overallResource = get_inst_ResourceInfo_result("tadd", PredI->getType()->getIntegerBitWidth(), PredI->getType()->getIntegerBitWidth(), clock_period_str);
         resourceBase basicResource = getInstructionResource(PredI);
-        return resourceBase(overallResource.DSP - basicResource.DSP, 
-                            overallResource.FF - basicResource.FF, 
-                            overallResource.LUT - basicResource.LUT, 
-                            basicResource.clock_period);//resourceBase( int D, int F, int L, double C)
+        return resourceBase(overallResource.DSP - basicResource.DSP, overallResource.FF - basicResource.FF, overallResource.LUT - basicResource.LUT,
+                            basicResource.clock_period); // resourceBase( int D, int F, int L, double C)
     }
     assert(false && "should not reach here.");
 }
 
 // check whether the two operations can be chained into MAC operation
-bool HI_WithDirectiveTimingResourceEvaluation::isMACpossible(Instruction *PredI,Instruction *I)
+bool HI_WithDirectiveTimingResourceEvaluation::isMACpossible(Instruction *PredI, Instruction *I)
 {
-    if (I->getOpcode()==Instruction::Add || I->getOpcode()==Instruction::Sub)
+    if (I->getOpcode() == Instruction::Add || I->getOpcode() == Instruction::Sub)
     {
-        if (PredI->getOpcode()==Instruction::Mul)
+        if (PredI->getOpcode() == Instruction::Mul)
         {
             Value *op0 = (PredI->getOperand(0));
             Value *op1 = (PredI->getOperand(1));
             // *Evaluating_log << "        --------- checking Instruction " << *I << " for being chained as MAC, getActualUsersNum=" << getActualUsersNum(PredI,0) << "\n";
 
-            if (op0 && op1 && getActualUsersNum(PredI,0)<2)
+            if (op0 && op1 && getActualUsersNum(PredI, 0) < 2)
             {
                 // *Evaluating_log << "        --------- checking Instruction " << *I << " for being chained as MAC, op0BW=" << getOriginalBitwidth(op0) << "op1BW=" << getOriginalBitwidth(op1) << "IBW=" << I->getType()->getIntegerBitWidth() << "\n";
-                return (getOriginalBitwidth(op0)<=18) && (getOriginalBitwidth(op1)<=18) && (I->getType()->getIntegerBitWidth()<=48);
+                return (getOriginalBitwidth(op0) <= 18) && (getOriginalBitwidth(op1) <= 18) && (I->getType()->getIntegerBitWidth() <= 48);
             }
         }
-        else if (PredI->getOpcode()==Instruction::Trunc ||  PredI->getOpcode()==Instruction::SExt || PredI->getOpcode()==Instruction::ZExt)
+        else if (PredI->getOpcode() == Instruction::Trunc || PredI->getOpcode() == Instruction::SExt || PredI->getOpcode() == Instruction::ZExt)
         {
             Instruction *Pred_Pred_I = dyn_cast<Instruction>(PredI->getOperand(0));
             if (Pred_Pred_I)
             {
-                if (Pred_Pred_I->getOpcode()==Instruction::Mul)
+                if (Pred_Pred_I->getOpcode() == Instruction::Mul)
                 {
                     Value *op0 = (Pred_Pred_I->getOperand(0));
                     Value *op1 = (Pred_Pred_I->getOperand(1));
-                    if (op0 && op1 && getActualUsersNum(Pred_Pred_I,0)<2)
+                    if (op0 && op1 && getActualUsersNum(Pred_Pred_I, 0) < 2)
                     {
-                        return (getOriginalBitwidth(op0)<=18) && (getOriginalBitwidth(op1)<=18) && (I->getType()->getIntegerBitWidth()<=48);
+                        return (getOriginalBitwidth(op0) <= 18) && (getOriginalBitwidth(op1) <= 18) && (I->getType()->getIntegerBitWidth() <= 48);
                     }
                 }
             }
         }
-    }    
+    }
     return false;
 }
 
-
-bool HI_WithDirectiveTimingResourceEvaluation::isAMApossible(Instruction *PredI,Instruction *I)
+bool HI_WithDirectiveTimingResourceEvaluation::isAMApossible(Instruction *PredI, Instruction *I)
 {
     // for the GEP MAA, consider to transform it into AMA
-    if (I->getOpcode()==Instruction::Add || I->getOpcode()==Instruction::Sub)
+    if (I->getOpcode() == Instruction::Add || I->getOpcode() == Instruction::Sub)
     {
-        Instruction* ori_PredI = dyn_cast<Instruction>(byPassBitcastOp(PredI));
+        Instruction *ori_PredI = dyn_cast<Instruction>(byPassBitcastOp(PredI));
         if (!ori_PredI)
             return false;
-        if (ori_PredI->getOpcode()==Instruction::Add || ori_PredI->getOpcode()==Instruction::Sub)
+        if (ori_PredI->getOpcode() == Instruction::Add || ori_PredI->getOpcode() == Instruction::Sub)
         {
             if (auto Pred_Pred_I = dyn_cast<Instruction>(ori_PredI->getOperand(0)))
             {
-                Instruction* ori_Pred_Pred_I = dyn_cast<Instruction>(byPassBitcastOp(Pred_Pred_I));
+                Instruction *ori_Pred_Pred_I = dyn_cast<Instruction>(byPassBitcastOp(Pred_Pred_I));
                 if (!ori_Pred_Pred_I)
                     return false;
-                if (ori_Pred_Pred_I->getOpcode()==Instruction::Mul)
+                if (ori_Pred_Pred_I->getOpcode() == Instruction::Mul)
                 {
                     Value *op0 = (ori_Pred_Pred_I->getOperand(0));
                     Value *op1 = (ori_Pred_Pred_I->getOperand(1));
@@ -422,7 +427,7 @@ bool HI_WithDirectiveTimingResourceEvaluation::isAMApossible(Instruction *PredI,
                             long long mul_const = (Pred_Pred_I_const->getValue().getSExtValue());
                             if (add_const % mul_const == 0)
                             {
-                                return (getOriginalBitwidth(op0)<=18) && (getOriginalBitwidth(op1)<=18) && (ori_Pred_Pred_I->getType()->getIntegerBitWidth()<=48);
+                                return (getOriginalBitwidth(op0) <= 18) && (getOriginalBitwidth(op1) <= 18) && (ori_Pred_Pred_I->getType()->getIntegerBitWidth() <= 48);
                             }
                         }
                     }
@@ -434,149 +439,144 @@ bool HI_WithDirectiveTimingResourceEvaluation::isAMApossible(Instruction *PredI,
                             {
                                 if (I_op1 == Pred_Pred_I_op1)
                                 {
-                                    return (getOriginalBitwidth(op0)<=18) && (getOriginalBitwidth(op1)<=18) && (ori_Pred_Pred_I->getType()->getIntegerBitWidth()<=48);
+                                    return (getOriginalBitwidth(op0) <= 18) && (getOriginalBitwidth(op1) <= 18) && (ori_Pred_Pred_I->getType()->getIntegerBitWidth() <= 48);
                                 }
                             }
                         }
                     }
                 }
-                
             }
         }
-    }    
+    }
     return false;
 }
-
-
 
 // Trace back to get the bitwidth of an operand, bypassing truct/zext/sext
 int HI_WithDirectiveTimingResourceEvaluation::getOriginalBitwidth(Value *Val)
 {
     if (Instruction *I = dyn_cast<Instruction>(Val))
     {
-        if (I->getOpcode()==Instruction::Trunc ||  I->getOpcode()==Instruction::SExt || I->getOpcode()==Instruction::ZExt)
+        if (I->getOpcode() == Instruction::Trunc || I->getOpcode() == Instruction::SExt || I->getOpcode() == Instruction::ZExt)
             return getOriginalBitwidth((I->getOperand(0)));
-        else 
+        else
             return I->getType()->getIntegerBitWidth();
     }
 
-    else 
+    else
         return Val->getType()->getIntegerBitWidth();
 }
-
-
 
 // Trace forward to get the bitwidth of an operand, bypassing truct/zext/sext
 int HI_WithDirectiveTimingResourceEvaluation::getActualUsersNum(Instruction *I, int dep)
 {
     std::string cur_opcode = I->getOpcodeName();
     // *Evaluating_log << "        --------- getActualUsersNum tracing " << *I << " at dep=" << dep << ".\n";
-    if (dep==0 || I->getOpcode()==Instruction::Trunc ||  I->getOpcode()==Instruction::SExt || I->getOpcode()==Instruction::ZExt)
+    if (dep == 0 || I->getOpcode() == Instruction::Trunc || I->getOpcode() == Instruction::SExt || I->getOpcode() == Instruction::ZExt)
     {
-        int num=0;
-        for (auto it=I->use_begin(),ie=I->use_end();it!=ie;++it)
+        int num = 0;
+        for (auto it = I->use_begin(), ie = I->use_end(); it != ie; ++it)
         {
-            User* tmp_user = it->getUser();
+            User *tmp_user = it->getUser();
             if (Instruction *tmpI = dyn_cast<Instruction>(tmp_user))
-                num += getActualUsersNum(tmpI,dep+1);
+                num += getActualUsersNum(tmpI, dep + 1);
         }
         return num;
     }
-    else 
+    else
     {
         return 1;
-    }        
+    }
 }
-
-
 
 HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingResourceEvaluation::getInstructionResource(Instruction *I)
 {
-    resourceBase result(0,0,0,clock_period);
+    resourceBase result(0, 0, 0, clock_period);
 
     ////////////////////////////// Cast Operations /////////////////////////
     if (PtrToIntInst *PTI = dyn_cast<PtrToIntInst>(I)) // such operation like trunc/ext will not cost extra timing on FPGA
-    {   
+    {
         return result;
     }
     else if (IntToPtrInst *ITP = dyn_cast<IntToPtrInst>(I))
-    {   
+    {
         return result;
     }
     else if (FPToUIInst *FTU = dyn_cast<FPToUIInst>(I))
     {
-        result = get_inst_ResourceInfo_result("fptoui",FTU->getType()->getIntegerBitWidth(),FTU->getType()->getIntegerBitWidth(),clock_period_str);
+        result = get_inst_ResourceInfo_result("fptoui", FTU->getType()->getIntegerBitWidth(), FTU->getType()->getIntegerBitWidth(), clock_period_str);
         return result;
     }
     else if (FPToSIInst *FTS = dyn_cast<FPToSIInst>(I))
     {
-        result = get_inst_ResourceInfo_result("fptosi",FTS->getType()->getIntegerBitWidth(),FTS->getType()->getIntegerBitWidth(),clock_period_str);
+        result = get_inst_ResourceInfo_result("fptosi", FTS->getType()->getIntegerBitWidth(), FTS->getType()->getIntegerBitWidth(), clock_period_str);
         return result;
     }
     else if (UIToFPInst *UTF = dyn_cast<UIToFPInst>(I))
     {
         Value *op1 = UTF->getOperand(0);
-        result = get_inst_ResourceInfo_result("uitofp",op1->getType()->getIntegerBitWidth(),op1->getType()->getIntegerBitWidth(),clock_period_str);
+        result = get_inst_ResourceInfo_result("uitofp", op1->getType()->getIntegerBitWidth(), op1->getType()->getIntegerBitWidth(), clock_period_str);
         return result;
     }
     else if (SIToFPInst *STF = dyn_cast<SIToFPInst>(I))
     {
         Value *op1 = STF->getOperand(0);
-        result = get_inst_ResourceInfo_result("sitofp",op1->getType()->getIntegerBitWidth(),op1->getType()->getIntegerBitWidth(),clock_period_str);
+        result = get_inst_ResourceInfo_result("sitofp", op1->getType()->getIntegerBitWidth(), op1->getType()->getIntegerBitWidth(), clock_period_str);
         return result;
     }
-    else if (ZExtInst *ZEXTI = dyn_cast<ZExtInst>(I))  // such operation like trunc/ext will not cost extra timing on FPGA
-    {   
+    else if (ZExtInst *ZEXTI = dyn_cast<ZExtInst>(I)) // such operation like trunc/ext will not cost extra timing on FPGA
+    {
         return result;
     }
     else if (SExtInst *SEXTI = dyn_cast<SExtInst>(I))
-    {   
+    {
         return result;
     }
     else if (TruncInst *TI = dyn_cast<TruncInst>(I))
-    {   
+    {
         return result;
     }
     else if (BitCastInst *BI = dyn_cast<BitCastInst>(I))
-    {   
+    {
         return result;
     }
 
     ////////////////////////////// Binary Operations /////////////////////////
     else if (ShlOperator *SHLI = dyn_cast<ShlOperator>(I))
-    {   
+    {
         Value *op1 = SHLI->getOperand(1);
-         
+
         if (Constant *tmpop = dyn_cast<Constant>(op1))
             return result;
-            {
-                result = get_inst_ResourceInfo_result("shl",op1->getType()->getIntegerBitWidth(),SHLI->getType()->getIntegerBitWidth(),clock_period_str);
-                return result;
-            }
+        {
+            result = get_inst_ResourceInfo_result("shl", op1->getType()->getIntegerBitWidth(), SHLI->getType()->getIntegerBitWidth(), clock_period_str);
+            return result;
+        }
     }
     else if (LShrOperator *LSHRI = dyn_cast<LShrOperator>(I))
-    {   
+    {
         Value *op1 = LSHRI->getOperand(1);
-         
+
         if (Constant *tmpop = dyn_cast<Constant>(op1))
             return result;
         else
         {
-            result = get_inst_ResourceInfo_result("lshr",op1->getType()->getIntegerBitWidth(),LSHRI->getType()->getIntegerBitWidth(),clock_period_str);;
+            result = get_inst_ResourceInfo_result("lshr", op1->getType()->getIntegerBitWidth(), LSHRI->getType()->getIntegerBitWidth(), clock_period_str);
+            ;
             return result;
-        }        
+        }
     }
     else if (AShrOperator *ASHRI = dyn_cast<AShrOperator>(I))
-    {   
+    {
         Value *op1 = ASHRI->getOperand(1);
-         
-        if (Constant *tmpop = dyn_cast<Constant>(op1)) 
+
+        if (Constant *tmpop = dyn_cast<Constant>(op1))
             return result;
         else
         {
-            result = get_inst_ResourceInfo_result("ashr",op1->getType()->getIntegerBitWidth(),ASHRI->getType()->getIntegerBitWidth(),clock_period_str);;
+            result = get_inst_ResourceInfo_result("ashr", op1->getType()->getIntegerBitWidth(), ASHRI->getType()->getIntegerBitWidth(), clock_period_str);
+            ;
             return result;
-        }        
+        }
     }
     else if (BinaryOperator *BinO = dyn_cast<BinaryOperator>(I))
     {
@@ -597,25 +597,26 @@ HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingRes
             oprandBitWidth = -1;
             resBitWidth = -1;
             // for floating operator, we need to consider whether it is a operator for float value or double value
-            if (BinO->getType()->isDoubleTy() && opcode_str[0]=='f')            
-                opcode_str[0]='d';            
+            if (BinO->getType()->isDoubleTy() && opcode_str[0] == 'f')
+                opcode_str[0] = 'd';
         }
 
         // check Add for IntToPtr
-        if (BinO->getOpcode()==Instruction::Add)
+        if (BinO->getOpcode() == Instruction::Add)
         {
-            for (auto it = BinO->use_begin(),ie = BinO->use_end();it!=ie;++it)
+            for (auto it = BinO->use_begin(), ie = BinO->use_end(); it != ie; ++it)
             {
-                User* tmp_user = it->getUser();
+                User *tmp_user = it->getUser();
                 if (Instruction *UserI = dyn_cast<Instruction>(tmp_user))
                 {
-                    if (UserI->getOpcode()==Instruction::IntToPtr)
+                    if (UserI->getOpcode() == Instruction::IntToPtr)
                         return result;
                 }
-            }            
+            }
         }
 
-        result = get_inst_ResourceInfo_result(opcode_str,oprandBitWidth,resBitWidth,clock_period_str);;
+        result = get_inst_ResourceInfo_result(opcode_str, oprandBitWidth, resBitWidth, clock_period_str);
+        ;
         return result;
     }
 
@@ -626,23 +627,25 @@ HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingRes
         Value *op1 = ICI->getOperand(1);
         oprandBitWidth = op1->getType()->getIntegerBitWidth();
         resBitWidth = oprandBitWidth;
-        result = get_inst_ResourceInfo_result("icmp",oprandBitWidth,resBitWidth,clock_period_str);;
+        result = get_inst_ResourceInfo_result("icmp", oprandBitWidth, resBitWidth, clock_period_str);
+        ;
         return result;
     }
     else if (FCmpInst *FI = dyn_cast<FCmpInst>(I))
     {
-        result = get_inst_ResourceInfo_result("fcmp",-1,-1,clock_period_str);;
+        result = get_inst_ResourceInfo_result("fcmp", -1, -1, clock_period_str);
+        ;
         return result;
     }
     ////////////////////////////// Memory Operations /////////////////////////
     else if (StoreInst *SI = dyn_cast<StoreInst>(I))
     {
-        result = get_inst_ResourceInfo_result("store",-1,-1,clock_period_str);
+        result = get_inst_ResourceInfo_result("store", -1, -1, clock_period_str);
         return result;
     }
     else if (LoadInst *LI = dyn_cast<LoadInst>(I))
     {
-        result = get_inst_ResourceInfo_result("load",-1,-1,clock_period_str);
+        result = get_inst_ResourceInfo_result("load", -1, -1, clock_period_str);
         return result;
     }
     else if (AllocaInst *AI = dyn_cast<AllocaInst>(I))
@@ -655,54 +658,61 @@ HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingRes
 
     ////////////////////////////// Control Operations /////////////////////////
     else if (PHINode *PHI = dyn_cast<PHINode>(I))
-    {   
+    {
         return result;
     }
     else if (CallInst *CI = dyn_cast<CallInst>(I))
     {
-        if (CI->getCalledFunction()->getName().find("HIPartitionMux")!=std::string::npos || CI->getCalledFunction()->getName().find("llvm.")!=std::string::npos)
+        if (CI->getCalledFunction()->getName().find("HIPartitionMux") != std::string::npos || CI->getCalledFunction()->getName().find("llvm.") != std::string::npos)
             return result;
-        if (DEBUG) *Evaluating_log << " Going into subfunction: " << CI->getCalledFunction()->getName() <<"\n";
+        if (DEBUG)
+            *Evaluating_log << " Going into subfunction: " << CI->getCalledFunction()->getName() << "\n";
         result = getFunctionResource(CI->getCalledFunction());
 
-        for (int i=0;i<CI->getNumArgOperands();i++)
+        for (int i = 0; i < CI->getNumArgOperands(); i++)
         {
             auto it = CI->getArgOperand(i);
 
             if (it->getType()->isPointerTy())
             {
-                Value* target = *(Value2Target[it].begin());
-                if (Value2Target[it].size()>1)
+                Value *target = *(Value2Target[it].begin());
+                if (Value2Target[it].size() > 1)
                 {
                     print_warning("The value below leads to multiple target");
                     llvm::errs() << *it << "\n";
                 }
                 PointerType *tmp_PtrType = dyn_cast<PointerType>(target->getType());
-                
+
                 if (tmp_PtrType->getElementType()->isArrayTy())
                 {
-                    if (DEBUG) *Evaluating_log << "  get array information of [" << target->getName() << "] from argument and its address=" << target << "\n";
-                    if (DEBUG) Evaluating_log->flush();
-                    assert(Target2ArrayInfo.find(target)!=Target2ArrayInfo.end());
-                    if (DEBUG) *Evaluating_log << Target2ArrayInfo[target] << "\n";
+                    if (DEBUG)
+                        *Evaluating_log << "  get array information of [" << target->getName() << "] from argument and its address=" << target << "\n";
+                    if (DEBUG)
+                        Evaluating_log->flush();
+                    assert(Target2ArrayInfo.find(target) != Target2ArrayInfo.end());
+                    if (DEBUG)
+                        *Evaluating_log << Target2ArrayInfo[target] << "\n";
                     int partitionNum = getTotalPartitionNum(Target2ArrayInfo[target]);
-                    if (DEBUG) *Evaluating_log << " it has " << partitionNum << " partitions may need a mux cost " << partitionNum*10 << " LUT\n";
-                    result.LUT += partitionNum*10;
+                    if (DEBUG)
+                        *Evaluating_log << " it has " << partitionNum << " partitions may need a mux cost " << partitionNum * 10 << " LUT\n";
+                    result.LUT += partitionNum * 10;
                 }
-                else if (tmp_PtrType->getElementType()->isIntegerTy() || tmp_PtrType->getElementType()->isFloatingPointTy() ||tmp_PtrType->getElementType()->isDoubleTy() )
+                else if (tmp_PtrType->getElementType()->isIntegerTy() || tmp_PtrType->getElementType()->isFloatingPointTy() || tmp_PtrType->getElementType()->isDoubleTy())
                 {
-                    if (DEBUG) *Evaluating_log << "  get array information of [" << target->getName() << "] from argument and its address=" << target << "\n";
-                    if (DEBUG) Evaluating_log->flush();
-                    assert(Target2ArrayInfo.find(target)!=Target2ArrayInfo.end());
-                    if (DEBUG) *Evaluating_log << Target2ArrayInfo[target] << "\n";
+                    if (DEBUG)
+                        *Evaluating_log << "  get array information of [" << target->getName() << "] from argument and its address=" << target << "\n";
+                    if (DEBUG)
+                        Evaluating_log->flush();
+                    assert(Target2ArrayInfo.find(target) != Target2ArrayInfo.end());
+                    if (DEBUG)
+                        *Evaluating_log << Target2ArrayInfo[target] << "\n";
                     int partitionNum = getTotalPartitionNum(Target2ArrayInfo[target]);
-                    if (DEBUG) *Evaluating_log << " it has " << partitionNum << " partitions may need a mux cost " << partitionNum*10 << " LUT\n";
-                    result.LUT += partitionNum*10;
+                    if (DEBUG)
+                        *Evaluating_log << " it has " << partitionNum << " partitions may need a mux cost " << partitionNum * 10 << " LUT\n";
+                    result.LUT += partitionNum * 10;
                 }
-
             }
         }
-        
 
         return result;
     }
@@ -722,7 +732,7 @@ HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingRes
     {
         return result;
     }
-    else 
+    else
     {
         llvm::errs() << *I << "\n";
         assert(false && "The instruction is not defined.");
@@ -730,71 +740,77 @@ HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingRes
     return result;
 }
 
-
-
-
 // evaluate the number of FF needed by the instruction
-HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingResourceEvaluation::FF_Evaluate(std::map<Instruction*, timingBase> &cur_InstructionCriticalPath, Instruction* I)
+HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingResourceEvaluation::FF_Evaluate(std::map<Instruction *, timingBase> &cur_InstructionCriticalPath, Instruction *I)
 {
-    resourceBase res(0,0,0,clock_period);
-    if (DEBUG) *FF_log << "\n\nChecking FF needed by Instruction: [" << *I << "]\n";
+    resourceBase res(0, 0, 0, clock_period);
+    if (DEBUG)
+        *FF_log << "\n\nChecking FF needed by Instruction: [" << *I << "]\n";
 
     // Handle Load/Store for FF calculation since usually we have lower the GEP to mul/add/inttoptr/ptrtoint operations
     if (auto storeI = dyn_cast<StoreInst>(I))
     {
-        if (DEBUG) *FF_log << "---- is a store instruction\n";
+        if (DEBUG)
+            *FF_log << "---- is a store instruction\n";
 
         // consider the address instruction for store instruction
         if (auto l0_pred = dyn_cast<IntToPtrInst>(storeI->getOperand(1)))
         {
-            if (DEBUG) *FF_log << "---- checking the register for address\n";
-            if (DEBUG) *FF_log << "---- found the ITP instruction for it: " << *l0_pred <<"\n";
+            if (DEBUG)
+                *FF_log << "---- checking the register for address\n";
+            if (DEBUG)
+                *FF_log << "---- found the ITP instruction for it: " << *l0_pred << "\n";
             if (auto l1_pred = dyn_cast<AddOperator>(l0_pred->getOperand(0)))
             {
-                if (DEBUG) *FF_log << "---- found the Add instruction for its offset: " << *l1_pred <<"\n";
-                for (int i = 0 ; i < l1_pred->getNumOperands(); i++)
+                if (DEBUG)
+                    *FF_log << "---- found the Add instruction for its offset: " << *l1_pred << "\n";
+                for (int i = 0; i < l1_pred->getNumOperands(); i++)
                 {
                     if (isa<PtrToIntInst>(l1_pred->getOperand(i)))
                         continue;
-                    
+
                     if (auto l2_pred = dyn_cast<Instruction>(byPassBitcastOp(l1_pred->getOperand(i))))
                     {
-                        if (DEBUG) *FF_log << "---- found the exact offset instruction for it: " << *l2_pred <<"\n";
+                        if (DEBUG)
+                            *FF_log << "---- found the exact offset instruction for it: " << *l2_pred << "\n";
 
                         // check whether we should consider the FF cost by this instruction l2_pred
                         if (Value_FFAssigned.find(l2_pred) != Value_FFAssigned.end())
                         {
-                            if (DEBUG) *FF_log << "---- which is registered.\n";
+                            if (DEBUG)
+                                *FF_log << "---- which is registered.\n";
                             return res;
                         }
 
                         if (BlockContain(I->getParent(), l2_pred))
                         {
                             if (cur_InstructionCriticalPath.find(l2_pred) != cur_InstructionCriticalPath.end())
-                                if (cur_InstructionCriticalPath[l2_pred].latency  == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency)// WARNING: there are instructions with negative latency in the libraries
+                                if (cur_InstructionCriticalPath[l2_pred].latency == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency) // WARNING: there are instructions with negative latency in the libraries
                                 {
-                                    if (DEBUG) *FF_log << "---- which needs no register.\n";
+                                    if (DEBUG)
+                                        *FF_log << "---- which needs no register.\n";
                                     return res;
                                 }
                         }
-                        
+
                         // For ZExt/SExt Instruction, we do not need to consider those constant bits
                         int minBW = l2_pred->getType()->getIntegerBitWidth();
                         if (auto zext_I = dyn_cast<ZExtInst>(l2_pred))
                         {
                             minBW = zext_I->getSrcTy()->getIntegerBitWidth();
-                            if (DEBUG) *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
+                            if (DEBUG)
+                                *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
                         }
                         if (auto sext_I = dyn_cast<SExtInst>(l2_pred))
                         {
-                            minBW = sext_I->getSrcTy()->getIntegerBitWidth(); 
-                            if (DEBUG) *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
+                            minBW = sext_I->getSrcTy()->getIntegerBitWidth();
+                            if (DEBUG)
+                                *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
                         }
                         res.FF = minBW;
-                        Value_FFAssigned.insert(l2_pred);                   
+                        Value_FFAssigned.insert(l2_pred);
                     }
                 }
-
             }
             else
             {
@@ -820,32 +836,35 @@ HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingRes
         // consider the data instruction for store instruction
         if (auto I_Pred = dyn_cast<Instruction>(storeI->getOperand(0)))
         {
-            if (DEBUG) *FF_log << "---- checking the register for data\n";
+            if (DEBUG)
+                *FF_log << "---- checking the register for data\n";
 
             if (cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
             {
-                if (checkLoadOpRegisterReusable(I_Pred, (cur_InstructionCriticalPath[I_Pred]-getInstructionLatency(I_Pred)).latency))
+                if (checkLoadOpRegisterReusable(I_Pred, (cur_InstructionCriticalPath[I_Pred] - getInstructionLatency(I_Pred)).latency))
                 {
-                    if (DEBUG) *FF_log << "---- reuse load instruction reg for it, bypass\n";
+                    if (DEBUG)
+                        *FF_log << "---- reuse load instruction reg for it, bypass\n";
                     return res;
                 }
             }
-                
-            if (I_Pred->getType()->isIntegerTy() )
+
+            if (I_Pred->getType()->isIntegerTy())
             {
                 int minBW = I_Pred->getType()->getIntegerBitWidth();
-                
+
                 // For ZExt/SExt Instruction, we do not need to consider those constant bits
                 if (auto zext_I = dyn_cast<ZExtInst>(I_Pred))
-                {                    
-                    Value* ori_V = byPassUnregisterOp(zext_I);
+                {
+                    Value *ori_V = byPassUnregisterOp(zext_I);
                     if (auto ori_I = dyn_cast<Instruction>(ori_V))
                     {
                         if (cur_InstructionCriticalPath.find(ori_I) != cur_InstructionCriticalPath.end())
                         {
-                            if (checkLoadOpRegisterReusable(ori_I, (cur_InstructionCriticalPath[ori_I]-getInstructionLatency(ori_I)).latency))
+                            if (checkLoadOpRegisterReusable(ori_I, (cur_InstructionCriticalPath[ori_I] - getInstructionLatency(ori_I)).latency))
                             {
-                                if (DEBUG) *FF_log << "---- reuse load instruction reg for it, bypass\n";
+                                if (DEBUG)
+                                    *FF_log << "---- reuse load instruction reg for it, bypass\n";
                                 return res;
                             }
                         }
@@ -854,25 +873,27 @@ HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingRes
                     {
 
                         minBW = zext_I->getSrcTy()->getIntegerBitWidth();
-                        if (DEBUG) *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
+                        if (DEBUG)
+                            *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
                         Value_FFAssigned.insert(ori_V);
                     }
                     else
                     {
-                        if (DEBUG) *FF_log << "---- which is registered.\n";
+                        if (DEBUG)
+                            *FF_log << "---- which is registered.\n";
                     }
-                    
                 }
                 if (auto sext_I = dyn_cast<SExtInst>(I_Pred))
                 {
-                    Value* ori_V = byPassUnregisterOp(sext_I);
+                    Value *ori_V = byPassUnregisterOp(sext_I);
                     if (auto ori_I = dyn_cast<Instruction>(ori_V))
                     {
                         if (cur_InstructionCriticalPath.find(ori_I) != cur_InstructionCriticalPath.end())
                         {
-                            if (checkLoadOpRegisterReusable(ori_I, (cur_InstructionCriticalPath[ori_I]-getInstructionLatency(ori_I)).latency))
+                            if (checkLoadOpRegisterReusable(ori_I, (cur_InstructionCriticalPath[ori_I] - getInstructionLatency(ori_I)).latency))
                             {
-                                if (DEBUG) *FF_log << "---- reuse load instruction reg for it, bypass\n";
+                                if (DEBUG)
+                                    *FF_log << "---- reuse load instruction reg for it, bypass\n";
                                 return res;
                             }
                         }
@@ -881,28 +902,30 @@ HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingRes
                     if (Value_FFAssigned.find(ori_V) == Value_FFAssigned.end())
                     {
                         minBW = sext_I->getSrcTy()->getIntegerBitWidth();
-                        if (DEBUG) *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
+                        if (DEBUG)
+                            *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
                         Value_FFAssigned.insert(ori_V);
-                    }                 
+                    }
                     else
                     {
-                        if (DEBUG) *FF_log << "---- which is registered.\n";
+                        if (DEBUG)
+                            *FF_log << "---- which is registered.\n";
                     }
                 }
-                    
+
                 if (cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
-                    if (cur_InstructionCriticalPath[I_Pred].latency  == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency)// WARNING: there are instructions with negative latency in the libraries
+                    if (cur_InstructionCriticalPath[I_Pred].latency == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency) // WARNING: there are instructions with negative latency in the libraries
                     {
-                        if (DEBUG) *FF_log << "---- which needs no register.\n";
+                        if (DEBUG)
+                            *FF_log << "---- which needs no register.\n";
                         return res;
                     }
 
                 res.FF += minBW;
-                
+
                 Value_FFAssigned.insert(I_Pred);
             }
         }
-
 
         return res;
     }
@@ -910,27 +933,33 @@ HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingRes
     // Handle Load/Store for FF calculation since usually we have lower the GEP to mul/add/inttoptr/ptrtoint operations
     if (auto loadI = dyn_cast<LoadInst>(I))
     {
-        if (DEBUG) *FF_log << "---- is a load instruction\n";
+        if (DEBUG)
+            *FF_log << "---- is a load instruction\n";
         // consider the address instruction for store instruction
         if (auto l0_pred = dyn_cast<IntToPtrInst>(loadI->getOperand(0)))
         {
-            if (DEBUG) *FF_log << "---- checking the register for address\n";
-            if (DEBUG) *FF_log << "---- found the ITP instruction for it: " << *l0_pred <<"\n";
+            if (DEBUG)
+                *FF_log << "---- checking the register for address\n";
+            if (DEBUG)
+                *FF_log << "---- found the ITP instruction for it: " << *l0_pred << "\n";
             if (auto l1_pred = dyn_cast<AddOperator>(l0_pred->getOperand(0)))
             {
-                if (DEBUG) *FF_log << "---- found the Add instruction for its offset: " << *l1_pred <<"\n";
-                for (int i = 0 ; i < l1_pred->getNumOperands(); i++)
+                if (DEBUG)
+                    *FF_log << "---- found the Add instruction for its offset: " << *l1_pred << "\n";
+                for (int i = 0; i < l1_pred->getNumOperands(); i++)
                 {
                     if (isa<PtrToIntInst>(l1_pred->getOperand(i)))
                         continue;
                     if (auto l2_pred = dyn_cast<Instruction>(byPassBitcastOp(l1_pred->getOperand(i))))
-                    {                  
-                        if (DEBUG) *FF_log << "---- found the exact offset instruction for it: " << *l2_pred <<"\n";
+                    {
+                        if (DEBUG)
+                            *FF_log << "---- found the exact offset instruction for it: " << *l2_pred << "\n";
 
                         // check whether we should consider the FF cost by this instruction l2_pred
                         if (Value_FFAssigned.find(l2_pred) != Value_FFAssigned.end())
                         {
-                            if (DEBUG) *FF_log << "---- which is registered.\n";
+                            if (DEBUG)
+                                *FF_log << "---- which is registered.\n";
                             return res;
                         }
 
@@ -938,31 +967,33 @@ HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingRes
                         {
                             if (cur_InstructionCriticalPath.find(l2_pred) != cur_InstructionCriticalPath.end())
                             {
-                                if (cur_InstructionCriticalPath[l2_pred].latency  == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency)// WARNING: there are instructions with negative latency in the libraries
+                                if (cur_InstructionCriticalPath[l2_pred].latency == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency) // WARNING: there are instructions with negative latency in the libraries
                                 {
-                                    if (DEBUG) *FF_log << "---- which needs no register.\n";
+                                    if (DEBUG)
+                                        *FF_log << "---- which needs no register.\n";
                                     return res;
                                 }
                             }
                         }
-                        
+
                         // For ZExt/SExt Instruction, we do not need to consider those constant bits
                         int minBW = l2_pred->getType()->getIntegerBitWidth();
                         if (auto zext_I = dyn_cast<ZExtInst>(l2_pred))
                         {
                             minBW = zext_I->getSrcTy()->getIntegerBitWidth();
-                            if (DEBUG) *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
+                            if (DEBUG)
+                                *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
                         }
                         if (auto sext_I = dyn_cast<SExtInst>(l2_pred))
                         {
-                            minBW = sext_I->getSrcTy()->getIntegerBitWidth(); 
-                            if (DEBUG) *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
+                            minBW = sext_I->getSrcTy()->getIntegerBitWidth();
+                            if (DEBUG)
+                                *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
                         }
                         res.FF = minBW;
-                        Value_FFAssigned.insert(l2_pred);                   
+                        Value_FFAssigned.insert(l2_pred);
                     }
                 }
-
             }
             else
             {
@@ -987,14 +1018,15 @@ HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingRes
         return res;
     }
 
-
     // ignore the instruction if it is a PtrToInt instruction, since in FPGA, we do not need to consider this instruction
-    if (DEBUG) *FF_log << "---- is a non-memory-access instruction\n";
+    if (DEBUG)
+        *FF_log << "---- is a non-memory-access instruction\n";
     for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp)
     {
         if (auto I_Pred = dyn_cast<PtrToIntInst>(I_tmp))
         {
-            if (DEBUG) *FF_log << "---- is an helper instruction for array access, bypass\n";
+            if (DEBUG)
+                *FF_log << "---- is an helper instruction for array access, bypass\n";
             return res;
         }
     }
@@ -1004,25 +1036,27 @@ HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingRes
     {
         if (auto I_Pred = dyn_cast<Instruction>(I_tmp))
         {
-            if (DEBUG) *FF_log << "---- checking op: [" << *I_Pred << "]\n";
+            if (DEBUG)
+                *FF_log << "---- checking op: [" << *I_Pred << "]\n";
             FF_log->flush();
             // check whether we should consider the FF cost by this instruction I
             if (Value_FFAssigned.find(I_Pred) != Value_FFAssigned.end())
             {
-                if (DEBUG) *FF_log << "---- op: [" << *I_Pred << "] is registered.\n";
+                if (DEBUG)
+                    *FF_log << "---- op: [" << *I_Pred << "] is registered.\n";
                 continue;
-            }                
-            
+            }
+
             // try to reuse the load registers if they are released from previous accesses
             if (cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
             {
-                if (checkLoadOpRegisterReusable(I_Pred, (cur_InstructionCriticalPath[I_Pred]-getInstructionLatency(I_Pred)).latency))
+                if (checkLoadOpRegisterReusable(I_Pred, (cur_InstructionCriticalPath[I_Pred] - getInstructionLatency(I_Pred)).latency))
                 {
-                    if (DEBUG) *FF_log << "---- reuse load instruction reg for it, bypass\n";
+                    if (DEBUG)
+                        *FF_log << "---- reuse load instruction reg for it, bypass\n";
                     continue;
                 }
             }
-
 
             if (BlockContain(I->getParent(), I_Pred))
             {
@@ -1031,55 +1065,30 @@ HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingRes
                 if (cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
                     if (cur_InstructionCriticalPath[I_Pred].latency == (cur_InstructionCriticalPath[I] - getInstructionLatency(I)).latency) // WARNING: there are instructions with negative latency in the libraries
                     {
-                        if (DEBUG) *FF_log << "---- which needs no register.\n";
+                        if (DEBUG)
+                            *FF_log << "---- which needs no register.\n";
                         continue;
                     }
-            }           
+            }
 
             // calculate the FF needed to store the intermediate result
-            if (I_Pred->getType()->isIntegerTy() )
+            if (I_Pred->getType()->isIntegerTy())
             {
                 int minBW = I_Pred->getType()->getIntegerBitWidth();
-                
+
                 // For ZExt/SExt Instruction, we do not need to consider those constant bits
                 if (auto zext_I = dyn_cast<ZExtInst>(I_Pred))
-                {                    
-                    Value* ori_V = byPassUnregisterOp(zext_I); //zext_I
-
-                    if (auto ori_I = dyn_cast<Instruction>(ori_V))
-                    {
-                        if (cur_InstructionCriticalPath.find(ori_I) != cur_InstructionCriticalPath.end())
-                        {
-                            if (checkLoadOpRegisterReusable(ori_I, (cur_InstructionCriticalPath[ori_I]-getInstructionLatency(ori_I)).latency))
-                            {
-                                if (DEBUG) *FF_log << "---- reuse load instruction reg for it, bypass\n";
-                                continue;
-                            }
-                        }
-                    }
-
-                    if (Value_FFAssigned.find(ori_V) != Value_FFAssigned.end())      
-                    {
-                        if (DEBUG) *FF_log << "---- ori_op: [" << *ori_V << "] is registered.\n";
-                        continue;
-                    }
-                    else
-                    {
-                        minBW = zext_I->getSrcTy()->getIntegerBitWidth();
-                        Value_FFAssigned.insert(ori_V);
-                        if (DEBUG) *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
-                    }
-                }
-                else if (auto sext_I = dyn_cast<SExtInst>(I_Pred))
                 {
-                    Value* ori_V = byPassUnregisterOp(sext_I);
+                    Value *ori_V = byPassUnregisterOp(zext_I); // zext_I
+
                     if (auto ori_I = dyn_cast<Instruction>(ori_V))
                     {
                         if (cur_InstructionCriticalPath.find(ori_I) != cur_InstructionCriticalPath.end())
                         {
-                            if (checkLoadOpRegisterReusable(ori_I, (cur_InstructionCriticalPath[ori_I]-getInstructionLatency(ori_I)).latency))
+                            if (checkLoadOpRegisterReusable(ori_I, (cur_InstructionCriticalPath[ori_I] - getInstructionLatency(ori_I)).latency))
                             {
-                                if (DEBUG) *FF_log << "---- reuse load instruction reg for it, bypass\n";
+                                if (DEBUG)
+                                    *FF_log << "---- reuse load instruction reg for it, bypass\n";
                                 continue;
                             }
                         }
@@ -1087,42 +1096,78 @@ HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingRes
 
                     if (Value_FFAssigned.find(ori_V) != Value_FFAssigned.end())
                     {
-                        if (DEBUG) *FF_log << "---- ori_op: [" << *ori_V << "] is registered.\n";
+                        if (DEBUG)
+                            *FF_log << "---- ori_op: [" << *ori_V << "] is registered.\n";
+                        continue;
+                    }
+                    else
+                    {
+                        minBW = zext_I->getSrcTy()->getIntegerBitWidth();
+                        Value_FFAssigned.insert(ori_V);
+                        if (DEBUG)
+                            *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
+                    }
+                }
+                else if (auto sext_I = dyn_cast<SExtInst>(I_Pred))
+                {
+                    Value *ori_V = byPassUnregisterOp(sext_I);
+                    if (auto ori_I = dyn_cast<Instruction>(ori_V))
+                    {
+                        if (cur_InstructionCriticalPath.find(ori_I) != cur_InstructionCriticalPath.end())
+                        {
+                            if (checkLoadOpRegisterReusable(ori_I, (cur_InstructionCriticalPath[ori_I] - getInstructionLatency(ori_I)).latency))
+                            {
+                                if (DEBUG)
+                                    *FF_log << "---- reuse load instruction reg for it, bypass\n";
+                                continue;
+                            }
+                        }
+                    }
+
+                    if (Value_FFAssigned.find(ori_V) != Value_FFAssigned.end())
+                    {
+                        if (DEBUG)
+                            *FF_log << "---- ori_op: [" << *ori_V << "] is registered.\n";
                         continue;
                     }
                     else
                     {
                         minBW = sext_I->getSrcTy()->getIntegerBitWidth();
                         Value_FFAssigned.insert(ori_V);
-                        if (DEBUG) *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
-                    }                 
+                        if (DEBUG)
+                            *FF_log << "---- which involves extension operation and the src BW is " << minBW << "\n";
+                    }
                 }
-                    
-                if (DEBUG) *FF_log << "---- op or the ori_op of " <<*I_Pred << " register now. \n";
+
+                if (DEBUG)
+                    *FF_log << "---- op or the ori_op of " << *I_Pred << " register now. \n";
                 res.FF += minBW;
-                
+
                 Value_FFAssigned.insert(I_Pred);
             }
-            else if (I_Pred->getType()->isFloatTy() )
+            else if (I_Pred->getType()->isFloatTy())
             {
                 res.FF += 32;
-                if (DEBUG) *FF_log << "---- ori_op: [" << *I_Pred << "] is a float variable and registered.\n";
+                if (DEBUG)
+                    *FF_log << "---- ori_op: [" << *I_Pred << "] is a float variable and registered.\n";
                 Value_FFAssigned.insert(I_Pred);
             }
-            else if (I_Pred->getType()->isDoubleTy() )
+            else if (I_Pred->getType()->isDoubleTy())
             {
                 res.FF += 64;
-                if (DEBUG) *FF_log << "---- ori_op: [" << *I_Pred << "] is a double variable and registered.\n";
+                if (DEBUG)
+                    *FF_log << "---- ori_op: [" << *I_Pred << "] is a double variable and registered.\n";
                 Value_FFAssigned.insert(I_Pred);
             }
-        }           
+        }
     }
 
-    // in VivadoHLS, for PHI node, no matter whether the value is involved in other cycle or not, it will be 
+    // in VivadoHLS, for PHI node, no matter whether the value is involved in other cycle or not, it will be
     // registered as phireg (refer to the verbose.rpt in Vivado)
     if (auto PHI_I = dyn_cast<PHINode>(I))
     {
-        if (DEBUG) *FF_log << "---- is PHI instruction\n";
+        if (DEBUG)
+            *FF_log << "---- is PHI instruction\n";
         if (Value_FFAssigned.find(PHI_I) == Value_FFAssigned.end())
         {
             if (PHI_I->getType()->isIntegerTy())
@@ -1130,24 +1175,24 @@ HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingRes
                 int BW = PHI_I->getType()->getIntegerBitWidth();
                 res.FF += BW;
                 Value_FFAssigned.insert(PHI_I);
-                if (DEBUG) *FF_log << "---- register anyway\n";
+                if (DEBUG)
+                    *FF_log << "---- register anyway\n";
             }
         }
         else
         {
-            if (DEBUG) *FF_log << "---- is registered\n";
+            if (DEBUG)
+                *FF_log << "---- is registered\n";
         }
     }
 
     return res;
 }
 
-
-
 // evaluate the number of LUT needed by the PHI instruction
-HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingResourceEvaluation::IndexVar_LUT(std::map<Instruction*, timingBase> &cur_InstructionCriticalPath, Instruction* I)
+HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingResourceEvaluation::IndexVar_LUT(std::map<Instruction *, timingBase> &cur_InstructionCriticalPath, Instruction *I)
 {
-    resourceBase res(0,0,0,clock_period);
+    resourceBase res(0, 0, 0, clock_period);
 
     if (auto PHI_I = dyn_cast<PHINode>(I))
     {
@@ -1162,20 +1207,19 @@ HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingRes
                     {
                         res.LUT = 9; // for invar PHI with two input
                     }
-                }   
-            }           
+                }
+            }
         }
     }
     return res;
 }
 
-
 // trace back to find the original operator, bypassing SExt and ZExt operations
-Value* HI_WithDirectiveTimingResourceEvaluation::byPassUnregisterOp(Instruction* cur_I)
+Value *HI_WithDirectiveTimingResourceEvaluation::byPassUnregisterOp(Instruction *cur_I)
 {
-                
+
     // For ZExt/SExt Instruction, we do not need to consider those constant bits
-    if (/*cur_I->getOpcode() == Instruction::Trunc ||*/ cur_I->getOpcode() == Instruction::ZExt || cur_I->getOpcode() == Instruction::SExt )
+    if (/*cur_I->getOpcode() == Instruction::Trunc ||*/ cur_I->getOpcode() == Instruction::ZExt || cur_I->getOpcode() == Instruction::SExt)
     {
         if (auto next_I = dyn_cast<Instruction>(cur_I->getOperand(0)))
         {
@@ -1207,7 +1251,7 @@ Value* HI_WithDirectiveTimingResourceEvaluation::byPassUnregisterOp(Instruction*
     //             {
     //                 I_incoming = op_I;
     //             }
-    //         }            
+    //         }
     //     }
     //     if (constant_cnt == 1)
     //     {
@@ -1217,21 +1261,20 @@ Value* HI_WithDirectiveTimingResourceEvaluation::byPassUnregisterOp(Instruction*
     //     {
     //         return cur_I;
     //     }
-        
+
     // }
     else
     {
         return cur_I;
-    }    
+    }
 }
 
-
 // trace back to find the original operator, bypassing SExt and ZExt operations
-Value* HI_WithDirectiveTimingResourceEvaluation::byPassBitcastOp(Instruction* cur_I)
+Value *HI_WithDirectiveTimingResourceEvaluation::byPassBitcastOp(Instruction *cur_I)
 {
-                
+
     // For ZExt/SExt Instruction, we do not need to consider those constant bits
-    if (/*cur_I->getOpcode() == Instruction::Trunc || */cur_I->getOpcode() == Instruction::ZExt || cur_I->getOpcode() == Instruction::SExt )
+    if (/*cur_I->getOpcode() == Instruction::Trunc || */ cur_I->getOpcode() == Instruction::ZExt || cur_I->getOpcode() == Instruction::SExt)
     {
         if (auto next_I = dyn_cast<Instruction>(cur_I->getOperand(0)))
         {
@@ -1243,7 +1286,7 @@ Value* HI_WithDirectiveTimingResourceEvaluation::byPassBitcastOp(Instruction* cu
             {
                 return next_Arg;
             }
-            else if  (auto next_Constant = dyn_cast<ConstantInt>(cur_I->getOperand(0)))
+            else if (auto next_Constant = dyn_cast<ConstantInt>(cur_I->getOperand(0)))
             {
                 return next_Constant;
             }
@@ -1253,12 +1296,11 @@ Value* HI_WithDirectiveTimingResourceEvaluation::byPassBitcastOp(Instruction* cu
     else
     {
         return cur_I;
-    }    
+    }
 }
 
-
 // trace back to find the original operator, bypassing SExt and ZExt operations
-Value* HI_WithDirectiveTimingResourceEvaluation::byPassBitcastOp(Value* cur_I_value)
+Value *HI_WithDirectiveTimingResourceEvaluation::byPassBitcastOp(Value *cur_I_value)
 {
     auto cur_I = dyn_cast<Instruction>(cur_I_value);
 
@@ -1271,7 +1313,7 @@ Value* HI_WithDirectiveTimingResourceEvaluation::byPassBitcastOp(Value* cur_I_va
     }
     assert(cur_I && "This should be an instruction.\n");
     // For ZExt/SExt Instruction, we do not need to consider those constant bits
-    if (/*cur_I->getOpcode() == Instruction::Trunc || */cur_I->getOpcode() == Instruction::ZExt || cur_I->getOpcode() == Instruction::SExt )
+    if (/*cur_I->getOpcode() == Instruction::Trunc || */ cur_I->getOpcode() == Instruction::ZExt || cur_I->getOpcode() == Instruction::SExt)
     {
         if (auto next_I = dyn_cast<Instruction>(cur_I->getOperand(0)))
         {
@@ -1283,7 +1325,7 @@ Value* HI_WithDirectiveTimingResourceEvaluation::byPassBitcastOp(Value* cur_I_va
             {
                 return next_Arg;
             }
-            else if  (auto next_Constant = dyn_cast<ConstantInt>(cur_I->getOperand(0)))
+            else if (auto next_Constant = dyn_cast<ConstantInt>(cur_I->getOperand(0)))
             {
                 return next_Constant;
             }
@@ -1293,22 +1335,22 @@ Value* HI_WithDirectiveTimingResourceEvaluation::byPassBitcastOp(Value* cur_I_va
     else
     {
         return cur_I;
-    }    
+    }
 }
 
-
-
 // for load instructions, HLS will reuse the register for the data
-bool HI_WithDirectiveTimingResourceEvaluation::checkLoadOpRegisterReusable(Instruction* Load_I, int time_point)
-{   
+bool HI_WithDirectiveTimingResourceEvaluation::checkLoadOpRegisterReusable(Instruction *Load_I, int time_point)
+{
     if (Load_I->getOpcode() != Instruction::Load)
         return false;
 
-    if (DEBUG) *FF_log << "\n\ncheckLoadOpRegisterReusable for instruction: [" << *Load_I << "] at cycle in the block: " << time_point << "\n";
+    if (DEBUG)
+        *FF_log << "\n\ncheckLoadOpRegisterReusable for instruction: [" << *Load_I << "] at cycle in the block: " << time_point << "\n";
     // currently, the situation for a load instruction with different target array is ignored.
-    if (Access2TargetMap[Load_I].size()>1)
+    if (Access2TargetMap[Load_I].size() > 1)
     {
-        if (DEBUG) *FF_log << "---- the load has multiple potential target array, bypass it.\n";
+        if (DEBUG)
+            *FF_log << "---- the load has multiple potential target array, bypass it.\n";
         return false;
     }
 
@@ -1319,25 +1361,29 @@ bool HI_WithDirectiveTimingResourceEvaluation::checkLoadOpRegisterReusable(Instr
             if (Access_I == Load_I)
                 continue;
 
-            if (DEBUG) *FF_log << "---- checking candidate Instruction: " << *tmp_load_I << "\n";
+            if (DEBUG)
+                *FF_log << "---- checking candidate Instruction: " << *tmp_load_I << "\n";
 
             if (Value_FFAssigned.find(tmp_load_I) == Value_FFAssigned.end())
             {
-                if (DEBUG) *FF_log << "---- no register used for it, bypass the candidate.\n";
+                if (DEBUG)
+                    *FF_log << "---- no register used for it, bypass the candidate.\n";
                 continue;
             }
 
             // the result register has been reused, bypass it
             if (I_RegReused.find(tmp_load_I) != I_RegReused.end())
             {
-                if (DEBUG) *FF_log << "---- the register is reused, bypass it.\n";
+                if (DEBUG)
+                    *FF_log << "---- the register is reused, bypass it.\n";
                 continue;
             }
-            
+
             // currently, the situation for a load instruction with different target array is ignored.
-            if (Access2TargetMap[tmp_load_I].size()>1)
+            if (Access2TargetMap[tmp_load_I].size() > 1)
             {
-                if (DEBUG) *FF_log << "---- the candidate has multiple potential target array, bypass it.\n";
+                if (DEBUG)
+                    *FF_log << "---- the candidate has multiple potential target array, bypass it.\n";
                 continue;
             }
 
@@ -1346,30 +1392,33 @@ bool HI_WithDirectiveTimingResourceEvaluation::checkLoadOpRegisterReusable(Instr
             {
                 if (RegRelease_Schedule.find(tmp_load_I) == RegRelease_Schedule.end())
                 {
-                    if (DEBUG) *FF_log << "---- no lifetime information for the instruction, bypass it.\n";
+                    if (DEBUG)
+                        *FF_log << "---- no lifetime information for the instruction, bypass it.\n";
                     continue;
                 }
 
                 // check the lifetime of the previous load instruction register
-                BasicBlock* tmpB = RegRelease_Schedule[tmp_load_I].first;
+                BasicBlock *tmpB = RegRelease_Schedule[tmp_load_I].first;
                 int last_time_point = RegRelease_Schedule[tmp_load_I].second;
                 if (tmpB != Load_I->getParent())
                 {
-                    if (DEBUG) *FF_log << "---- the candidate is in different block, reuse it.\n";
+                    if (DEBUG)
+                        *FF_log << "---- the candidate is in different block, reuse it.\n";
                     I_RegReused.insert(tmp_load_I);
                     return true;
                 }
                 else if (time_point >= last_time_point)
                 {
                     I_RegReused.insert(tmp_load_I);
-                    if (DEBUG) *FF_log << "---- the candidate is out of its lifetime, reuse it.\n";
+                    if (DEBUG)
+                        *FF_log << "---- the candidate is out of its lifetime, reuse it.\n";
                     return true;
                 }
                 else
                 {
-                    if (DEBUG) *FF_log << "---- the candidate is not reusable: in Block [" << tmpB->getName() << "]  at cycle : " << last_time_point << "\n";
+                    if (DEBUG)
+                        *FF_log << "---- the candidate is not reusable: in Block [" << tmpB->getName() << "]  at cycle : " << last_time_point << "\n";
                 }
-                
             }
         }
     }
@@ -1381,43 +1430,41 @@ void HI_WithDirectiveTimingResourceEvaluation::updateResultRelease(Instruction *
 {
     if (RegRelease_Schedule.find(I_Pred) == RegRelease_Schedule.end())
     {
-        RegRelease_Schedule[I_Pred] = std::pair<BasicBlock*,int>(I->getParent(), time_point);
+        RegRelease_Schedule[I_Pred] = std::pair<BasicBlock *, int>(I->getParent(), time_point);
     }
     else
     {
-        BasicBlock* tmpB = RegRelease_Schedule[I_Pred].first;
+        BasicBlock *tmpB = RegRelease_Schedule[I_Pred].first;
         int last_time_point = RegRelease_Schedule[I_Pred].second;
         if (tmpB != I->getParent())
         {
-            RegRelease_Schedule[I_Pred] = std::pair<BasicBlock*,int>(I->getParent(), time_point);
+            RegRelease_Schedule[I_Pred] = std::pair<BasicBlock *, int>(I->getParent(), time_point);
         }
         else if (time_point > last_time_point)
         {
-            RegRelease_Schedule[I_Pred] = std::pair<BasicBlock*,int>(I->getParent(), time_point);
+            RegRelease_Schedule[I_Pred] = std::pair<BasicBlock *, int>(I->getParent(), time_point);
         }
     }
     return;
 }
 
-
-
 // get the resource cost of FP operator with opcode string
 HI_WithDirectiveTimingResourceEvaluation::resourceBase HI_WithDirectiveTimingResourceEvaluation::checkFPOperatorCost(std::string opcode_str)
 {
-    
-    resourceBase result(0,0,0,clock_period);
+
+    resourceBase result(0, 0, 0, clock_period);
     int oprandBitWidth;
     int resBitWidth;
-    
+
     std::transform(opcode_str.begin(), opcode_str.end(), opcode_str.begin(), ::tolower);
 
     oprandBitWidth = -1;
     resBitWidth = -1;
 
-    result = get_inst_ResourceInfo_result(opcode_str,oprandBitWidth,resBitWidth,clock_period_str);;
+    result = get_inst_ResourceInfo_result(opcode_str, oprandBitWidth, resBitWidth, clock_period_str);
+    ;
     return result;
 }
-
 
 // transform instruction to its opcode string
 std::string HI_WithDirectiveTimingResourceEvaluation::InstToOpcodeString(Instruction *I)
@@ -1442,9 +1489,9 @@ std::string HI_WithDirectiveTimingResourceEvaluation::InstToOpcodeString(Instruc
             oprandBitWidth = -1;
             resBitWidth = -1;
             // for floating operator, we need to consider whether it is a operator for float value or double value
-            if (BinO->getType()->isDoubleTy() && opcode_str[0]=='f')            
-                opcode_str[0]='d';  
-            return opcode_str;          
+            if (BinO->getType()->isDoubleTy() && opcode_str[0] == 'f')
+                opcode_str[0] = 'd';
+            return opcode_str;
         }
     }
     assert(false && "should not reach here.");

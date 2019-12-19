@@ -1,16 +1,16 @@
+#include "HI_ArraySensitiveToLoopLevel.h"
+#include "HI_print.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
-#include "HI_print.h"
-#include "HI_ArraySensitiveToLoopLevel.h"
 
-#include <stdio.h>
-#include <string>
 #include <ios>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string>
 
 using namespace llvm;
 
@@ -24,14 +24,14 @@ using namespace llvm;
 // {
 //     if (DEBUG) *Evaluating_log << "---- Evaluating Block Latency for Block: " << B->getName() <<":\n";
 
-//     if (BlockLatency.find(B) != BlockLatency.end()) 
+//     if (BlockLatency.find(B) != BlockLatency.end())
 //     {
 //         if (DEBUG) *Evaluating_log << "---- Done evaluation of Block Latency for Block: " << B->getName() <<" and the latency is "<< BlockLatency[B] <<"\n";
 //         return BlockLatency[B]*1; // if B is evaluated, return directly.
 //     }
-    
+
 //     // A container records the critical path from the block entry to specific instruction
-//     std::map<Instruction*, timingBase> cur_InstructionCriticalPath; 
+//     std::map<Instruction*, timingBase> cur_InstructionCriticalPath;
 
 //     // initialize the timing and resource statistics
 //     timingBase max_critical_path(0,0,1,clock_period);
@@ -51,8 +51,8 @@ using namespace llvm;
 //             bool PartialChained = 0;
 
 //             // (2) check the CP to the instruction's predecessors and find the maximum one to update its CP
-//             //     but Store/Load operation should be scheduled specially due to the limited number of BRAM ports            
-            
+//             //     but Store/Load operation should be scheduled specially due to the limited number of BRAM ports
+
 //             timingBase latest_timing(0,0,1,clock_period);
 
 //             timingBase partialChainedTiming;
@@ -62,9 +62,9 @@ using namespace llvm;
 //             {
 //                 if (auto I_Pred = dyn_cast<Instruction>(I_tmp))
 //                 {
-//                     // ensure that the predecessor is in the block and before I, considering some predecessors 
-//                     // may be located behind the instruction itself (not in cur_InstructionCriticalPath yet) in some loop structures 
-//                     if (BlockContain(B, I_Pred) && cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end()) 
+//                     // ensure that the predecessor is in the block and before I, considering some predecessors
+//                     // may be located behind the instruction itself (not in cur_InstructionCriticalPath yet) in some loop structures
+//                     if (BlockContain(B, I_Pred) && cur_InstructionCriticalPath.find(I_Pred) != cur_InstructionCriticalPath.end())
 //                     {
 //                         if (I->getOpcode()==Instruction::Add || I->getOpcode()==Instruction::Sub)
 //                         {
@@ -73,7 +73,7 @@ using namespace llvm;
 //                                 if (I_Pred->getType()->getIntegerBitWidth() == 32)
 //                                 {
 //                                     int u=0;
-//                                 }                                
+//                                 }
 //                             }
 //                         }
 //                         if (canCompleteChainOrNot(I_Pred,I))
@@ -95,13 +95,13 @@ using namespace llvm;
 //                             // *Evaluating_log << "        --------- Evaluated Instruction critical path for Instruction: <<" << *I << " which cannot be chained.\n";
 //                             if ( cur_InstructionCriticalPath[I_Pred] + tmp_I_latency >= cur_InstructionCriticalPath[I] ) //update the critical path
 //                             {
-//                                 cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] + tmp_I_latency;        
+//                                 cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] + tmp_I_latency;
 //                                 latest_timing = cur_InstructionCriticalPath[I_Pred];
 //                                 Inst2LatestOperand[I] = I_Pred;
 //                             }
 //                         }
-//                     }                
-//                 }      
+//                     }
+//                 }
 //             }
 
 //             if (Inst2LatestOperand.find(I) != Inst2LatestOperand.end())
@@ -109,7 +109,7 @@ using namespace llvm;
 //                 auto I_Pred = Inst2LatestOperand[I];
 //                 if (canPartitalChainOrNot(I_Pred,I)) //  && (cur_InstructionCriticalPath[I_Pred] + tmp_I_latency).latency == cur_InstructionCriticalPath[I].latency
 //                 {
-//                     cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] + getPartialTimingOverhead(I_Pred, I);        
+//                     cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I_Pred] + getPartialTimingOverhead(I_Pred, I);
 //                     latest_timing = cur_InstructionCriticalPath[I_Pred];
 //                     partialChainedResource = getPartialResourceOverhead(Inst2LatestOperand[I], I);
 //                     PartialChained = 1;
@@ -118,8 +118,6 @@ using namespace llvm;
 //                     chained_I.insert(I_Pred);
 //                 }
 //             }
-
-
 
 //             // for the access to pointer or callInst with pointer arguments, check previous access to the target
 //             if (I->getOpcode()==Instruction::Load || I->getOpcode()==Instruction::Store || I->getOpcode()==Instruction::Call)
@@ -140,7 +138,7 @@ using namespace llvm;
 //                     {
 //                         if (DEBUG) *BRAM_log << "       checking pointer in args :  " << *tmp_ptr << " of targets: " ;
 //                         if (DEBUG) for (auto tmp_target : Instruction2Target[tmp_ptr]) *BRAM_log << *tmp_target << ",,"; *BRAM_log <<  "\n";
-                        
+
 //                         Instruction* latestPointerAccess = findLatestPointerAccess(I, Instruction2Target[tmp_ptr] , cur_InstructionCriticalPath);
 //                         if (latestPointerAccess)
 //                         {
@@ -152,7 +150,7 @@ using namespace llvm;
 //                                 if ( cur_InstructionCriticalPath[latestPointerAccess] + tmp_I_latency > cur_InstructionCriticalPath[I] ) //update the critical path
 //                                 {
 //                                     if (DEBUG) *BRAM_log << "   current access :  " << *I << " limited by previous access: " << *latestPointerAccess << "\n";
-//                                     cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[latestPointerAccess] + tmp_I_latency;        
+//                                     cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[latestPointerAccess] + tmp_I_latency;
 //                                     latest_timing = cur_InstructionCriticalPath[latestPointerAccess];
 //                                     Inst2LatestOperand[I] = latestPointerAccess;
 //                                 }
@@ -162,26 +160,26 @@ using namespace llvm;
 //                 }
 
 //             }
-            
+
 //             // handle memory access instruction, because for BRAM access
-//             // apart from waiting for the address is ready, we need to 
+//             // apart from waiting for the address is ready, we need to
 //             // wait until the BRAM ports are available
 //             if ( I->getOpcode()==Instruction::Load || I->getOpcode()==Instruction::Store )
 //             {
-                
+
 //                 HI_AccessInfo cur_access_info = getAccessInfoForAccessInst(I);
 //                 std::vector<partition_info> target_partitions;
 
 //                 if (cur_access_info.unpredictable)
 //                 {
-//                     // if the access has unpredictable pattern, schedule the accesses for all the 
+//                     // if the access has unpredictable pattern, schedule the accesses for all the
 //                     // partition
 //                     target_partitions = getAllPartitionFor(I);
 //                     // assert(false && "unfinished.");
 //                 }
 //                 else
 //                 {
-//                     // if the access has predictable pattern, schedule the accesses for the 
+//                     // if the access has predictable pattern, schedule the accesses for the
 //                     // predicted partitions
 //                     target_partitions = getPartitionFor(I);
 //                 }
@@ -200,7 +198,7 @@ using namespace llvm;
 //                             if (DEBUG) *Evaluating_log                 << "\n-----------  the access is to partition #" << target_partition ; if (DEBUG) Evaluating_log->flush();
 //                             if (DEBUG) *Evaluating_log                 << "\n addressI:" << *Inst2LatestOperand[I] << " is ready at " << latest_timing ;if (DEBUG) Evaluating_log->flush();
 //                             if (DEBUG) *Evaluating_log                 << "\n-----------  do the scheduling for it\n";;
-//                         } 
+//                         }
 //                         else
 //                         {
 //                             if (DEBUG) *Evaluating_log << "----------- A Memory Access Instruction: " << *I <<" is found,\n-----------  information fot this access is:  " ;if (DEBUG) Evaluating_log->flush();
@@ -210,10 +208,10 @@ using namespace llvm;
 //                             if (DEBUG) *Evaluating_log                             << "\n-----------  do the scheduling for it\n";if (DEBUG) Evaluating_log->flush();
 //                         }
 //                     }
-                    
+
 //                     if (DEBUG) Evaluating_log->flush();
-                        
-//                     timingBase tmp_schedule = scheduleBRAMAccess(I, B, latest_timing, target_partition);  
+
+//                     timingBase tmp_schedule = scheduleBRAMAccess(I, B, latest_timing, target_partition);
 //                     if (tmp_schedule > latest_schedule_access)
 //                         latest_schedule_access = tmp_schedule;
 //                 }
@@ -221,31 +219,28 @@ using namespace llvm;
 //                 AccessesList.push_back(I);
 
 //             }
-            
+
 //             // update the lifetime of the predecessors' result registers
 //             for (User::op_iterator I_tmp = I->op_begin(), I_Pred_end = I->op_end(); I_tmp != I_Pred_end; ++I_tmp)// update the critical path to I by checking its predecessors' critical path
 //             {
 //                 if (auto I_Pred = dyn_cast<Instruction>(I_tmp))
-//                 { 
-//                     updateResultRelease(I, I_Pred, (cur_InstructionCriticalPath[I]-getInstructionLatency(I)).latency);             
-//                 }           
+//                 {
+//                     updateResultRelease(I, I_Pred, (cur_InstructionCriticalPath[I]-getInstructionLatency(I)).latency);
+//                 }
 //             }
-
 
 //             // accmulate the cost of resource
 //             if (!Chained)
 //             {
 //                 if (PartialChained)
 //                 {
-//                     resourceAccmulator = resourceAccmulator + partialChainedResource; 
+//                     resourceAccmulator = resourceAccmulator + partialChainedResource;
 //                 }
 //                 else if (!checkAndTryRecordReuseOperatorDSP(I, (cur_InstructionCriticalPath[I]-getInstructionLatency(I)).latency))
 //                 {
 //                     resourceAccmulator = resourceAccmulator + getInstructionResource(I);
-//                 }             
+//                 }
 //             }
-        
-
 
 //             resourceBase FF_Num(0,0,0,clock_period);
 //             resourceBase PHI_LUT_Num(0,0,0,clock_period);
@@ -253,7 +248,7 @@ using namespace llvm;
 //             // some load instructions reuse the register of previous load instructions
 //             FF_Num = FF_Evaluate(cur_InstructionCriticalPath, I);
 
-//             // if it is a PHINode, get the LUT it need    
+//             // if it is a PHINode, get the LUT it need
 //             PHI_LUT_Num = IndexVar_LUT(cur_InstructionCriticalPath, I);
 
 //             // cur_InstructionCriticalPath[I] = cur_InstructionCriticalPath[I] + PHI_LUT_Num;
@@ -265,20 +260,20 @@ using namespace llvm;
 //             // (3) get the maximum CP among instructions and take it as the CP of block
 //             if (cur_InstructionCriticalPath[I] > max_critical_path) max_critical_path = cur_InstructionCriticalPath[I];
 //             if (DEBUG) *Evaluating_log << "--------- Evaluated Instruction critical path for Instruction: <<" << *I <<">> and its CP is :"
-//                             << cur_InstructionCriticalPath[I] << " the resource cost is: " 
-//                             << (Chained?(resourceBase(0,0,0,clock_period)):(PartialChained?partialChainedResource:(getInstructionResource(I)+PHI_LUT_Num)) ) 
+//                             << cur_InstructionCriticalPath[I] << " the resource cost is: "
+//                             << (Chained?(resourceBase(0,0,0,clock_period)):(PartialChained?partialChainedResource:(getInstructionResource(I)+PHI_LUT_Num)) )
 //                             << " + reg_FF: [" << FF_Num.FF << "] ";
 //             if (Chained)
 //                 {if (DEBUG) *Evaluating_log << "(Chained))";}
-//             else            
-//                 {if (DEBUG) *Evaluating_log << "(Not Chained)";  }          
-            
+//             else
+//                 {if (DEBUG) *Evaluating_log << "(Not Chained)";  }
+
 //             if (DEBUG) *Evaluating_log << "\n";
 //             if (DEBUG) Evaluating_log->flush();
 //         }
 //     }
 //     else
-//     {   
+//     {
 //         for (Instruction &rI : *B)
 //         {
 //             Instruction* I = &rI;
@@ -298,18 +293,17 @@ using namespace llvm;
 // }
 
 /*
-    mainly used to ensure that the predecessor is in the block 
+    mainly used to ensure that the predecessor is in the block
 */
 bool HI_ArraySensitiveToLoopLevel::BlockContain(BasicBlock *B, Instruction *I)
 {
     return I->getParent() == B;
 }
 
-
 // among the scheduled instructions, find the latest access to the specific target
-Instruction* HI_ArraySensitiveToLoopLevel::findLatestPointerAccess(Instruction *curI, std::vector<Value*> targets , std::map<Instruction*, timingBase> &cur_InstructionCriticalPath)
+Instruction *HI_ArraySensitiveToLoopLevel::findLatestPointerAccess(Instruction *curI, std::vector<Value *> targets, std::map<Instruction *, timingBase> &cur_InstructionCriticalPath)
 {
-    timingBase latest_timing(0,0,1,clock_period);
+    timingBase latest_timing(0, 0, 1, clock_period);
     Instruction *res_I = nullptr;
     for (auto target : targets)
     {
@@ -319,12 +313,11 @@ Instruction* HI_ArraySensitiveToLoopLevel::findLatestPointerAccess(Instruction *
             {
                 if (I == curI)
                     continue;
-                if (I->getOpcode()==Instruction::Load || I->getOpcode()==Instruction::Store || I->getOpcode()==Instruction::Call)
+                if (I->getOpcode() == Instruction::Load || I->getOpcode() == Instruction::Store || I->getOpcode() == Instruction::Call)
                 {
                     if (auto callI = dyn_cast<CallInst>(I))
                     {
-                        if (callI->getCalledFunction()->getName().find("llvm.") != std::string::npos ||
-                            callI->getCalledFunction()->getName().find("HIPartitionMux") != std::string::npos )
+                        if (callI->getCalledFunction()->getName().find("llvm.") != std::string::npos || callI->getCalledFunction()->getName().find("HIPartitionMux") != std::string::npos)
                             continue;
                     }
                     if (it.second > latest_timing)
@@ -333,7 +326,7 @@ Instruction* HI_ArraySensitiveToLoopLevel::findLatestPointerAccess(Instruction *
                         res_I = I;
                     }
                 }
-            }        
+            }
         }
     }
 
@@ -355,7 +348,7 @@ int HI_ArraySensitiveToLoopLevel::getFunctionLatencyInPath(Instruction *I)
     if (Inst2LatestOperand.find(I) == Inst2LatestOperand.end())
         return res;
 
-    Instruction* preI = Inst2LatestOperand[I];
+    Instruction *preI = Inst2LatestOperand[I];
 
     if (preI->getParent() != I->getParent())
         return res;
@@ -374,7 +367,6 @@ int HI_ArraySensitiveToLoopLevel::getFunctionLatencyInPath(Instruction *I)
 //         return Inst_Schedule[I].second + instruction_latency - getFunctionLatencyInPath(I);
 // }
 
-
 // // get the number of stage in the block
 // int HI_ArraySensitiveToLoopLevel::getStageNumOfBlock(BasicBlock *B)
 // {
@@ -392,15 +384,15 @@ int HI_ArraySensitiveToLoopLevel::getFunctionLatencyInPath(Instruction *I)
 //     if (DEBUG) *Evaluating_log << "checking BLOCK: " << B->getName() << " #stage=" << max_stage_num << "\n";
 //     assert(max_stage_num>=0);
 //     return max_stage_num;
-// } 
+// }
 
 // get the pointers in the operands
-void HI_ArraySensitiveToLoopLevel::checkPtrInOperands(Instruction *I, std::vector<Value*> &ptrInOperands)
+void HI_ArraySensitiveToLoopLevel::checkPtrInOperands(Instruction *I, std::vector<Value *> &ptrInOperands)
 {
-    
+
     if (CallInst *callI = dyn_cast<CallInst>(I))
     {
-        for (int i=0;i<callI->getNumArgOperands();i++)
+        for (int i = 0; i < callI->getNumArgOperands(); i++)
         {
             if (callI->getArgOperand(i)->getType()->isPointerTy())
                 ptrInOperands.push_back(callI->getArgOperand(i));
@@ -408,14 +400,13 @@ void HI_ArraySensitiveToLoopLevel::checkPtrInOperands(Instruction *I, std::vecto
     }
     else
     {
-        for (int i=0;i<I->getNumOperands();i++)
+        for (int i = 0; i < I->getNumOperands(); i++)
         {
             if (I->getOperand(i)->getType()->isPointerTy())
                 ptrInOperands.push_back(I->getOperand(i));
         }
-    }    
+    }
 }
-
 
 // // check whether the DSP used for this instruction could be reused by the others
 // // reuse condition: operator / bitwidth / data source (partition) are the same
@@ -426,7 +417,6 @@ void HI_ArraySensitiveToLoopLevel::checkPtrInOperands(Instruction *I, std::vecto
 //         return false;
 
 //     if (DEBUG) *Evaluating_log << "    check whether Instruction with DSPs [" << *I << "] can reuse previous DSPs]\n";
-                    
 
 //     unsigned opcode = I->getOpcode();
 //     if (auto binOp = dyn_cast<BinaryOperator>(I))
@@ -435,16 +425,16 @@ void HI_ArraySensitiveToLoopLevel::checkPtrInOperands(Instruction *I, std::vecto
 //         auto RLoad = dyn_cast<LoadInst>(I->getOperand(1));
 
 //         if (I->getOpcode() == Instruction::FMul || I->getOpcode() == Instruction::FAdd ||
-//             I->getOpcode() == Instruction::FDiv || I->getOpcode() == Instruction::FSub ) 
+//             I->getOpcode() == Instruction::FDiv || I->getOpcode() == Instruction::FSub )
 //         {
 //             // for floating point operations, we first pass all the possible DSP re-users
 //             // and analysis them after the analysis of total latency of blocks/loops/functions
-//             // BECAUSE it seems that floating-point operations will reuse DSP not matter what 
+//             // BECAUSE it seems that floating-point operations will reuse DSP not matter what
 //             // are the operands.
 
 //             // we should found the maximum cost of each kind of FP operator among the basic blocks
 //             if (DEBUG) *Evaluating_log << "    [" << *I << "] is floating-point instruction\n";
-     
+
 //             DSPReuseScheduleUnit schUnit(I, DSPnum, opcode, timeslot);
 //             Block2FPDSPReuseScheduleUnits[I->getParent()][InstToOpcodeString(I)].push_back(schUnit);
 //             return true;
@@ -459,14 +449,13 @@ void HI_ArraySensitiveToLoopLevel::checkPtrInOperands(Instruction *I, std::vecto
 //             if (DEBUG) *Evaluating_log << "    Instruction with DSPs [" << *I << "] CANNOT reuse previous DSPs because data are not from LoadInst]\n";
 //             return false;
 //         }
-        
+
 //         // since the operand of I is not from MUX, therefore,
 //         // they simply come from one partition respectively
 
-        
 //         DSPReuseScheduleUnit schUnit(I, DSPnum, opcode, timeslot, Inst2Partitions[LLoad][0], Inst2Partitions[RLoad][0]);
 //         if (DEBUG) *Evaluating_log << "    check whether [" << schUnit << "] can reuse previous DSPs]\n";
-                    
+
 //         // check whether the operator can reuse the  DSPs from previous operaotor
 //         bool reuse = false;
 //         for (auto pre_schUnit : Block2IntDSPReuseScheduleUnits[I->getParent()])
@@ -474,13 +463,13 @@ void HI_ArraySensitiveToLoopLevel::checkPtrInOperands(Instruction *I, std::vecto
 //             if (DEBUG) *Evaluating_log << "    checking potential reusee [" << pre_schUnit << "]]\n";
 //             if (pre_schUnit.opcode == schUnit.opcode)
 //             {
-//                 if (DEBUG) 
+//                 if (DEBUG)
 //                 {
 //                     if (pre_schUnit.LPartition == schUnit.LPartition)
 //                     {
 //                         if (pre_schUnit.RPartition == schUnit.RPartition)
 //                         {
-                            
+
 //                         }
 //                         else
 //                         {
@@ -491,7 +480,7 @@ void HI_ArraySensitiveToLoopLevel::checkPtrInOperands(Instruction *I, std::vecto
 //                     {
 //                         if (DEBUG) *Evaluating_log << "           LPartitions are different\n";
 //                     }
-                    
+
 //                 }
 //             }
 
@@ -510,30 +499,28 @@ void HI_ArraySensitiveToLoopLevel::checkPtrInOperands(Instruction *I, std::vecto
 //         // although it can be reused, we still need to record it
 //         // when handling loop-pipelining, some of them may not be reused.
 //         Block2IntDSPReuseScheduleUnits[I->getParent()].push_back(schUnit);
-        
+
 //         return reuse;
 //     }
 //     else
 //     {
 //         return false;
 //     }
-    
+
 // }
-
-
 
 // for blocks, we need to re-check the resource cost  FOR FLOATING POINT OPERATOR since some of them might be reused.
 void HI_ArraySensitiveToLoopLevel::recordCostRescheduleFPDSPOperators_forBlock(BasicBlock *tmp_block, int block_latency)
 {
-    resourceBase res(0,0,0,clock_period);
+    resourceBase res(0, 0, 0, clock_period);
 
-    std::vector<std::string> checkopcodes = {"fmul", "fadd", "fdiv", "fsub", "dmul", "dadd", "ddiv", "dsub"  };
+    std::vector<std::string> checkopcodes = {"fmul", "fadd", "fdiv", "fsub", "dmul", "dadd", "ddiv", "dsub"};
 
     // Block2FPDSPReuseScheduleUnits[I->getParent()][opcode].push_back(schUnit);
     for (auto cur_opcode : checkopcodes)
     {
         int op_totalcnt = 0;
-        
+
         if (Block2FPDSPReuseScheduleUnits.find(tmp_block) == Block2FPDSPReuseScheduleUnits.end())
         {
             Block2FPDSPOpCnt[tmp_block][cur_opcode] = 0;
@@ -548,13 +535,14 @@ void HI_ArraySensitiveToLoopLevel::recordCostRescheduleFPDSPOperators_forBlock(B
         op_totalcnt = Block2FPDSPReuseScheduleUnits[tmp_block][cur_opcode].size();
 
         int reuse_DSPModule = 1;
-        if (op_totalcnt == 0) reuse_DSPModule = 0;
-        if (op_totalcnt > block_latency) reuse_DSPModule = op_totalcnt / block_latency;
-        
-        if (DEBUG) *Evaluating_log << " for block: the amount of floating point operators (refI):" << cur_opcode << " is " << reuse_DSPModule << " each cost =[" << checkFPOperatorCost(cur_opcode) << "]\n";
-               
+        if (op_totalcnt == 0)
+            reuse_DSPModule = 0;
+        if (op_totalcnt > block_latency)
+            reuse_DSPModule = op_totalcnt / block_latency;
+
+        if (DEBUG)
+            *Evaluating_log << " for block: the amount of floating point operators (refI):" << cur_opcode << " is " << reuse_DSPModule << " each cost =[" << checkFPOperatorCost(cur_opcode) << "]\n";
 
         Block2FPDSPOpCnt[tmp_block][cur_opcode] = reuse_DSPModule;
-    
     }
 }

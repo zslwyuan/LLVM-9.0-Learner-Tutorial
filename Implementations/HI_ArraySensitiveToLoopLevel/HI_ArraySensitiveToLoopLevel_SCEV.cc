@@ -1,20 +1,19 @@
+#include "HI_ArraySensitiveToLoopLevel.h"
+#include "HI_print.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
-#include "HI_print.h"
-#include "HI_ArraySensitiveToLoopLevel.h"
-#include "llvm/Analysis/ScalarEvolution.h"
 
-#include <stdio.h>
-#include <string>
 #include <ios>
-#include <stdlib.h>
 #include <sstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string>
 using namespace llvm;
-
 
 //   /// Return a SCEV expression for the full generality of the specified
 //   /// expression.
@@ -70,16 +69,15 @@ using namespace llvm;
 //     return getAddRecExpr(NewOp, L, Flags);
 //   }
 
-
-const SCEV* HI_ArraySensitiveToLoopLevel::findUnknown(const SCEV* ori_inputS, int depth)
+const SCEV *HI_ArraySensitiveToLoopLevel::findUnknown(const SCEV *ori_inputS, int depth)
 {
-    const SCEV* inputS = bypassExtTruntSCEV(ori_inputS);
+    const SCEV *inputS = bypassExtTruntSCEV(ori_inputS);
     if (auto addSCEV = dyn_cast<SCEVAddExpr>(inputS))
     {
-        for (int i=0; i<addSCEV->getNumOperands(); i++)
+        for (int i = 0; i < addSCEV->getNumOperands(); i++)
         {
             const SCEV *opSCEV = addSCEV->getOperand(i);
-            const SCEV *clear_opSCEV = findUnknown(opSCEV, depth+1);
+            const SCEV *clear_opSCEV = findUnknown(opSCEV, depth + 1);
             if (clear_opSCEV)
             {
                 return clear_opSCEV;
@@ -89,9 +87,10 @@ const SCEV* HI_ArraySensitiveToLoopLevel::findUnknown(const SCEV* ori_inputS, in
     }
     else if (auto addrecSCEV = dyn_cast<SCEVAddRecExpr>(inputS))
     {
-        if (DEBUG) *ArrayLog << "      " << *inputS << " is SCEVAddRecExpr\n";
-        const SCEV *start = findUnknown(addrecSCEV->getStart(), depth+1);
-        const SCEV *step = findUnknown(addrecSCEV->getStepRecurrence(*SE),depth+1);
+        if (DEBUG)
+            *ArrayLog << "      " << *inputS << " is SCEVAddRecExpr\n";
+        const SCEV *start = findUnknown(addrecSCEV->getStart(), depth + 1);
+        const SCEV *step = findUnknown(addrecSCEV->getStepRecurrence(*SE), depth + 1);
         if (start)
             return start;
         if (step)
@@ -110,64 +109,69 @@ const SCEV* HI_ArraySensitiveToLoopLevel::findUnknown(const SCEV* ori_inputS, in
     {
         return nullptr;
     }
-    
 }
 
-
-const SCEV* HI_ArraySensitiveToLoopLevel::tryGetPureAddOrAddRecSCEV(const SCEV* ori_inputS, int depth)
+const SCEV *HI_ArraySensitiveToLoopLevel::tryGetPureAddOrAddRecSCEV(const SCEV *ori_inputS, int depth)
 {
-    if (DEBUG) *ArrayLog << "      try to tryGetPureAddOrAddRecSCEV: " << *ori_inputS << "\n";
-    const SCEV* inputS = bypassExtTruntSCEV(ori_inputS);
-    if (DEBUG) *ArrayLog << "      get bypassExtTruntSCEV: " << *inputS << "\n";
-    if (DEBUG) ArrayLog->flush();
+    if (DEBUG)
+        *ArrayLog << "      try to tryGetPureAddOrAddRecSCEV: " << *ori_inputS << "\n";
+    const SCEV *inputS = bypassExtTruntSCEV(ori_inputS);
+    if (DEBUG)
+        *ArrayLog << "      get bypassExtTruntSCEV: " << *inputS << "\n";
+    if (DEBUG)
+        ArrayLog->flush();
 
-    
     if (auto addSCEV = dyn_cast<SCEVAddExpr>(inputS))
     {
-        if (DEBUG) *ArrayLog << "      " << *inputS << " is SCEVAddExpr\n"; 
-        //SmallVectorImpl<const SCEV *> Ops();
+        if (DEBUG)
+            *ArrayLog << "      " << *inputS << " is SCEVAddExpr\n";
+        // SmallVectorImpl<const SCEV *> Ops();
         std::vector<const SCEV *> Ops;
         SmallVector<const SCEV *, 2> SmallVec_Ops;
         SmallVec_Ops.clear();
         SmallVec_Ops.resize(addSCEV->getNumOperands());
-        for (int i=0; i<addSCEV->getNumOperands(); i++)
+        for (int i = 0; i < addSCEV->getNumOperands(); i++)
         {
             const SCEV *opSCEV = addSCEV->getOperand(i);
-            const SCEV *clear_opSCEV = tryGetPureAddOrAddRecSCEV(opSCEV, depth+1);
+            const SCEV *clear_opSCEV = tryGetPureAddOrAddRecSCEV(opSCEV, depth + 1);
             if (!clear_opSCEV)
                 return nullptr;
-            //SmallVec_Ops.a
-            //Ops.push_back(clear_opSCEV);
-            if (DEBUG) *ArrayLog << "           " << *inputS << " get bypassExtTruntSCEV op: " << *clear_opSCEV << "\n";
-            if (DEBUG) ArrayLog->flush();
+            // SmallVec_Ops.a
+            // Ops.push_back(clear_opSCEV);
+            if (DEBUG)
+                *ArrayLog << "           " << *inputS << " get bypassExtTruntSCEV op: " << *clear_opSCEV << "\n";
+            if (DEBUG)
+                ArrayLog->flush();
             SmallVec_Ops.push_back(clear_opSCEV);
-        }        
-        return SE->getAddExpr(SmallVec_Ops,SCEV::FlagAnyWrap, depth+1);
-
+        }
+        return SE->getAddExpr(SmallVec_Ops, SCEV::FlagAnyWrap, depth + 1);
     }
     else if (auto addrecSCEV = dyn_cast<SCEVAddRecExpr>(inputS))
     {
-        if (DEBUG) *ArrayLog << "      " << *inputS << " is SCEVAddRecExpr\n";
-        const SCEV *start = tryGetPureAddOrAddRecSCEV(addrecSCEV->getStart(), depth+1);
-        const SCEV *step = tryGetPureAddOrAddRecSCEV(addrecSCEV->getStepRecurrence(*SE),depth+1);
+        if (DEBUG)
+            *ArrayLog << "      " << *inputS << " is SCEVAddRecExpr\n";
+        const SCEV *start = tryGetPureAddOrAddRecSCEV(addrecSCEV->getStart(), depth + 1);
+        const SCEV *step = tryGetPureAddOrAddRecSCEV(addrecSCEV->getStepRecurrence(*SE), depth + 1);
         if (start && step)
         {
-            if (DEBUG) *ArrayLog << "           " << *inputS << "get bypassExtTruntSCEV startop: " << *start << "\n";
-            if (DEBUG) *ArrayLog << "           " << *inputS << "get bypassExtTruntSCEV stepop: " << *step << "\n";
-            if (DEBUG) ArrayLog->flush();
-            return SE->getAddRecExpr(start, step, addrecSCEV->getLoop(),SCEV::FlagAnyWrap);
+            if (DEBUG)
+                *ArrayLog << "           " << *inputS << "get bypassExtTruntSCEV startop: " << *start << "\n";
+            if (DEBUG)
+                *ArrayLog << "           " << *inputS << "get bypassExtTruntSCEV stepop: " << *step << "\n";
+            if (DEBUG)
+                ArrayLog->flush();
+            return SE->getAddRecExpr(start, step, addrecSCEV->getLoop(), SCEV::FlagAnyWrap);
         }
-        else return nullptr;
+        else
+            return nullptr;
     }
     else if (auto unknown = dyn_cast<SCEVUnknown>(inputS))
     {
         return inputS;
     }
-    
 }
 
-
-const SCEV* HI_ArraySensitiveToLoopLevel::bypassExtTruntSCEV(const SCEV* inputS)
+const SCEV *HI_ArraySensitiveToLoopLevel::bypassExtTruntSCEV(const SCEV *inputS)
 {
     if (auto castSCEV = dyn_cast<SCEVCastExpr>(inputS))
         return bypassExtTruntSCEV(castSCEV->getOperand());

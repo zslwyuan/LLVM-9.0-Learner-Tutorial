@@ -10,7 +10,7 @@ using namespace clang::driver;
 using namespace clang::tooling;
 
 std::string HLS_lib_path;
-std:: string clock_period_str;
+std::string clock_period_str;
 double DSP_limit;
 double FF_limit;
 double LUT_limit;
@@ -18,9 +18,9 @@ double BRAM_limit;
 int ClockNum_limit;
 bool all_sub_function_inline;
 
-int main(int argc, const char **argv) 
+int main(int argc, const char **argv)
 {
-    if (argc < 4) 
+    if (argc < 4)
     {
         errs() << "Usage: " << argv[0] << " <C/C++ file> <Top_Function_Name> <Config_File_Path>\n";
         return 1;
@@ -28,9 +28,8 @@ int main(int argc, const char **argv)
     std::error_code EC;
 
     std::string top_str = std::string(argv[2]);
-    std::string configFile_str = std::string(argv[3]);    
-    bool debugFlag = (argc == 5 && std::string(argv[4])=="DEBUG");
-
+    std::string configFile_str = std::string(argv[3]);
+    bool debugFlag = (argc == 5 && std::string(argv[4]) == "DEBUG");
 
     /////////////////////////////////////////////////////////////////////////////////////
     // Clang part for Front-End Processing                                             //
@@ -57,7 +56,7 @@ int main(int argc, const char **argv)
     result = sysexec(cmd_str.c_str());
     assert(result); // ensure the cmd is executed successfully
 
-  // system(cmd_str.c_str());
+    // system(cmd_str.c_str());
 
     SMDiagnostic Err;
     LLVMContext Context;
@@ -65,44 +64,43 @@ int main(int argc, const char **argv)
     LLVMInitializeX86Target();
     LLVMInitializeX86TargetMC();
     std::unique_ptr<llvm::Module> Mod(parseIRFile("top.bc", Err, Context));
-    if (!Mod) 
+    if (!Mod)
     {
         Err.print(argv[0], errs());
         return 1;
     }
 
-    std::map<std::string,Info_type_list> BiOp_Info_name2list_map;
+    std::map<std::string, Info_type_list> BiOp_Info_name2list_map;
     DES_Load_Instruction_Info(configFile_str.c_str(), BiOp_Info_name2list_map);
 
-    for (auto pair:BiOp_Info_name2list_map)
+    for (auto pair : BiOp_Info_name2list_map)
     {
         llvm::errs() << "instruction type: [" << pair.first << "] loaded\n";
     }
-    
 
     // you can set different configuration for different iteration
-    for (int i=0; i<1;i++)
+    for (int i = 0; i < 1; i++)
     {
         std::string cntStr = std::to_string(i);
         std::unique_ptr<llvm::Module> Mod_tmp = CloneModule(*Mod);
 
         // Create a pass manager and fill it with the passes we want to run.
         legacy::PassManager PM_pre, PM0, PM1, PM2, PM3, PM4, PM_eval;
-        
+
         LLVMTargetRef T;
         ModulePassManager MPM;
 
         char *Error;
 
-        if(LLVMGetTargetFromTriple((Mod_tmp->getTargetTriple()).c_str(), &T, &Error))
+        if (LLVMGetTargetFromTriple((Mod_tmp->getTargetTriple()).c_str(), &T, &Error))
         {
-          print_error(Error);
+            print_error(Error);
         }
         else
         {
-          std::string targetname = LLVMGetTargetName(T);
-          targetname = "The target machine is: " + targetname;
-          print_info(targetname.c_str());
+            std::string targetname = LLVMGetTargetName(T);
+            targetname = "The target machine is: " + targetname;
+            print_info(targetname.c_str());
         }
 
         std::map<std::string, std::string> IRLoop2LoopLabel;
@@ -112,9 +110,6 @@ int main(int argc, const char **argv)
         std::map<std::string, int> IRLoop2OriginTripCount_eval;
 
         Parse_Config(configFile_str.c_str(), LoopLabel2UnrollFactor, LoopLabel2II);
-
-
-
 
         /////////////////////////////////////////////////////////////////////////////////////
         // Front-end Passes running for optimizations, including                           //
@@ -127,7 +122,6 @@ int main(int argc, const char **argv)
         //                          Redundant Access Removal / Bitwidth Reduction/ etc..   //
         /////////////////////////////////////////////////////////////////////////////////////
 
-
         print_info("Enable LoopSimplify Pass");
         auto loopsimplifypass_pre = createLoopSimplifyPass();
         PM_pre.add(loopsimplifypass_pre);
@@ -137,26 +131,23 @@ int main(int argc, const char **argv)
         print_info("Enable IndVarSimplifyPass Pass");
 
         auto CFGSimplification_pass22_pre = createCFGSimplificationPass();
-        PM_pre.add(CFGSimplification_pass22_pre);        
+        PM_pre.add(CFGSimplification_pass22_pre);
         print_info("Enable CFGSimplificationPass Pass");
 
         auto loopextract = createLoopExtractorPass(); //"HI_LoopUnroll"
         PM_pre.add(loopextract);
         print_info("Enable LoopExtractor Pass");
 
-
-
         std::map<std::string, std::vector<int>> IRFunc2BeginLine;
-        auto hi_ir2sourcecode = new HI_IR2SourceCode("HI_IR2SourceCode",IRLoop2LoopLabel, IRFunc2BeginLine, IRLoop2OriginTripCount, debugFlag);
+        auto hi_ir2sourcecode = new HI_IR2SourceCode("HI_IR2SourceCode", IRLoop2LoopLabel, IRFunc2BeginLine, IRLoop2OriginTripCount, debugFlag);
         PM_pre.add(hi_ir2sourcecode);
         print_info("Enable HI_IR2SourceCode Pass");
 
-        auto hi_PragmaTargetExtraction = new HI_PragmaTargetExtraction(top_str.c_str(),
-                                                                IRLoop2LoopLabel, FuncParamLine2OutermostSize, IRFunc2BeginLine, debugFlag);
+        auto hi_PragmaTargetExtraction = new HI_PragmaTargetExtraction(top_str.c_str(), IRLoop2LoopLabel, FuncParamLine2OutermostSize, IRFunc2BeginLine, debugFlag);
         PM_pre.add(hi_PragmaTargetExtraction);
         print_info("Enable HI_PragmaTargetExtraction Pass");
 
-        print_status("Start LLVM pre-processing");  
+        print_status("Start LLVM pre-processing");
         PM_pre.run(*Mod_tmp);
         print_status("Accomplished LLVM pre-processing");
 
@@ -170,7 +161,6 @@ int main(int argc, const char **argv)
         Triple ModuleTriple(Mod_tmp->getTargetTriple());
         TargetLibraryInfoImpl TLII(ModuleTriple);
         PM0.add(new TargetLibraryInfoWrapperPass(TLII));
-        
 
         print_info("Enable LoopSimplify Pass");
         auto loopsimplifypass = createLoopSimplifyPass();
@@ -183,16 +173,15 @@ int main(int argc, const char **argv)
         PM0.add(createTargetTransformInfoWrapperPass(TargetIRAnalysis()));
         print_info("Enable TargetIRAnalysis Pass");
 
-
         auto hi_mulorderopt = new HI_MulOrderOpt("HI_MulOrderOpt");
         PM0.add(hi_mulorderopt);
         print_info("Enable HI_MulOrderOpt Pass");
 
         auto CFGSimplification_pass22 = createCFGSimplificationPass();
-        PM0.add(CFGSimplification_pass22);        
+        PM0.add(CFGSimplification_pass22);
         print_info("Enable CFGSimplificationPass Pass");
-        
-        auto hi_separateconstoffsetfromgep = new HI_SeparateConstOffsetFromGEP("HI_SeparateConstOffsetFromGEP",true, debugFlag);
+
+        auto hi_separateconstoffsetfromgep = new HI_SeparateConstOffsetFromGEP("HI_SeparateConstOffsetFromGEP", true, debugFlag);
         PM0.add(hi_separateconstoffsetfromgep);
         print_info("Enable HI_SeparateConstOffsetFromGEP Pass");
 
@@ -203,24 +192,22 @@ int main(int argc, const char **argv)
         auto hi_mul2shl = new HI_Mul2Shl("HI_Mul2Shl", debugFlag);
         PM0.add(hi_mul2shl);
         print_info("Enable HI_Mul2Shl Pass");
-        
+
         auto loopstrengthreducepass = createLoopStrengthReducePass();
         PM0.add(loopstrengthreducepass);
         print_info("Enable LoopStrengthReducePass Pass");
-
 
         auto hi_aggressivelsr_mul = new HI_AggressiveLSR_MUL("AggressiveLSR", debugFlag);
         PM0.add(hi_aggressivelsr_mul);
         print_info("Enable HI_AggressiveLSR_MUL Pass");
 
-
         PM0.run(*Mod_tmp);
 
         if (debugFlag)
         {
-          llvm::raw_fd_ostream OSPM0("top_output_PM0.bc", EC, llvm::sys::fs::F_None);
-          WriteBitcodeToFile(*Mod_tmp, OSPM0);
-          OSPM0.flush();
+            llvm::raw_fd_ostream OSPM0("top_output_PM0.bc", EC, llvm::sys::fs::F_None);
+            WriteBitcodeToFile(*Mod_tmp, OSPM0);
+            OSPM0.flush();
         }
 
         // don't remove chained operations
@@ -232,18 +219,18 @@ int main(int argc, const char **argv)
         PM1.add(CFGSimplification_pass_PM1);
         print_info("Enable CFGSimplificationPass Pass");
 
-        auto hi_functioninstantiation = new HI_FunctionInstantiation("HI_FunctionInstantiation",top_str);
+        auto hi_functioninstantiation = new HI_FunctionInstantiation("HI_FunctionInstantiation", top_str);
         PM1.add(hi_functioninstantiation);
         print_info("Enable HI_FunctionInstantiation Pass");
 
-        auto hi_replaceselectaccess = new HI_ReplaceSelectAccess("HI_ReplaceSelectAccess",debugFlag);
+        auto hi_replaceselectaccess = new HI_ReplaceSelectAccess("HI_ReplaceSelectAccess", debugFlag);
         PM1.add(hi_replaceselectaccess);
         print_info("Enable HI_ReplaceSelectAccess Pass");
 
         auto lowerswitch_pass = createLowerSwitchPass();
         PM1.add(lowerswitch_pass);
         print_info("Enable LowerSwitchPass Pass");
-        
+
         auto ADCE_pass = createAggressiveDCEPass();
         PM1.add(ADCE_pass);
         print_info("Enable AggressiveDCEPass Pass");
@@ -252,18 +239,16 @@ int main(int argc, const char **argv)
         PM1.add(CFGSimplification_pass1);
         print_info("Enable CFGSimplificationPass Pass");
 
-
         PM1.run(*Mod_tmp);
 
         if (debugFlag)
         {
-          llvm::raw_fd_ostream OS111("top_output_PM1.bc", EC, llvm::sys::fs::F_None);
-          WriteBitcodeToFile(*Mod_tmp, OS111);
-          OS111.flush();
+            llvm::raw_fd_ostream OS111("top_output_PM1.bc", EC, llvm::sys::fs::F_None);
+            WriteBitcodeToFile(*Mod_tmp, OS111);
+            OS111.flush();
         }
 
-
-        std::string logName_varwidthreduce = "VarWidth__forCheck_"+cntStr ;
+        std::string logName_varwidthreduce = "VarWidth__forCheck_" + cntStr;
         auto hi_varwidthreduce1 = new HI_VarWidthReduce(logName_varwidthreduce.c_str(), debugFlag);
         PM2.add(hi_varwidthreduce1);
         print_info("Enable HI_VarWidthReduce Pass");
@@ -277,8 +262,7 @@ int main(int argc, const char **argv)
         PM2.add(CFGSimplification_pass2);
         print_info("Enable CFGSimplificationPass Pass");
 
-
-        auto hi_removeredundantaccessPM2 = new HI_RemoveRedundantAccess("HI_RemoveRedundantAccessPM2", top_str,(debugFlag));
+        auto hi_removeredundantaccessPM2 = new HI_RemoveRedundantAccess("HI_RemoveRedundantAccessPM2", top_str, (debugFlag));
         PM2.add(hi_removeredundantaccessPM2);
         print_info("Enable HI_RemoveRedundantAccess Pass");
 
@@ -286,27 +270,22 @@ int main(int argc, const char **argv)
         PM2.add(hi_intstructionmovebackward1);
         print_info("Enable HI_IntstructionMoveBackward Pass");
 
-        auto hi_removeredundantaccessPM2_2 = new HI_RemoveRedundantAccess("HI_RemoveRedundantAccessPM2_2", top_str,(debugFlag));
+        auto hi_removeredundantaccessPM2_2 = new HI_RemoveRedundantAccess("HI_RemoveRedundantAccessPM2_2", top_str, (debugFlag));
         PM2.add(hi_removeredundantaccessPM2_2);
         print_info("Enable HI_RemoveRedundantAccess Pass");
 
         auto HI_LoadALAPPM2 = new HI_LoadALAP("HI_LoadALAP", debugFlag);
         PM2.add(HI_LoadALAPPM2);
         print_info("Enable HI_LoadALAP Pass");
-        
 
         PM2.run(*Mod_tmp);
 
         if (debugFlag)
         {
-          llvm::raw_fd_ostream OSPM2("top_output_PM2.bc", EC, llvm::sys::fs::F_None);
-          WriteBitcodeToFile(*Mod_tmp, OSPM2);
-          OSPM2.flush();
+            llvm::raw_fd_ostream OSPM2("top_output_PM2.bc", EC, llvm::sys::fs::F_None);
+            WriteBitcodeToFile(*Mod_tmp, OSPM2);
+            OSPM2.flush();
         }
-
-
-
-
 
         /////////////////////////////////////////////////////////////
         // Front-end Passes running just before back-end analysis. //
@@ -314,22 +293,18 @@ int main(int argc, const char **argv)
         // for the configurations of loops.                        //
         /////////////////////////////////////////////////////////////
 
-
-
         std::map<std::string, std::string> IRLoop2LoopLabel_eval;
         // std::map<std::string, std::vector<int>> IRFunc2BeginLine_eval;
-        auto hi_ir2sourcecode_eval = new HI_IR2SourceCode("HI_IR2SourceCode_eval",IRLoop2LoopLabel_eval, IRFunc2BeginLine, IRLoop2OriginTripCount_eval, debugFlag);
+        auto hi_ir2sourcecode_eval = new HI_IR2SourceCode("HI_IR2SourceCode_eval", IRLoop2LoopLabel_eval, IRFunc2BeginLine, IRLoop2OriginTripCount_eval, debugFlag);
         PM3.add(hi_ir2sourcecode_eval);
         print_info("Enable HI_IR2SourceCode Pass");
         PM3.run(*Mod_tmp);
-
 
         /////////////////////////////////////////////////////////////
         // Front-end Passes running just before back-end analysis. //
         // mainly account for inserting MUX for the accesses to    //
         // array partitions.                                       //
         /////////////////////////////////////////////////////////////
-
 
         auto loopinfowrapperpass = new LoopInfoWrapperPass();
         PM4.add(loopinfowrapperpass);
@@ -339,17 +314,10 @@ int main(int argc, const char **argv)
         PM4.add(scalarevolutionwrapperpass);
         print_info("Enable ScalarEvolutionWrapperPass Pass");
 
-
-        auto hi_MuxInsertionArrayPartition = new HI_MuxInsertionArrayPartition(
-                                                          configFile_str.c_str(),
-                                                          top_str.c_str(),
-                                                          FuncParamLine2OutermostSize,
-                                                          IRFunc2BeginLine,
-                                                          debugFlag);
+        auto hi_MuxInsertionArrayPartition = new HI_MuxInsertionArrayPartition(configFile_str.c_str(), top_str.c_str(), FuncParamLine2OutermostSize, IRFunc2BeginLine, debugFlag);
         print_info("Enable HI_MuxInsertionArrayPartition Pass");
-        PM4.add(hi_MuxInsertionArrayPartition); 
+        PM4.add(hi_MuxInsertionArrayPartition);
 
-    
         auto lowerswitch_pass_eval = createLowerSwitchPass();
         PM4.add(lowerswitch_pass_eval);
         // print_info("Enable LowerSwitchPass Pass");
@@ -360,17 +328,16 @@ int main(int argc, const char **argv)
 
         auto CFGSimplification_pass1_eval = createCFGSimplificationPass();
         PM4.add(CFGSimplification_pass1_eval);
-        print_status("Start LLVM processing");  
+        print_status("Start LLVM processing");
         PM4.run(*Mod_tmp);
         print_status("Accomplished LLVM processing");
-        
+
         if (debugFlag)
         {
             llvm::raw_fd_ostream OSPM2("top_output_PM4.bc", EC, llvm::sys::fs::F_None);
             WriteBitcodeToFile(*Mod_tmp, OSPM2);
             OSPM2.flush();
         }
-
 
         ////////////////////////////////////////////////////////////////
         // Backend-end Pass running for scheduling and binding        //
@@ -381,51 +348,32 @@ int main(int argc, const char **argv)
         //         HI_WithDirectiveTimingResourceEvaluation.h         //
         ////////////////////////////////////////////////////////////////
 
-        std::string logName_evaluation = "HI_WithDirectiveTimingResourceEvaluation__forCheck_"+cntStr ;
-        std::string logName_array = "ArrayLog__forCheck_"+cntStr ;
-        auto hi_withdirectivetimingresourceevaluation = new HI_WithDirectiveTimingResourceEvaluation(
-                                                          configFile_str.c_str(),
-                                                          logName_evaluation.c_str(),"BRAM_info_0",
-                                                          logName_array.c_str(),
-                                                          top_str.c_str(),
-                                                          IRLoop2LoopLabel_eval,
-                                                          IRLoop2OriginTripCount,
-                                                          LoopLabel2II,
-                                                          LoopLabel2UnrollFactor,
-                                                          FuncParamLine2OutermostSize,
-                                                          IRFunc2BeginLine,
-                                                          BiOp_Info_name2list_map,
-                                                          debugFlag);
+        std::string logName_evaluation = "HI_WithDirectiveTimingResourceEvaluation__forCheck_" + cntStr;
+        std::string logName_array = "ArrayLog__forCheck_" + cntStr;
+        auto hi_withdirectivetimingresourceevaluation = new HI_WithDirectiveTimingResourceEvaluation(configFile_str.c_str(), logName_evaluation.c_str(), "BRAM_info_0", logName_array.c_str(), top_str.c_str(), IRLoop2LoopLabel_eval, IRLoop2OriginTripCount, LoopLabel2II, LoopLabel2UnrollFactor, FuncParamLine2OutermostSize, IRFunc2BeginLine, BiOp_Info_name2list_map, debugFlag);
         print_info("Enable HI_WithDirectiveTimingResourceEvaluation Pass");
         PM_eval.add(hi_withdirectivetimingresourceevaluation);
-        
+
         PM_eval.run(*Mod_tmp);
-
-
 
         assert(hi_withdirectivetimingresourceevaluation->topFunctionFound && "The specified top function is not found in the program");
 
         print_status("Writing LLVM IR to File");
-        
 
         if (debugFlag)
         {
             llvm::raw_fd_ostream OS("top_output.bc", EC, llvm::sys::fs::F_None);
             WriteBitcodeToFile(*Mod_tmp, OS);
             OS.flush();
-          
-
 
             cmd_str = "llvm-dis top_output.bc 2>&1";
             print_cmd(cmd_str.c_str());
             result = sysexec(cmd_str.c_str());
         }
-        
+
         assert(result); // ensure the cmd is executed successfully
         Mod_tmp.reset();
     }
-
-
 
     return 0;
 }

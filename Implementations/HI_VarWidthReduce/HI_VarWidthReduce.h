@@ -1,15 +1,6 @@
 #ifndef _HI_VarWidthReduce
 #define _HI_VarWidthReduce
 // related headers should be included.
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IRReader/IRReader.h"
-#include "llvm/Pass.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DepthFirstIterator.h"
@@ -19,7 +10,6 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
@@ -32,8 +22,14 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Local.h"
 
-#include "llvm/IR/Instructions.h"
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Twine.h"
@@ -47,6 +43,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
@@ -60,31 +57,7 @@
 #include "llvm/Support/MathExtras.h"
 #include <algorithm>
 
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/PatternMatch.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/User.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/Analysis/LazyValueInfo.h"
-#include "llvm/Analysis/ValueTracking.h"
 #include "HI_print.h"
-#include <stdio.h>
-#include <string>
-#include <ios>
-#include <stdlib.h>
-#include <map>
-#include <set>
-#include <vector>
-#include <sstream>
-#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
@@ -105,7 +78,9 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -132,6 +107,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Type.h"
@@ -148,14 +124,22 @@
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/Scalar.h"
 #include <algorithm>
 #include <cassert>
 #include <climits>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <ios>
 #include <map>
 #include <memory>
+#include <set>
+#include <sstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -197,14 +181,15 @@
 #include <cassert>
 #include <cstdint>
 #include <memory>
-#include <utility>
 #include <sys/time.h>
+#include <utility>
 
 using namespace llvm;
 
-class HI_VarWidthReduce : public FunctionPass {
-public:
-    HI_VarWidthReduce(const char* VarWidthChangeLog_Name, bool DEBUG=0 ) : FunctionPass(ID), DEBUG(DEBUG)
+class HI_VarWidthReduce : public FunctionPass
+{
+  public:
+    HI_VarWidthReduce(const char *VarWidthChangeLog_Name, bool DEBUG = 0) : FunctionPass(ID), DEBUG(DEBUG)
     {
         Instruction_Counter = 0;
         Function_Counter = 0;
@@ -219,48 +204,49 @@ public:
 
     ~HI_VarWidthReduce()
     {
-        for (auto it : Instruction2User_id) 
-        {   
-            delete it.second;
-        }   
-        for (auto it : Blcok2InstructionList_id) 
-        {   
+        for (auto it : Instruction2User_id)
+        {
             delete it.second;
         }
-        for (auto it : Block_Successors) 
-        {   
+        for (auto it : Blcok2InstructionList_id)
+        {
             delete it.second;
         }
-        for (auto it : Block_Predecessors) 
-        {   
+        for (auto it : Block_Successors)
+        {
+            delete it.second;
+        }
+        for (auto it : Block_Predecessors)
+        {
             delete it.second;
         }
         VarWidthChangeLog->flush();
         delete VarWidthChangeLog;
-        tmp_stream->flush(); delete tmp_stream;
+        tmp_stream->flush();
+        delete tmp_stream;
     }
 
     virtual bool doInitialization(Module &M)
     {
-        print_status("Initilizing HI_VarWidthReduce pass.");  
-        for (auto it : Instruction2Pre_id) 
-        {   
-            delete it.second;
-        } 
-        for (auto it : Instruction2User_id) 
-        {   
-            delete it.second;
-        }   
-        for (auto it : Blcok2InstructionList_id) 
-        {   
+        print_status("Initilizing HI_VarWidthReduce pass.");
+        for (auto it : Instruction2Pre_id)
+        {
             delete it.second;
         }
-        for (auto it : Block_Successors) 
-        {   
+        for (auto it : Instruction2User_id)
+        {
             delete it.second;
         }
-        for (auto it : Block_Predecessors) 
-        {   
+        for (auto it : Blcok2InstructionList_id)
+        {
+            delete it.second;
+        }
+        for (auto it : Block_Successors)
+        {
+            delete it.second;
+        }
+        for (auto it : Block_Predecessors)
+        {
             delete it.second;
         }
         Function_id.clear();
@@ -270,7 +256,7 @@ public:
         Loop_id.clear();
         Block_Successors.clear();
         Block_Predecessors.clear();
-        
+
         Instruction2Blcok_id.clear();
         Instruction2User_id.clear();
         Instruction2Pre_id.clear();
@@ -289,7 +275,7 @@ public:
     virtual bool runOnFunction(Function &M);
     static char ID;
     bool DEBUG;
-    // Determine the range for a particular SCEV, but bypass the operands generated from PtrToInt Instruction, considering the actual 
+    // Determine the range for a particular SCEV, but bypass the operands generated from PtrToInt Instruction, considering the actual
     // implementation in HLS
     const ConstantRange HI_getSignedRangeRef(const SCEV *S);
 
@@ -310,9 +296,9 @@ public:
     void ReplaceUses_withNewOperand_newBW(Instruction *from, Value *to);
 
     void ReplaceUses_withNewOperand_oriBW(Instruction *from, Value *to);
-    
+
     // Analysis: check the value range of the instructions in the source code and determine the bitwidth
-    void Bitwidth_Analysis(Function *F);    
+    void Bitwidth_Analysis(Function *F);
 
     // Forward Process: check the bitwidth of operands and output of an instruction, trunc/ext the operands, update the bitwidth of the instruction
     bool InsturctionUpdate_WidthCast(Function *F);
@@ -335,8 +321,6 @@ public:
     // copy the metadata from one to another
     void CopyInstMetadata(Instruction *oldI, Instruction *newI);
 
-
-        
     int callCounter;
     int Instruction_Counter;
     int Function_Counter;
@@ -344,25 +328,25 @@ public:
     int Loop_Counter;
     unsigned int changed_id = 0;
 
-    Function* TargeFunction;
+    Function *TargeFunction;
 
-    std::map<Function*, int> Function_id;
-    std::map<Instruction*, int> Instruction_id;
+    std::map<Function *, int> Function_id;
+    std::map<Instruction *, int> Instruction_id;
     std::set<std::string> InstructionsNameSet;
-    std::map<BasicBlock*, int> BasicBlock_id;
-    std::map<Loop*, int> Loop_id;
-    std::map<BasicBlock*, std::vector<BasicBlock*>*> Block_Successors;
-    std::map<BasicBlock*, std::vector<BasicBlock*>*> Block_Predecessors;
-    
+    std::map<BasicBlock *, int> BasicBlock_id;
+    std::map<Loop *, int> Loop_id;
+    std::map<BasicBlock *, std::vector<BasicBlock *> *> Block_Successors;
+    std::map<BasicBlock *, std::vector<BasicBlock *> *> Block_Predecessors;
+
     std::map<int, int> Instruction2Blcok_id;
-    std::map<int, std::vector<int>*> Instruction2User_id;
-    std::map<int, std::vector<int>*> Instruction2Pre_id;
-    std::map<int, std::vector<int>*> Blcok2InstructionList_id;
+    std::map<int, std::vector<int> *> Instruction2User_id;
+    std::map<int, std::vector<int> *> Instruction2Pre_id;
+    std::map<int, std::vector<int> *> Blcok2InstructionList_id;
     DenseMap<const SCEV *, ConstantRange> SignedRanges;
     DenseMap<const SCEV *, ConstantRange> UnsignedRanges;
     std::map<Instruction *, unsigned int> Instruction_BitNeeded;
 
-    std::map<Instruction*, bool> I2NeedSign;
+    std::map<Instruction *, bool> I2NeedSign;
 
     std::error_code ErrInfo;
     raw_ostream *VarWidthChangeLog;
@@ -370,17 +354,13 @@ public:
     raw_string_ostream *tmp_stream;
     std::string tmp_stream_str;
 
-    LazyValueInfo* LazyI;
-    ScalarEvolution  *SE;
+    LazyValueInfo *LazyI;
+    ScalarEvolution *SE;
 
-    
-/// Timer
+    /// Timer
 
     struct timeval tv_begin;
     struct timeval tv_end;
-
 };
-
-
 
 #endif
