@@ -594,12 +594,12 @@ void HI_SeparateConstOffsetFromGEP::lowerToSingleIndexGEPs(
   }
 
   // Create a GEP with the constant offset index.
-  if (AccumulativeByteOffset != 0) {
+//  if (AccumulativeByteOffset != 0) {
     Value *Offset = ConstantInt::get(IntPtrTy, AccumulativeByteOffset);
     ResultPtr =
         Builder.CreateGEP(Builder.getInt8Ty(), ResultPtr, Offset, "uglygep");
-  } else
-    isSwapCandidate = false;
+//  } else
+//    isSwapCandidate = false;
 
   // If we created a GEP with constant index, and the base is loop invariant,
   // then we swap the first one with it, so LICM can move constant GEP out
@@ -612,8 +612,10 @@ void HI_SeparateConstOffsetFromGEP::lowerToSingleIndexGEPs(
   if (ResultPtr->getType() != Variadic->getType())
     ResultPtr = Builder.CreateBitCast(ResultPtr, Variadic->getType());
 
+  if (DEBUG) *Sep_Log << "\nreplcing " << *Variadic << " with " << *ResultPtr << "\n";
   Variadic->replaceAllUsesWith(ResultPtr);
   Variadic->eraseFromParent();
+  
 }
 
 void
@@ -623,6 +625,12 @@ HI_SeparateConstOffsetFromGEP::lowerToArithmetics(GetElementPtrInst *Variadic,
   Type *IntPtrTy = DL->getIntPtrType(Variadic->getType());
 
   Value *ResultPtr = Builder.CreatePtrToInt(Variadic->getOperand(0), IntPtrTy);
+  if (ConstantExpr *constE = dyn_cast<ConstantExpr>(ResultPtr))
+  {
+    Instruction *tmpI = constE->getAsInstruction();
+    tmpI->insertBefore(Variadic);
+    ResultPtr = tmpI;
+  }
   Value *tmp_ResultPtr = nullptr;
   gep_type_iterator GTI = gep_type_begin(*Variadic);
   // Create ADD/SHL/MUL arithmetic operations for each sequential indices. We
@@ -680,22 +688,26 @@ HI_SeparateConstOffsetFromGEP::lowerToArithmetics(GetElementPtrInst *Variadic,
     {
       tmp_ResultPtr = ConstantInt::get(IntPtrTy, AccumulativeByteOffset, true);
     }
-    
   }
 
   if (DEBUG) *Sep_Log << "  Builder.CreateAdd(ResultPtr, tmp_ResultPtr) ResultPtr=" << ResultPtr << "  tmp_ResultPtr="<<tmp_ResultPtr <<"\n";
+  if (tmp_ResultPtr)
+    if (DEBUG) *Sep_Log << "  Builder.CreateAdd(ResultPtr, tmp_ResultPtr) Result=" << *ResultPtr << "  tmp_Result="<< *tmp_ResultPtr <<"\n";
   if (DEBUG) Sep_Log->flush();
 
-  if (!tmp_ResultPtr)
-  {
-    tmp_ResultPtr = ConstantInt::get(ResultPtr->getType(), 0, true);
-  }
+  if (tmp_ResultPtr)
+    ResultPtr = Builder.CreateAdd(ResultPtr, tmp_ResultPtr);
 
-  ResultPtr = Builder.CreateAdd(ResultPtr, tmp_ResultPtr);
   // Create an ADD for the constant offset index.
-
+  if (DEBUG) *Sep_Log << "\ncreated adder " << *ResultPtr << "\n";
 
   ResultPtr = Builder.CreateIntToPtr(ResultPtr, Variadic->getType());
+  
+  //ResultPtr = Builder.Insert(CastInst::Create(Instruction::IntToPtr, ResultPtr, Variadic->getType()), "");
+
+  if (DEBUG) *Sep_Log << "\ncreated ITP " << *ResultPtr << "\n";
+
+  if (DEBUG) *Sep_Log << "\nreplcing " << *Variadic << " with " << *ResultPtr << "\n";
   Variadic->replaceAllUsesWith(ResultPtr);
   Variadic->eraseFromParent();
 }
@@ -909,6 +921,60 @@ bool HI_SeparateConstOffsetFromGEP::runOnFunction(Function &F) {
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   bool Changed = false;
+
+
+  for (BasicBlock &B : F) {
+    bool modified = true;
+    while (modified)
+    {
+      modified = false;
+      for (BasicBlock::iterator I = B.begin(), IE = B.end(); I != IE; I++)
+      {
+        for (int i = 0; i<I->getNumOperands(); i++)
+        {
+          Instruction *tmpI  = dyn_cast<Instruction>(I);
+          if (auto constE = dyn_cast<ConstantExpr>(I->getOperand(i)))
+          {
+            if (constE->getOpcode() == Instruction::GetElementPtr)
+            {
+              if (DEBUG) *Sep_Log << "Inst: " << *tmpI << " should hoist the constant expr into an instuction for later address tracing.\n";
+              if (DEBUG) *Sep_Log << "OriBlock:\n " << *tmpI->getParent() << "\n";
+
+              if (DEBUG) Sep_Log->flush();
+
+              assert(constE);
+              assert(constE->getOpcode() == Instruction::GetElementPtr);
+              
+              Instruction* gepI = constE->getAsInstruction();
+              if (auto PHI_I = dyn_cast<llvm::PHINode>(tmpI))
+              {
+                gepI->insertBefore(PHI_I->getIncomingBlock(i)->getTerminator());
+              }
+              else
+              {
+                gepI->insertBefore(tmpI);
+              }
+              
+              
+              tmpI->setOperand(i, gepI);
+              modified = true;
+              Changed = true;
+
+              if (DEBUG) *Sep_Log << "NewBlock:\n " << *I->getParent() << "\n";
+
+              break;
+            }
+          }
+        }
+        if (modified)
+          break;
+      }
+    }
+  }
+
+  if (DEBUG) *Sep_Log << "\n\n after constant hoisting, F=\n" << F << "\n================================\n" ;
+  if (DEBUG) Sep_Log->flush();
+
   for (BasicBlock &B : F) {
     for (BasicBlock::iterator I = B.begin(), IE = B.end(); I != IE;)
       if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(I++))
@@ -919,6 +985,9 @@ bool HI_SeparateConstOffsetFromGEP::runOnFunction(Function &F) {
 
   Changed |= reuniteExts(F);
 
+  if (DEBUG) *Sep_Log << "\n\n after GEP lowering, F=\n" << F << "\n================================\n" ;
+  if (DEBUG) Sep_Log->flush();
+  
   return Changed;
 }
 
