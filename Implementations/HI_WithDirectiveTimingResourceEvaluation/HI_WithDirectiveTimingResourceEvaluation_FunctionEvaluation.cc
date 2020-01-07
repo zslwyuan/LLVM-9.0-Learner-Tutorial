@@ -385,7 +385,7 @@ void HI_WithDirectiveTimingResourceEvaluation::functionDataflowCheck(Function *F
     if (!dataflowEnable)
         return;
 
-    // there should be any loop in the function (original loops should be extracted into
+    // there should NOT be any loop in the function (original loops should be extracted into
     // sub-functions)
     for (auto &B : *F)
     {
