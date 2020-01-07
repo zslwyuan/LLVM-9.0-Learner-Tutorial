@@ -2682,7 +2682,7 @@ HI_WithDirectiveTimingResourceEvaluation::computeConstantDifference(const SCEV *
             if (LU->getValue() == LU->getValue())
             {
                 //*RemoveRedundantAccess_Log << "----- downgrade " << *nextI << " but no possibility
-                //of alias\n";
+                // of alias\n";
                 return computeConstantDifference(MA->getOperand(0), LA->getOperand(0));
             }
         }
@@ -2768,7 +2768,7 @@ bool HI_WithDirectiveTimingResourceEvaluation::checkConstantAccessInLoop(const S
             if (LU->getValue() == LU->getValue())
             {
                 //*RemoveRedundantAccess_Log << "----- downgrade " << *nextI << " but no possibility
-                //of alias\n";
+                // of alias\n";
                 return checkConstantAccessInLoop(MA->getOperand(0), LA->getOperand(0), curLoop);
             }
         }
@@ -2810,7 +2810,7 @@ int HI_WithDirectiveTimingResourceEvaluation::getStepLength(const SCEV *ori_More
             if (LU->getValue() == LU->getValue())
             {
                 //*RemoveRedundantAccess_Log << "----- downgrade " << *nextI << " but no possibility
-                //of alias\n";
+                // of alias\n";
                 return getStepLength(MA->getOperand(0), LA->getOperand(0));
             }
         }
