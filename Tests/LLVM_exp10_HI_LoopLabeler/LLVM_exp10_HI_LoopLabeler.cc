@@ -74,7 +74,7 @@ int main(int argc, const char **argv)
     Rewriter TheRewriter;
 
     // run the Clang Tool, creating a new FrontendAction, which will run the AST consumer
-    Tool.run(HI_rewrite_newFrontendActionFactory<HI_LoopLabeler_FrontendAction>("PLog", TheRewriter,
+    Tool.run(HI_LoopLabeler_rewrite_newFrontendActionFactory<HI_LoopLabeler_FrontendAction>("PLog", TheRewriter,
                                                                                 "rewriteOut")
                  .get());
 
